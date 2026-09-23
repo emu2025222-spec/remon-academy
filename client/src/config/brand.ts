@@ -13,9 +13,9 @@ export const brand = {
     secondary: "#c9a24b",
   },
   contact: {
-    phone: "+8801700000000",
+    phone: "+8801567936519",
     email: "info@remonacademy.com",
-    address: "House 12, Road 5, Dhanmondi, Dhaka, Bangladesh",
+    address: "cumilla medical college road,cumilla.bangladesh",
   },
   social: {
     facebook: "https://facebook.com/remonacademy",
