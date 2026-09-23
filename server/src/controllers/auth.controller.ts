@@ -14,7 +14,7 @@ function setAuthCookie(res: Response, token: string) {
   res.cookie(env.cookieName, token, {
     httpOnly: true,
     secure: env.nodeEnv === "production",
-    sameSite: "lax",
+    sameSite: env.nodeEnv === "production" ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
@@ -98,7 +98,11 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
-  res.clearCookie(env.cookieName);
+  res.clearCookie(env.cookieName, {
+    httpOnly: true,
+    secure: env.nodeEnv === "production",
+    sameSite: env.nodeEnv === "production" ? "none" : "lax",
+  });
   return success(res, {}, "Logged out successfully");
 });
 
