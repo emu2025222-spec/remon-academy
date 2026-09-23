@@ -82,7 +82,11 @@ export default function AdminFees() {
             <tbody>
               {data.data.map((f) => (
                 <tr key={f._id} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="px-4 py-3">{typeof f.student === "object" ? (f.student as Student).fullName : "-"}</td>
+                  <td className="px-4 py-3">
+                    {f.student && typeof f.student === "object"
+                      ? (f.student as Student).fullName
+                      : "-"}
+                  </td>
                   <td className="px-4 py-3">৳{f.amount}</td>
                   <td className="px-4 py-3">৳{f.amountPaid}</td>
                   <td className="px-4 py-3">{new Date(f.dueDate).toLocaleDateString()}</td>
