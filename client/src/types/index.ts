@@ -30,7 +30,11 @@ export interface Teacher {
   bio: string;
   phone?: string;
   email?: string;
-  socialLinks?: { facebook?: string; linkedin?: string; youtube?: string };
+  socialLinks?: {
+    facebook?: string;
+    linkedin?: string;
+    youtube?: string;
+  };
   isActive: boolean;
 }
 
@@ -47,16 +51,37 @@ export interface Notice {
 
 export interface Student {
   _id: string;
-  user: { _id: string; email: string; isActive: boolean } | string;
+
+  user:
+    | {
+        _id: string;
+        email: string;
+        isActive: boolean;
+      }
+    | string;
+
   studentId: string;
   fullName: string;
   phone: string;
   dateOfBirth: string;
-  gender: "MALE" | "FEMALE" | "OTHER";
+
+  gender:
+    | "MALE"
+    | "FEMALE"
+    | "OTHER";
+
   address: string;
   class: string;
   group?: string;
+
+  // Existing single-course field.
+  // Kept so old student data continues to work.
   course?: Course | string;
+
+  // New multiple-course field.
+  // A student can now have multiple courses.
+  courses?: (Course | string)[];
+
   profilePhoto?: string;
   isActive: boolean;
   createdAt: string;
@@ -79,7 +104,10 @@ export interface AttendanceRecord {
   student: string | Student;
   course: string | Course;
   date: string;
-  status: "PRESENT" | "ABSENT" | "LATE";
+  status:
+    | "PRESENT"
+    | "ABSENT"
+    | "LATE";
 }
 
 export interface Fee {
@@ -89,7 +117,10 @@ export interface Fee {
   amount: number;
   amountPaid: number;
   dueDate: string;
-  status: "PAID" | "PENDING" | "PARTIAL";
+  status:
+    | "PAID"
+    | "PENDING"
+    | "PARTIAL";
   paymentDate?: string;
   paymentMethod?: string;
   transactionId?: string;
@@ -134,7 +165,12 @@ export interface WebsiteSettings {
   facebookUrl?: string;
   youtubeUrl?: string;
   aboutContent?: string;
-  heroContent?: { headline: string; subheadline: string };
+
+  heroContent?: {
+    headline: string;
+    subheadline: string;
+  };
+
   footerContent?: string;
 }
 

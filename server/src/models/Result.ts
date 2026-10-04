@@ -1,7 +1,17 @@
-import mongoose, { Schema, Document, Model, Types } from "mongoose";
+import mongoose, {
+  Schema,
+  Document,
+  Model,
+  Types,
+} from "mongoose";
 
 export interface IResult extends Document {
   student: Types.ObjectId | string;
+
+  // Course is optional for backward compatibility.
+  // Old result records may not have a course.
+  course?: Types.ObjectId | string;
+
   examName: string;
   subject: string;
   totalMarks: number;
@@ -15,16 +25,61 @@ export interface IResult extends Document {
 
 const resultSchema = new Schema<IResult>(
   {
-    student: { type: Schema.Types.ObjectId, ref: "Student", required: true, index: true },
-    examName: { type: String, required: true, index: true },
-    subject: { type: String, required: true },
-    totalMarks: { type: Number, required: true },
-    obtainedMarks: { type: Number, required: true },
-    grade: { type: String, required: true },
-    gpa: { type: Number, required: true },
-    examDate: { type: Date, required: true },
+    student: {
+      type: Schema.Types.ObjectId,
+      ref: "Student",
+      required: true,
+      index: true,
+    },
+
+    // New course relation.
+    // Optional so existing result data remains valid.
+    course: {
+      type: Schema.Types.ObjectId,
+      ref: "Course",
+      index: true,
+    },
+
+    examName: {
+      type: String,
+      required: true,
+      index: true,
+    },
+
+    subject: {
+      type: String,
+      required: true,
+    },
+
+    totalMarks: {
+      type: Number,
+      required: true,
+    },
+
+    obtainedMarks: {
+      type: Number,
+      required: true,
+    },
+
+    grade: {
+      type: String,
+      required: true,
+    },
+
+    gpa: {
+      type: Number,
+      required: true,
+    },
+
+    examDate: {
+      type: Date,
+      required: true,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-export const Result: Model<IResult> = mongoose.model<IResult>("Result", resultSchema);
+export const Result: Model<IResult> =
+  mongoose.model<IResult>("Result", resultSchema);
