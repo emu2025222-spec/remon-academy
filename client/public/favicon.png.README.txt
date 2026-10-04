@@ -1,0 +1,5 @@
+Place your Remon Academy logo/favicon files here as:
+- logo.png    (used by Navbar/Footer if you wire up an <img> instead of the icon)
+- favicon.png (referenced by index.html)
+The app currently uses a Lucide GraduationCap icon as a placeholder so it runs
+without any image assets. Replace with your real logo whenever you're ready.
