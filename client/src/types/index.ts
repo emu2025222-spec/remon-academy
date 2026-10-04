@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 export type UserRole = "ADMIN" | "STUDENT";
 
 export interface Course {
@@ -20,6 +22,7 @@ export interface Course {
 }
 
 export interface Teacher {
+  specialization: ReactNode;
   _id: string;
   name: string;
   photo?: string;
@@ -88,6 +91,7 @@ export interface Student {
 }
 
 export interface Result {
+  course: any;
   _id: string;
   student: string | Student;
   examName: string;
