@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowRight,
+  ArrowUpRight,
   Award,
   BookOpen,
   CheckCircle2,
@@ -60,511 +60,529 @@ export default function Home() {
     {
       number: "01",
       icon: GraduationCap,
-      title: "Academic Excellence",
-      desc: "Concept-focused teaching designed to build strong fundamentals and long-term academic confidence.",
+      title: "Strong Foundations",
+      text: "We focus on concepts first, helping students build knowledge that stays useful beyond the classroom.",
     },
     {
       number: "02",
       icon: Target,
-      title: "Measured Progress",
-      desc: "Regular assessment and performance tracking help students understand exactly where they need to improve.",
+      title: "Focused Progress",
+      text: "Regular assessments and academic tracking keep students aware of their strengths and improvement areas.",
     },
     {
       number: "03",
       icon: Layers3,
-      title: "Complete Ecosystem",
-      desc: "Courses, attendance, results, fees and important notices stay organized inside one modern platform.",
+      title: "One Learning Ecosystem",
+      text: "Courses, results, attendance, fees and notices are organized through one connected digital platform.",
     },
   ];
 
   return (
-    <div className="overflow-hidden bg-[#f7f5f0] text-slate-900 dark:bg-slate-950 dark:text-white">
+    <main className="overflow-hidden bg-[#f5f3ee] text-[#111827] dark:bg-[#080c14] dark:text-white">
 
-      {/* =========================================================
-          HERO
-      ========================================================= */}
-      <section className="relative overflow-hidden bg-[#111827] text-white">
+      {/* ============================================================
+          HERO — NEW EDITORIAL LAYOUT
+      ============================================================ */}
+
+      <section className="relative overflow-hidden bg-[#101722] text-white">
 
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 opacity-[0.025] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:70px_70px]" />
+          <div className="absolute right-[-180px] top-[-180px] h-[520px] w-[520px] rounded-full border border-brand-gold/[0.08]" />
 
-          <div className="absolute right-[-180px] top-[-180px] h-[500px] w-[500px] rounded-full border border-brand-gold/10" />
+          <div className="absolute right-[-110px] top-[-110px] h-[380px] w-[380px] rounded-full border border-brand-gold/[0.05]" />
 
-          <div className="absolute bottom-[-220px] left-[-180px] h-[500px] w-[500px] rounded-full border border-white/[0.04]" />
+          <div className="absolute bottom-[-280px] left-[-180px] h-[500px] w-[500px] rounded-full border border-white/[0.035]" />
+
+          <div className="absolute inset-0 opacity-[0.018] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:80px_80px]" />
         </div>
 
         <div className="container-page relative">
 
-          {/* =====================================================
-              MOBILE / UNIVERSAL PHOTO FIRST
-          ===================================================== */}
-          <div className="relative flex flex-col lg:grid lg:min-h-[720px] lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:gap-16">
+          <div className="grid min-h-[680px] items-center gap-12 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:py-16">
 
-            {/* PHOTO */}
-            <motion.div
-              initial={{ opacity: 0, x: 50, scale: 0.97 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              transition={{
-                duration: 0.7,
-                ease: "easeOut",
-              }}
-              className="relative order-1 flex justify-center pt-8 sm:pt-10 lg:order-2 lg:pt-16"
-            >
-              <div className="relative w-full max-w-[520px]">
+            {/* LEFT */}
 
-                {/* top label */}
-                <div className="mb-4 flex items-center justify-between lg:hidden">
-                  <div className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-gold" />
-
-                    <span className="text-[9px] font-bold uppercase tracking-[0.28em] text-brand-gold">
-                      REMON ACADEMY
-                    </span>
-                  </div>
-
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/35">
-                    EST. 2026
-                  </span>
-                </div>
-
-                {/* photo frame */}
-                <div className="relative mx-auto w-[92%] sm:w-[82%] lg:w-[86%]">
-
-                  {/* decorative number */}
-                  <div className="absolute -left-8 -top-7 hidden font-display text-[7rem] font-bold leading-none text-white/[0.035] sm:block">
-                    01
-                  </div>
-
-                  <div className="border border-brand-gold/30 bg-white/[0.02] p-1.5 sm:p-2">
-
-                    <div className="relative overflow-hidden bg-[#0b1220]">
-
-                      <img
-                        src="/photo/emon.png"
-                        alt="Emon Islam"
-                        className="h-[430px] w-full object-cover object-top sm:h-[540px] lg:h-[590px]"
-                      />
-
-                      {/* image gradient */}
-                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent" />
-
-                      {/* bottom line */}
-                      <div className="absolute bottom-0 left-0 h-1 w-full bg-brand-gold" />
-
-                      {/* photo label */}
-                      <div className="absolute left-4 top-4 border border-white/10 bg-[#111827]/80 px-3 py-2 sm:left-5 sm:top-5">
-                        <p className="text-[8px] font-bold uppercase tracking-[0.25em] text-brand-gold">
-                          Founder
-                        </p>
-                      </div>
-
-                      {/* mobile name overlay */}
-                      <motion.div
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.45, duration: 0.45 }}
-                        className="absolute bottom-0 left-0 right-0 p-4 sm:p-6"
-                      >
-                        <div className="border border-white/10 bg-[#111827]/95 p-4 sm:p-5">
-
-                          <p className="text-[8px] font-bold uppercase tracking-[0.28em] text-brand-gold">
-                            Founder & CEO
-                          </p>
-
-                          <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl">
-                            Emon Islam
-                          </h2>
-
-                          <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">
-                            B.Sc. in CSE · Developer · Educator
-                          </p>
-
-                        </div>
-                      </motion.div>
-                    </div>
-                  </div>
-
-                  {/* side label */}
-                  <div className="absolute -right-7 bottom-10 hidden border-l border-brand-gold pl-3 lg:block">
-                    <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                      Education
-                    </p>
-
-                    <p className="mt-1 text-[9px] uppercase tracking-[0.2em] text-white/35">
-                      Technology · Future
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* =================================================
-                INFORMATION
-            ================================================= */}
             <motion.div
               initial={{ opacity: 0, y: 25 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.65,
-                delay: 0.25,
-                ease: "easeOut",
-              }}
-              className="relative order-2 py-12 sm:py-14 lg:order-1 lg:py-20"
+              transition={{ duration: 0.65 }}
+              className="relative z-10"
             >
 
-              {/* desktop top line */}
-              <div className="mb-6 hidden items-center gap-3 lg:flex">
-                <span className="h-px w-10 bg-brand-gold" />
+              <div className="mb-7 flex items-center gap-3">
 
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                  A Better Way To Learn
+                <span className="h-px w-12 bg-brand-gold" />
+
+                <span className="text-[9px] font-bold uppercase tracking-[0.34em] text-brand-gold">
+                  REMON ACADEMY · EST. 2026
                 </span>
+
               </div>
 
-              <div className="lg:hidden">
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                  Meet The Founder
-                </p>
-              </div>
+              <h1 className="max-w-4xl font-display text-[3.15rem] font-bold leading-[0.94] tracking-[-0.055em] sm:text-6xl lg:text-[6rem]">
 
-              <h1 className="mt-3 max-w-2xl font-display text-[2.7rem] font-bold leading-[0.98] tracking-[-0.04em] sm:text-5xl lg:mt-0 lg:text-[5rem]">
-                {brand.tagline}
+                Education
+                <br />
+
+                <span className="text-white/30">
+                  with
+                </span>{" "}
+
+                <span className="text-brand-gold">
+                  purpose.
+                </span>
+
               </h1>
 
-              <div className="mt-6 h-px w-14 bg-brand-gold" />
-
-              <p className="mt-6 max-w-xl text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">
-                {brand.name} is built around one simple idea — students
-                deserve better teaching, clearer direction and a learning
-                environment that prepares them for what comes next.
+              <p className="mt-7 max-w-xl text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">
+                {brand.name} combines focused teaching, measurable academic
+                progress and modern technology to create a better learning
+                experience for every student.
               </p>
 
-              {/* Emon information */}
-              <div className="mt-8 border-l-2 border-brand-gold/70 pl-5">
-
-                <p className="text-[9px] font-bold uppercase tracking-[0.28em] text-brand-gold">
-                  Emon Islam
-                </p>
-
-                <h3 className="mt-1 font-display text-xl font-bold sm:text-2xl">
-                  Founder & CEO
-                </h3>
-
-                <p className="mt-2 text-xs leading-6 text-slate-400 sm:text-sm">
-                  B.Sc. in CSE · Developer · Educator
-                </p>
-
-              </div>
-
-              {/* buttons */}
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
 
                 <Link
                   to="/courses"
-                  className="group inline-flex items-center justify-center gap-3 bg-brand-gold px-6 py-3.5 text-sm font-bold text-[#111827] transition-colors hover:bg-brand-goldLight"
+                  className="group inline-flex items-center justify-center gap-3 bg-brand-gold px-6 py-3.5 text-sm font-bold text-[#101722] transition-all duration-300 hover:bg-brand-goldLight"
                 >
                   Explore Courses
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+
+                  <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
                 </Link>
 
                 <Link
-                  to="/login"
-                  className="inline-flex items-center justify-center gap-3 border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:border-brand-gold/50 hover:text-brand-gold"
+                  to="/about"
+                  className="inline-flex items-center justify-center gap-3 border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:border-brand-gold hover:text-brand-gold"
                 >
-                  Student Portal
+                  Discover REMON
                 </Link>
 
               </div>
 
-              {/* trust */}
-              <div className="mt-8 grid grid-cols-1 gap-3 border-t border-white/10 pt-6 sm:grid-cols-3">
+              <div className="mt-10 grid max-w-xl grid-cols-3 border-y border-white/10">
 
-                {[
-                  "Expert Mentorship",
-                  "Regular Assessment",
-                  "Digital Portal",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-2 text-[11px] text-slate-400"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-gold" />
-                    {item}
-                  </div>
-                ))}
+                <div className="py-5 pr-3">
+                  <p className="font-display text-xl font-bold text-white sm:text-2xl">
+                    {stats.totalStudents}+
+                  </p>
+
+                  <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 sm:text-[9px]">
+                    Students
+                  </p>
+                </div>
+
+                <div className="border-x border-white/10 px-3 py-5">
+                  <p className="font-display text-xl font-bold text-white sm:text-2xl">
+                    {stats.totalTeachers}+
+                  </p>
+
+                  <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 sm:text-[9px]">
+                    Teachers
+                  </p>
+                </div>
+
+                <div className="py-5 pl-3">
+                  <p className="font-display text-xl font-bold text-white sm:text-2xl">
+                    {stats.totalCourses}+
+                  </p>
+
+                  <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500 sm:text-[9px]">
+                    Programs
+                  </p>
+                </div>
 
               </div>
+
+            </motion.div>
+
+            {/* RIGHT — PHOTO */}
+
+            <motion.div
+              initial={{ opacity: 0, x: 35 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.75, delay: 0.1 }}
+              className="relative flex justify-center lg:justify-end"
+            >
+
+              <div className="relative w-full max-w-[390px]">
+
+                <div className="absolute -left-5 top-8 z-20 hidden h-20 w-20 border-l border-t border-brand-gold/50 sm:block" />
+
+                <div className="absolute -bottom-5 right-5 z-20 hidden h-20 w-20 border-b border-r border-brand-gold/50 sm:block" />
+
+                <div className="absolute -right-5 top-1/2 hidden -translate-y-1/2 rotate-90 lg:block">
+                  <span className="text-[8px] font-bold uppercase tracking-[0.35em] text-white/25">
+                    FOUNDER · EDUCATOR · DEVELOPER
+                  </span>
+                </div>
+
+                <div className="relative mx-auto w-[76%] sm:w-[72%] lg:w-[82%]">
+
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 font-display text-[8rem] font-bold leading-none text-white/[0.025]">
+                    R
+                  </div>
+
+                  <div className="border border-brand-gold/30 bg-white/[0.025] p-1.5">
+
+                    <div className="relative overflow-hidden bg-[#0a1019]">
+
+                      <img
+                        src="/photo/emon.png"
+                        alt="Emon Islam"
+                        className="h-[390px] w-full object-cover object-top sm:h-[470px] lg:h-[510px]"
+                      />
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#101722] via-transparent to-transparent" />
+
+                      <div className="absolute left-4 top-4 border border-white/10 bg-[#101722]/90 px-3 py-2">
+
+                        <p className="text-[8px] font-bold uppercase tracking-[0.25em] text-brand-gold">
+                          Founder
+                        </p>
+
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+
+                        <div className="border border-white/10 bg-[#101722]/95 p-4">
+
+                          <p className="text-[8px] font-bold uppercase tracking-[0.25em] text-brand-gold">
+                            Emon Islam
+                          </p>
+
+                          <h2 className="mt-1 font-display text-xl font-bold sm:text-2xl">
+                            Founder & CEO
+                          </h2>
+
+                          <p className="mt-1 text-[10px] text-slate-400 sm:text-xs">
+                            B.Sc. in CSE · Developer · Educator
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 h-1 w-full bg-brand-gold" />
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
             </motion.div>
 
           </div>
         </div>
       </section>
 
-      {/* =========================================================
-          FOUNDER MESSAGE
-      ========================================================= */}
-      <section className="border-b border-slate-200 bg-[#f7f5f0] dark:border-slate-800 dark:bg-slate-950">
+      {/* ============================================================
+          INTRO / STATEMENT
+      ============================================================ */}
 
-        <div className="container-page py-16 sm:py-20 lg:py-24">
+      <section className="bg-[#f5f3ee] py-20 dark:bg-[#080c14] sm:py-24 lg:py-28">
 
-          <div className="mx-auto max-w-4xl text-center">
+        <div className="container-page">
 
-            <div className="mx-auto mb-5 flex h-11 w-11 items-center justify-center rounded-full border border-brand-gold/30">
-              <Quote className="h-5 w-5 text-brand-gold" />
+          <div className="grid gap-10 lg:grid-cols-[0.55fr_1.45fr] lg:items-start">
+
+            <div>
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                Our Philosophy
+              </p>
+
+              <div className="mt-4 h-px w-10 bg-brand-gold" />
+
             </div>
 
-            <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
-              Founder&apos;s Message
-            </p>
+            <div>
 
-            <blockquote className="mt-5 font-display text-xl font-semibold leading-[1.45] tracking-tight text-[#111827] dark:text-white sm:text-2xl lg:text-3xl">
-              “My goal is simple — every student who walks through
-              REMON ACADEMY should leave with stronger knowledge,
-              greater confidence and a clearer direction for the future.”
-            </blockquote>
+              <h2 className="max-w-5xl font-display text-2xl font-semibold leading-[1.3] tracking-tight text-[#111827] dark:text-white sm:text-3xl lg:text-[2.7rem]">
+                We believe education should not simply prepare students
+                for an exam. It should prepare them for the opportunities
+                waiting beyond it.
+              </h2>
 
-            <div className="mx-auto mt-6 h-px w-10 bg-brand-gold" />
+              <p className="mt-7 max-w-3xl text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
+                That is why REMON ACADEMY focuses on understanding,
+                consistency and direction — creating an environment where
+                students can learn with confidence and grow with purpose.
+              </p>
 
-            <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
-              Emon Islam · Founder & CEO
-            </p>
+            </div>
 
           </div>
-        </div>
-      </section>
-
-      {/* =========================================================
-          STATS
-      ========================================================= */}
-      <section className="bg-[#f7f5f0] py-8 dark:bg-slate-950 sm:py-10">
-
-        <div className="container-page grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-
-          <StatCard
-            icon={Users}
-            label="Total Students"
-            value={stats.totalStudents}
-            suffix="+"
-          />
-
-          <StatCard
-            icon={GraduationCap}
-            label="Experienced Teachers"
-            value={stats.totalTeachers}
-            suffix="+"
-          />
-
-          <StatCard
-            icon={BookOpen}
-            label="Courses"
-            value={stats.totalCourses}
-            suffix="+"
-          />
-
-          <StatCard
-            icon={TrendingUp}
-            label="Successful Students"
-            value={stats.successfulStudents}
-            suffix="+"
-          />
 
         </div>
       </section>
 
-      {/* =========================================================
-          WHY REMON
-      ========================================================= */}
+      {/* ============================================================
+          STATS STRIP
+      ============================================================ */}
+
+      <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+
+        <div className="container-page grid grid-cols-2 md:grid-cols-4">
+
+          <div className="border-b border-slate-200 px-4 py-7 dark:border-slate-800 md:border-b-0 md:border-r">
+            <StatCard
+              icon={Users}
+              label="Total Students"
+              value={stats.totalStudents}
+              suffix="+"
+            />
+          </div>
+
+          <div className="border-b border-slate-200 px-4 py-7 dark:border-slate-800 md:border-b-0 md:border-r">
+            <StatCard
+              icon={GraduationCap}
+              label="Teachers"
+              value={stats.totalTeachers}
+              suffix="+"
+            />
+          </div>
+
+          <div className="px-4 py-7 md:border-r md:border-slate-200 dark:md:border-slate-800">
+            <StatCard
+              icon={BookOpen}
+              label="Programs"
+              value={stats.totalCourses}
+              suffix="+"
+            />
+          </div>
+
+          <div className="px-4 py-7">
+            <StatCard
+              icon={TrendingUp}
+              label="Successful Students"
+              value={stats.successfulStudents}
+              suffix="+"
+            />
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ============================================================
+          WHY REMON — NEW NUMBERED LAYOUT
+      ============================================================ */}
+
       <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
 
         <div className="container-page">
 
-          <div className="mb-12 grid gap-7 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
+          <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
 
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                The REMON Standard
+            <div className="max-w-2xl">
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                Why REMON
               </p>
 
-              <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-[#111827] dark:text-white sm:text-4xl">
-                Education with intention.
+              <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-[#111827] dark:text-white sm:text-4xl lg:text-5xl">
+                A different standard
+                <br />
+                <span className="text-slate-300 dark:text-slate-700">
+                  for modern learning.
+                </span>
               </h2>
+
             </div>
 
-            <p className="max-w-2xl text-sm leading-7 text-slate-500">
-              Good education is more than completing a syllabus.
-              It is about building understanding, discipline,
-              confidence and the ability to move forward independently.
+            <p className="max-w-md text-sm leading-7 text-slate-500">
+              Every part of the academy is designed to make learning
+              clearer, more organized and more meaningful.
             </p>
 
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="mt-14 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 dark:border-slate-800 dark:bg-slate-800 md:grid-cols-3">
 
-            {features.map((item) => {
-              const Icon = item.icon;
+            {features.map((feature) => {
+              const Icon = feature.icon;
 
               return (
-                <Card
-                  key={item.number}
-                  className="group relative overflow-hidden border border-slate-200 bg-[#faf9f6] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold/40 hover:shadow-xl dark:border-slate-800 dark:bg-slate-950 sm:p-7"
+                <div
+                  key={feature.number}
+                  className="group relative bg-[#faf9f6] p-7 transition-colors duration-300 hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-900 sm:p-9"
                 >
 
                   <div className="flex items-start justify-between">
 
-                    <div className="flex h-12 w-12 items-center justify-center border border-brand-gold/20 bg-brand-gold/5">
-                      <Icon className="h-5 w-5 text-brand-gold" />
-                    </div>
-
-                    <span className="font-display text-3xl font-bold text-slate-200 dark:text-slate-800">
-                      {item.number}
+                    <span className="font-display text-4xl font-bold text-slate-200 transition-colors group-hover:text-brand-gold/20 dark:text-slate-800">
+                      {feature.number}
                     </span>
+
+                    <Icon className="h-6 w-6 text-brand-gold" />
 
                   </div>
 
-                  <h3 className="mt-7 font-display text-xl font-bold text-[#111827] dark:text-white">
-                    {item.title}
+                  <h3 className="mt-12 font-display text-xl font-bold text-[#111827] dark:text-white">
+                    {feature.title}
                   </h3>
 
-                  <p className="mt-3 text-sm leading-7 text-slate-500">
-                    {item.desc}
+                  <p className="mt-4 text-sm leading-7 text-slate-500">
+                    {feature.text}
                   </p>
 
-                  <div className="mt-6 h-px w-8 bg-brand-gold transition-all duration-300 group-hover:w-16" />
+                  <div className="mt-8 h-px w-8 bg-brand-gold transition-all duration-300 group-hover:w-16" />
 
-                </Card>
+                </div>
               );
             })}
 
           </div>
+
         </div>
       </section>
 
-      {/* =========================================================
-          COURSES
-      ========================================================= */}
+      {/* ============================================================
+          COURSES — NEW CATALOG STYLE
+      ============================================================ */}
+
       {courses.length > 0 && (
-        <section className="border-y border-slate-200 bg-[#f7f5f0] py-20 dark:border-slate-800 dark:bg-slate-950 sm:py-24 lg:py-28">
+        <section className="bg-[#101722] py-20 text-white sm:py-24 lg:py-28">
 
           <div className="container-page">
 
-            <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
 
               <div>
 
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
+                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
                   Academic Programs
                 </p>
 
-                <h2 className="mt-3 font-display text-3xl font-bold text-[#111827] dark:text-white sm:text-4xl">
-                  Featured Courses
+                <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
+                  Learn something
+                  <br />
+                  worth knowing.
                 </h2>
-
-                <p className="mt-3 max-w-xl text-sm leading-7 text-slate-500">
-                  Structured programs designed around clear learning
-                  objectives and measurable progress.
-                </p>
 
               </div>
 
-              <Link
-                to="/courses"
-                className="group inline-flex items-center gap-2 text-sm font-bold text-[#111827] dark:text-brand-gold"
-              >
-                View all courses
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
+              <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+
+                <p className="max-w-lg text-sm leading-7 text-slate-400">
+                  Carefully structured courses designed around academic
+                  fundamentals, practice and measurable improvement.
+                </p>
+
+                <Link
+                  to="/courses"
+                  className="group inline-flex shrink-0 items-center gap-2 text-sm font-bold text-brand-gold"
+                >
+                  All Courses
+                  <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                </Link>
+
+              </div>
 
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
 
               {courses.map((course, index) => (
                 <Card
                   key={course._id}
-                  className="group flex h-full flex-col overflow-hidden border border-slate-200 bg-white p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900"
+                  className="group relative flex h-full flex-col overflow-hidden border border-white/10 bg-white/[0.025] p-0 text-white transition-all duration-300 hover:border-brand-gold/40 hover:bg-white/[0.045]"
                 >
 
-                  <div className="relative h-40 overflow-hidden bg-[#111827] sm:h-44">
+                  <div className="relative flex h-48 flex-col justify-between border-b border-white/10 p-6">
 
-                    <div className="absolute left-5 top-5 font-display text-[5rem] font-bold leading-none text-white/[0.035]">
-                      0{index + 1}
+                    <div className="flex items-start justify-between">
+
+                      <span className="font-display text-5xl font-bold text-white/[0.07]">
+                        0{index + 1}
+                      </span>
+
+                      <BookOpen className="h-5 w-5 text-brand-gold" />
+
                     </div>
 
-                    <div className="absolute bottom-5 left-5">
-                      <BookOpen className="h-9 w-9 text-brand-gold" />
+                    <div>
+
+                      <p className="text-[8px] font-bold uppercase tracking-[0.22em] text-brand-gold">
+                        {course.classLevel}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        {course.subject}
+                      </p>
+
                     </div>
 
-                    <span className="absolute right-4 top-4 border border-white/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.2em] text-white/70">
-                      Featured
-                    </span>
-
-                    <div className="absolute bottom-0 left-0 h-1 w-full bg-brand-gold" />
+                    <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-brand-gold transition-all duration-500 group-hover:w-full" />
 
                   </div>
 
-                  <div className="flex flex-1 flex-col p-5 sm:p-6">
+                  <div className="flex flex-1 flex-col p-6">
 
-                    <div className="mb-3 flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      <span>{course.classLevel}</span>
-                      <span>·</span>
-                      <span>{course.subject}</span>
-                    </div>
-
-                    <h3 className="font-display text-xl font-bold text-[#111827] dark:text-white">
+                    <h3 className="font-display text-xl font-bold">
                       {course.title}
                     </h3>
 
-                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-500">
+                    <p className="mt-3 line-clamp-3 text-sm leading-7 text-slate-400">
                       {course.description}
                     </p>
 
-                    <div className="mt-auto flex items-end justify-between gap-4 border-t border-slate-100 pt-5 dark:border-slate-800">
+                    <div className="mt-auto flex items-end justify-between gap-4 border-t border-white/10 pt-6">
 
                       <div>
-                        <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">
-                          Course Fee
+
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500">
+                          Investment
                         </p>
 
                         <p className="mt-1 text-xl font-bold text-brand-gold">
                           ৳{course.fee}
                         </p>
+
                       </div>
 
                       <Link
                         to={`/courses/${course.slug}`}
-                        className="group/link inline-flex items-center gap-2 border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-[#111827] transition-all hover:border-brand-gold hover:bg-brand-gold dark:border-slate-700 dark:text-white"
+                        className="inline-flex items-center gap-2 border border-white/15 px-4 py-2.5 text-xs font-bold transition-colors hover:border-brand-gold hover:bg-brand-gold hover:text-[#101722]"
                       >
-                        Details
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/link:translate-x-1" />
+                        View Course
+                        <ArrowUpRight className="h-3.5 w-3.5" />
                       </Link>
 
                     </div>
 
                   </div>
+
                 </Card>
               ))}
 
             </div>
+
           </div>
         </section>
       )}
 
-      {/* =========================================================
-          TECHNOLOGY / FOUNDER
-      ========================================================= */}
-      <section className="bg-[#111827] py-20 text-white sm:py-24 lg:py-28">
+      {/* ============================================================
+          FOUNDER / TECHNOLOGY
+      ============================================================ */}
+
+      <section className="bg-[#f5f3ee] py-20 dark:bg-[#080c14] sm:py-24 lg:py-28">
 
         <div className="container-page">
 
-          <div className="grid items-center gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:gap-16">
+          <div className="grid items-center gap-12 lg:grid-cols-[0.7fr_1.3fr] lg:gap-20">
 
-            <div className="relative mx-auto w-full max-w-sm">
+            <div className="relative mx-auto w-full max-w-[360px]">
 
-              <div className="absolute -left-4 -top-4 h-16 w-16 border-l border-t border-brand-gold/50" />
+              <div className="absolute -left-5 -top-5 h-16 w-16 border-l border-t border-brand-gold/60" />
 
-              <div className="border border-white/10 p-2">
+              <div className="border border-slate-300 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
 
-                <div className="relative h-[350px] overflow-hidden bg-slate-950 sm:h-[400px]">
+                <div className="relative h-[390px] overflow-hidden bg-[#101722]">
 
                   <img
                     src="/photo/emon.png"
@@ -572,7 +590,7 @@ export default function Home() {
                     className="h-full w-full object-cover object-top"
                   />
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#101722] via-transparent to-transparent" />
 
                   <div className="absolute bottom-5 left-5">
 
@@ -580,52 +598,55 @@ export default function Home() {
                       Founder & CEO
                     </p>
 
-                    <h3 className="mt-1 font-display text-2xl font-bold">
+                    <h3 className="mt-1 font-display text-2xl font-bold text-white">
                       Emon Islam
                     </h3>
 
                   </div>
 
                 </div>
+
               </div>
 
-              <div className="absolute -bottom-4 -right-4 h-16 w-16 border-b border-r border-brand-gold/50" />
+              <div className="absolute -bottom-5 -right-5 h-16 w-16 border-b border-r border-brand-gold/60" />
 
             </div>
 
             <div>
 
-              <div className="mb-5 flex items-center gap-3">
+              <div className="flex items-center gap-3">
 
                 <Code2 className="h-5 w-5 text-brand-gold" />
 
-                <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
+                <span className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
                   Education × Technology
                 </span>
 
               </div>
 
-              <h2 className="max-w-3xl font-display text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-                Building an education experience for the next generation.
+              <h2 className="mt-5 max-w-3xl font-display text-3xl font-bold leading-tight text-[#111827] dark:text-white sm:text-4xl lg:text-5xl">
+                The classroom is changing.
+                <br />
+                We are changing with it.
               </h2>
 
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
-                REMON ACADEMY brings together academic mentorship and
-                technology to create a more organized, transparent and
-                student-focused learning experience.
+              <p className="mt-6 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
+                REMON ACADEMY uses technology not as decoration, but as
+                infrastructure — making academic information easier to
+                access, manage and understand.
               </p>
 
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
 
                 {[
                   "Digital Student Portal",
-                  "Modern Learning Management",
                   "Academic Performance Tracking",
-                  "Technology-Driven Education",
+                  "Organized Attendance",
+                  "Transparent Fee Management",
                 ].map((item) => (
                   <div
                     key={item}
-                    className="flex items-center gap-3 border border-white/10 px-4 py-3 text-xs text-slate-300"
+                    className="flex items-center gap-3 border border-slate-200 bg-white px-4 py-3.5 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
                   >
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-gold" />
                     {item}
@@ -635,103 +656,180 @@ export default function Home() {
               </div>
 
             </div>
+
           </div>
+
         </div>
       </section>
 
-      {/* =========================================================
+      {/* ============================================================
           TEACHERS
-      ========================================================= */}
+      ============================================================ */}
+
       {teachers.length > 0 && (
         <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
 
           <div className="container-page">
 
-            <div className="mb-10 max-w-2xl">
+            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                Our Faculty
-              </p>
+              <div>
 
-              <h2 className="mt-3 font-display text-3xl font-bold text-[#111827] dark:text-white sm:text-4xl">
-                Meet the educators.
-              </h2>
+                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                  Faculty
+                </p>
 
-              <p className="mt-4 text-sm leading-7 text-slate-500">
-                Dedicated teachers focused on making difficult concepts
-                easier to understand and easier to remember.
-              </p>
+                <h2 className="mt-4 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+                  People behind
+                  <br />
+                  the learning.
+                </h2>
+
+              </div>
+
+              <Link
+                to="/teachers"
+                className="group inline-flex items-center gap-2 text-sm font-bold text-[#111827] dark:text-brand-gold"
+              >
+                Meet all teachers
+                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+              </Link>
 
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
 
-              {teachers.map((teacher) => (
+              {teachers.map((teacher, index) => (
                 <Card
                   key={teacher._id}
-                  className="group relative overflow-hidden border border-slate-200 bg-[#faf9f6] text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                  className="group relative overflow-hidden border border-slate-200 bg-[#faf9f6] p-0 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold/40 dark:border-slate-800 dark:bg-slate-950"
                 >
 
-                  <div className="absolute left-0 right-0 top-0 h-1 bg-brand-gold" />
+                  <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
 
-                  <div className="relative mx-auto mb-5 mt-7 h-28 w-28 overflow-hidden rounded-full border-4 border-brand-gold/10 bg-[#111827] shadow-lg">
+                    <span className="text-[8px] font-bold uppercase tracking-[0.25em] text-brand-gold">
+                      Faculty {String(index + 1).padStart(2, "0")}
+                    </span>
 
-                    {teacher.photo ? (
-                      <img
-                        src={teacher.photo}
-                        alt={teacher.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-brand-gold">
-                        {teacher.name.charAt(0)}
-                      </div>
-                    )}
+                    <GraduationCap className="h-4 w-4 text-slate-300" />
 
                   </div>
 
-                  <h3 className="font-display text-xl font-bold text-[#111827] dark:text-white">
-                    {teacher.name}
-                  </h3>
+                  <div className="flex gap-5 p-5 sm:p-6">
 
-                  <p className="mt-1 text-xs font-bold uppercase tracking-wider text-brand-gold">
-                    {teacher.designation || "Instructor"}
-                  </p>
+                    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-brand-gold/20 bg-[#101722]">
 
-                  {teacher.specialization && (
-                    <p className="mt-3 text-sm text-slate-500">
-                      {teacher.specialization}
-                    </p>
-                  )}
+                      {teacher.photo ? (
+                        <img
+                          src={teacher.photo}
+                          alt={teacher.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-brand-gold">
+                          {teacher.name.charAt(0)}
+                        </div>
+                      )}
 
-                  <div className="mx-auto mb-2 mt-5 h-px w-10 bg-brand-gold/40" />
+                    </div>
+
+                    <div className="min-w-0 pt-1">
+
+                      <h3 className="font-display text-lg font-bold text-[#111827] dark:text-white">
+                        {teacher.name}
+                      </h3>
+
+                      <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-brand-gold">
+                        {teacher.designation || "Instructor"}
+                      </p>
+
+                      {teacher.specialization && (
+                        <p className="mt-3 text-xs leading-5 text-slate-500">
+                          {teacher.specialization}
+                        </p>
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <div className="h-1 w-0 bg-brand-gold transition-all duration-500 group-hover:w-full" />
 
                 </Card>
               ))}
 
             </div>
+
           </div>
         </section>
       )}
 
-      {/* =========================================================
+      {/* ============================================================
+          FOUNDER MESSAGE
+      ============================================================ */}
+
+      <section className="border-y border-slate-200 bg-[#f5f3ee] dark:border-slate-800 dark:bg-[#080c14]">
+
+        <div className="container-page py-20 sm:py-24">
+
+          <div className="grid gap-8 lg:grid-cols-[0.35fr_1.65fr]">
+
+            <div>
+
+              <div className="flex h-11 w-11 items-center justify-center border border-brand-gold/30">
+                <Quote className="h-5 w-5 text-brand-gold" />
+              </div>
+
+              <p className="mt-4 text-[8px] font-bold uppercase tracking-[0.3em] text-brand-gold">
+                Founder&apos;s Note
+              </p>
+
+            </div>
+
+            <div>
+
+              <blockquote className="font-display text-2xl font-semibold leading-[1.35] tracking-tight text-[#111827] dark:text-white sm:text-3xl lg:text-[2.65rem]">
+                “Every student has potential. Our responsibility is to
+                create the environment, guidance and discipline that
+                helps that potential become real.”
+              </blockquote>
+
+              <div className="mt-7 flex items-center gap-3">
+
+                <span className="h-px w-8 bg-brand-gold" />
+
+                <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-500">
+                  Emon Islam · Founder & CEO
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ============================================================
           NOTICES
-      ========================================================= */}
+      ============================================================ */}
+
       {notices.length > 0 && (
-        <section className="border-y border-slate-200 bg-[#f7f5f0] py-20 dark:border-slate-800 dark:bg-slate-950 sm:py-24 lg:py-28">
+        <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
 
           <div className="container-page">
 
-            <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
 
               <div>
 
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
-                  Academy Updates
+                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                  Academy Journal
                 </p>
 
-                <h2 className="mt-3 font-display text-3xl font-bold text-[#111827] dark:text-white sm:text-4xl">
-                  Latest Notices
+                <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
+                  Latest updates.
                 </h2>
 
               </div>
@@ -740,111 +838,119 @@ export default function Home() {
                 to="/notices"
                 className="group inline-flex items-center gap-2 text-sm font-bold text-[#111827] dark:text-brand-gold"
               >
-                View all notices
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                Browse all notices
+                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
               </Link>
 
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="mt-12 grid gap-0 border-y border-slate-200 dark:border-slate-800">
 
-              {notices.map((notice) => (
-                <Card
+              {notices.map((notice, index) => (
+                <Link
                   key={notice._id}
-                  className="group h-full border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900"
+                  to={`/notices/${notice.slug}`}
+                  className="group grid gap-4 border-b border-slate-200 py-6 transition-colors last:border-b-0 hover:bg-[#faf9f6] dark:border-slate-800 dark:hover:bg-slate-950 sm:grid-cols-[80px_1fr_auto] sm:items-center sm:gap-6 sm:px-4"
                 >
 
-                  <div className="mb-5 flex items-center justify-between">
+                  <span className="font-display text-3xl font-bold text-slate-200 dark:text-slate-800">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
 
-                    <span className="border border-brand-gold/20 bg-brand-gold/5 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-brand-gold">
-                      {notice.category}
-                    </span>
+                  <div>
 
-                    <ShieldCheck className="h-4 w-4 text-slate-300" />
+                    <div className="mb-2 flex items-center gap-3">
+
+                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-brand-gold">
+                        {notice.category}
+                      </span>
+
+                      <ShieldCheck className="h-3.5 w-3.5 text-slate-300" />
+
+                    </div>
+
+                    <h3 className="font-display text-lg font-bold text-[#111827] transition-colors group-hover:text-brand-gold dark:text-white">
+                      {notice.title}
+                    </h3>
+
+                    <p className="mt-2 line-clamp-1 text-sm text-slate-500">
+                      {notice.description}
+                    </p>
 
                   </div>
 
-                  <h3 className="font-display text-lg font-bold text-[#111827] dark:text-white">
-                    {notice.title}
-                  </h3>
+                  <ArrowUpRight className="hidden h-5 w-5 text-slate-300 transition-all group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-brand-gold sm:block" />
 
-                  <p className="mt-3 line-clamp-3 text-sm leading-7 text-slate-500">
-                    {notice.description}
-                  </p>
-
-                  <Link
-                    to={`/notices/${notice.slug}`}
-                    className="mt-6 inline-flex items-center gap-2 text-xs font-bold text-[#111827] dark:text-brand-gold"
-                  >
-                    Read notice
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                  </Link>
-
-                </Card>
+                </Link>
               ))}
 
             </div>
+
           </div>
         </section>
       )}
 
-      {/* =========================================================
+      {/* ============================================================
           FINAL CTA
-      ========================================================= */}
-      <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
+      ============================================================ */}
+
+      <section className="bg-[#101722] py-20 text-white sm:py-24 lg:py-28">
 
         <div className="container-page">
 
-          <div className="relative overflow-hidden bg-[#111827] px-6 py-14 text-center sm:px-12 sm:py-16 lg:py-20">
+          <div className="relative overflow-hidden border border-white/10 px-6 py-14 text-center sm:px-12 lg:px-20 lg:py-20">
 
-            <div className="pointer-events-none absolute right-[-100px] top-[-100px] h-64 w-64 rounded-full border border-brand-gold/10" />
+            <div className="pointer-events-none absolute right-[-100px] top-[-100px] h-64 w-64 rounded-full border border-brand-gold/[0.08]" />
 
-            <div className="pointer-events-none absolute bottom-[-120px] left-[-100px] h-64 w-64 rounded-full border border-white/[0.05]" />
+            <div className="pointer-events-none absolute bottom-[-130px] left-[-100px] h-72 w-72 rounded-full border border-white/[0.035]" />
 
             <div className="relative">
 
-              <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center border border-brand-gold/30">
-                <Award className="h-5 w-5 text-brand-gold" />
-              </div>
+              <Award className="mx-auto h-7 w-7 text-brand-gold" />
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
-                Your Journey Starts Here
+              <p className="mt-5 text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                Begin Your Journey
               </p>
 
-              <h2 className="mx-auto mt-4 max-w-2xl font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
-                Give your potential the right direction.
+              <h2 className="mx-auto mt-4 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+                Your future deserves
+                <br />
+                a strong beginning.
               </h2>
 
               <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-slate-400">
-                Join {brand.name} and build your academic journey with
-                structured learning, dedicated mentorship and modern
-                student support.
+                Start learning with structured courses, dedicated
+                teachers and a modern academic environment built around
+                student success.
               </p>
 
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
 
                 <Link
                   to="/register"
-                  className="group inline-flex items-center justify-center gap-3 bg-brand-gold px-7 py-3.5 text-sm font-bold text-[#111827] transition-colors hover:bg-brand-goldLight"
+                  className="group inline-flex items-center justify-center gap-3 bg-brand-gold px-7 py-3.5 text-sm font-bold text-[#101722] transition-colors hover:bg-brand-goldLight"
                 >
-                  Register Now
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  Join REMON ACADEMY
+
+                  <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
                 </Link>
 
                 <Link
-                  to="/courses"
-                  className="inline-flex items-center justify-center gap-3 border border-white/15 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-brand-gold/50 hover:text-brand-gold"
+                  to="/contact"
+                  className="inline-flex items-center justify-center gap-3 border border-white/15 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-brand-gold hover:text-brand-gold"
                 >
-                  Explore Courses
+                  Contact Us
                 </Link>
 
               </div>
 
             </div>
+
           </div>
+
         </div>
       </section>
 
-    </div>
+    </main>
   );
 }

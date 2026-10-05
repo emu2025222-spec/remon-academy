@@ -2,43 +2,326 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================
+   REMON ACADEMY — GLOBAL DESIGN SYSTEM
+   ========================================================= */
+
 html {
   scroll-behavior: smooth;
+  background: #f8f7f4;
 }
 
 body {
-  @apply bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans antialiased;
+  @apply bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* Better selection */
+::selection {
+  background: rgba(198, 157, 78, 0.25);
+  color: #0f172a;
 }
+
+/* Smooth scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c9a45c transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #c9a45c;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #ad873f;
+}
+
+/* =========================================================
+   GLOBAL ELEMENTS
+   ========================================================= */
+
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* =========================================================
+   CONTAINER
+   ========================================================= */
 
 .container-page {
-  @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
 }
 
+/* =========================================================
+   PREMIUM SECTION UTILITIES
+   ========================================================= */
+
+.section-shell {
+  @apply relative overflow-hidden py-16 sm:py-20 lg:py-24;
+}
+
+.section-shell-light {
+  @apply bg-[#f8f7f4];
+}
+
+.section-shell-white {
+  @apply bg-white;
+}
+
+.section-shell-dark {
+  @apply bg-brand-navy text-white;
+}
+
+.section-kicker {
+  @apply mb-3 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.28em] text-brand-gold sm:text-xs;
+}
+
+.section-title {
+  @apply font-display text-3xl font-bold leading-tight tracking-[-0.025em] text-brand-navy sm:text-4xl lg:text-5xl dark:text-white;
+}
+
+.section-description {
+  @apply mt-4 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base dark:text-slate-400;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-navy px-6 py-3 font-semibold text-white shadow-md transition-all hover:bg-brand-navyDark hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  @apply inline-flex items-center justify-center gap-2 rounded-full
+    bg-brand-navy px-6 py-3 text-sm font-bold text-white
+    shadow-[0_10px_25px_rgba(15,23,42,0.12)]
+    transition-all duration-300
+    hover:-translate-y-0.5
+    hover:bg-brand-navyDark
+    hover:shadow-[0_14px_32px_rgba(15,23,42,0.18)]
+    active:translate-y-0
+    disabled:pointer-events-none
+    disabled:opacity-50
+    dark:bg-brand-gold
+    dark:text-brand-navy
+    dark:hover:bg-brand-goldLight;
 }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-brand-gold px-6 py-3 font-semibold text-brand-navy dark:text-brand-goldLight transition-all hover:bg-brand-gold hover:text-white active:scale-95;
+  @apply inline-flex items-center justify-center gap-2 rounded-full
+    border border-brand-gold bg-transparent px-6 py-3
+    text-sm font-bold text-brand-navy
+    transition-all duration-300
+    hover:-translate-y-0.5
+    hover:bg-brand-gold
+    hover:text-white
+    active:translate-y-0
+    dark:text-brand-goldLight
+    dark:hover:text-brand-navy;
 }
 
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-full
+    px-5 py-3 text-sm font-semibold text-slate-600
+    transition-all duration-300
+    hover:bg-slate-100 hover:text-brand-navy
+    dark:text-slate-300
+    dark:hover:bg-slate-800 dark:hover:text-white;
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
 .card {
-  @apply rounded-2xl bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800 transition-shadow hover:shadow-xl;
+  @apply rounded-2xl border border-slate-200/80
+    bg-white
+    shadow-[0_8px_30px_rgba(15,23,42,0.045)]
+    transition-all duration-300
+    dark:border-slate-800
+    dark:bg-slate-900;
+}
+
+.card:hover {
+  @apply -translate-y-1 border-brand-gold/30 shadow-[0_18px_45px_rgba(15,23,42,0.08)];
+}
+
+.card-flat {
+  @apply rounded-2xl border border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-900;
+}
+
+.card-premium {
+  @apply relative overflow-hidden rounded-3xl border border-slate-200/80
+    bg-white
+    shadow-[0_15px_50px_rgba(15,23,42,0.07)]
+    dark:border-slate-800
+    dark:bg-slate-900;
+}
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
+.label-field {
+  @apply mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300;
 }
 
 .input-field {
-  @apply w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm focus:border-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy/20 transition;
+  @apply w-full rounded-xl
+    border border-slate-200
+    bg-white px-4 py-3
+    text-sm text-slate-800
+    outline-none
+    transition-all duration-200
+    placeholder:text-slate-400
+    focus:border-brand-gold
+    focus:ring-4
+    focus:ring-brand-gold/10
+    dark:border-slate-700
+    dark:bg-slate-900
+    dark:text-slate-100
+    dark:placeholder:text-slate-500;
 }
 
-.label-field {
-  @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1;
+.input-field:disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+textarea.input-field {
+  @apply min-h-[120px] resize-y;
+}
+
+select.input-field {
+  @apply cursor-pointer;
+}
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.badge {
+  @apply inline-flex items-center rounded-full border
+    px-3 py-1 text-[10px] font-bold uppercase tracking-wider;
+}
+
+.badge-gold {
+  @apply border-brand-gold/30 bg-brand-gold/10 text-brand-gold;
+}
+
+.badge-navy {
+  @apply border-brand-navy/10 bg-brand-navy/5 text-brand-navy dark:border-white/10 dark:bg-white/5 dark:text-white;
+}
+
+/* =========================================================
+   DIVIDERS
+   ========================================================= */
+
+.divider {
+  @apply h-px w-full bg-slate-200 dark:bg-slate-800;
+}
+
+.divider-gold {
+  @apply h-px w-full bg-brand-gold/30;
+}
+
+/* =========================================================
+   PREMIUM DECORATIVE ELEMENTS
+   ========================================================= */
+
+.gold-line {
+  @apply h-px w-12 bg-brand-gold;
+}
+
+.gold-dot {
+  @apply h-1.5 w-1.5 rounded-full bg-brand-gold;
+}
+
+.editorial-number {
+  @apply font-display text-5xl font-black leading-none text-slate-100 dark:text-slate-800;
+}
+
+/* =========================================================
+   FOCUS ACCESSIBILITY
+   ========================================================= */
+
+:focus-visible {
+  outline: 2px solid #c9a45c;
+  outline-offset: 3px;
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 640px) {
+  html {
+    scroll-padding-top: 76px;
+  }
+
+  .section-shell {
+    @apply py-12;
+  }
+
+  .section-title {
+    @apply text-3xl;
+  }
+
+  .section-description {
+    @apply text-sm leading-6;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    @apply px-5 py-2.5;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
