@@ -68,73 +68,73 @@ export default function Home() {
 
       {/* ========================= HERO ========================= */}
       <section className="relative isolate overflow-hidden bg-brand-navy text-white">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-gold/10 blur-3xl" />
-
-          <div className="absolute -bottom-40 -right-20 h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-3xl" />
+        {/* Background: keeps the hero visually connected to the existing REMON theme */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-brand-gold/10 blur-3xl" />
+          <div className="absolute -bottom-52 -right-40 h-[620px] w-[620px] rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-navy via-brand-navy/95 to-slate-950/90" />
 
           <motion.div
             className="absolute right-[12%] top-20 h-2 w-2 rounded-full bg-brand-gold"
-            animate={{
-              y: [0, 30, 0],
-              opacity: [0.3, 1, 0.3],
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-            }}
+            animate={{ y: [0, 30, 0], opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 4, repeat: Infinity }}
           />
 
           <motion.div
             className="absolute left-[15%] top-[45%] h-1.5 w-1.5 rounded-full bg-white/60"
-            animate={{
-              y: [0, -25, 0],
-              opacity: [0.2, 1, 0.2],
-            }}
-            transition={{
-              duration: 5,
-              repeat: Infinity,
-            }}
+            animate={{ y: [0, -25, 0], opacity: [0.2, 1, 0.2] }}
+            transition={{ duration: 5, repeat: Infinity }}
           />
         </div>
 
-        <div className="container-page relative grid min-h-[650px] items-center gap-12 py-20 lg:grid-cols-[1.1fr_0.9fr]">
-
+        <div className="container-page relative grid min-h-[680px] items-center gap-10 py-16 lg:grid-cols-[0.95fr_1.05fr] lg:py-20">
           {/* HERO TEXT */}
           <motion.div
             initial={{ opacity: 0, x: -40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7 }}
-            className="relative z-10"
+            className="relative z-10 order-2 lg:order-1"
           >
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-gold/30 bg-brand-gold/10 px-4 py-2 text-sm font-medium text-brand-goldLight backdrop-blur"
+              className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-gold/30 bg-brand-gold/10 px-4 py-2 text-sm font-medium text-brand-goldLight backdrop-blur"
             >
               <Sparkles className="h-4 w-4" />
               Est. 2026 · Bangladesh
             </motion.div>
 
-            <h1 className="max-w-4xl font-display text-5xl font-bold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
               {brand.tagline}
             </h1>
 
-            <p className="mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
+            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
               {brand.name} provides expert, result-oriented coaching
               for SSC, HSC, and university admission candidates —
               combining experienced teachers, structured courses,
               regular assessment, and modern student support.
             </p>
 
-            <div className="mt-9 flex flex-wrap gap-4">
+            {/* Founder / Educator identity */}
+            <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium">
+              <span className="text-brand-gold">Remon</span>
+              <span className="text-white/30">•</span>
+              <span className="text-slate-300">BSc</span>
+              <span className="text-white/30">•</span>
+              <span className="text-slate-300">CSE</span>
+              <span className="text-white/30">•</span>
+              <span className="text-slate-300">Developer</span>
+              <span className="text-white/30">•</span>
+              <span className="text-slate-300">Educator</span>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 to="/courses"
                 className="group inline-flex items-center gap-2 rounded-xl bg-brand-gold px-6 py-3.5 font-semibold text-brand-navy shadow-lg shadow-brand-gold/10 transition-all duration-300 hover:-translate-y-1 hover:bg-brand-goldLight"
               >
                 Explore Courses
-
                 <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
 
@@ -146,7 +146,7 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 text-sm text-slate-400">
+            <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-3 text-sm text-slate-400">
               <span className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-brand-gold" />
                 Experienced Teachers
@@ -164,114 +164,87 @@ export default function Home() {
             </div>
           </motion.div>
 
-          {/* HERO VISUAL */}
+          {/* HERO PHOTO */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{
-              duration: 0.8,
-              delay: 0.2,
-            }}
-            className="relative mx-auto hidden h-[440px] w-full max-w-[440px] lg:block"
+            initial={{ opacity: 0, scale: 0.92, x: 30 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.15 }}
+            className="relative z-10 order-1 mx-auto w-full max-w-[520px] lg:order-2"
           >
-            <motion.div
-              className="absolute inset-5 rounded-full border border-brand-gold/20"
-              animate={{
-                rotate: 360,
-              }}
-              transition={{
-                duration: 35,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            />
+            {/* Soft glow behind the portrait */}
+            <div className="absolute -inset-6 rounded-[2.5rem] bg-brand-gold/10 blur-3xl" />
 
-            <motion.div
-              className="absolute inset-12 rounded-full border border-white/10"
-              animate={{
-                rotate: -360,
-              }}
-              transition={{
-                duration: 25,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            />
+            {/* Portrait frame */}
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] p-2 shadow-2xl shadow-black/30 backdrop-blur-sm">
+              <div className="relative overflow-hidden rounded-[1.5rem] bg-slate-950">
+                <img
+                  src="/photo/emon.png"
+                  alt="Remon - BSc, CSE, Developer and Educator"
+                  className="h-[460px] w-full object-cover object-top transition-transform duration-700 hover:scale-[1.025] sm:h-[540px]"
+                />
 
-            <div className="absolute inset-20 flex items-center justify-center rounded-full bg-white/[0.06] shadow-2xl shadow-black/20 backdrop-blur-sm">
-              <div className="flex h-40 w-40 items-center justify-center rounded-full bg-brand-gold/10">
-                <GraduationCap className="h-24 w-24 text-brand-gold" />
+                {/* Website-matching navy/gold overlay */}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-navy via-transparent to-transparent opacity-95" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-navy/20 via-transparent to-brand-gold/5" />
+
+                {/* Bottom identity card */}
+                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+                  <div className="rounded-2xl border border-white/10 bg-brand-navy/75 p-4 shadow-xl backdrop-blur-md sm:p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-brand-gold">
+                      Founder · Educator
+                    </p>
+
+                    <h2 className="mt-1 font-display text-2xl font-bold text-white sm:text-3xl">
+                      Remon
+                    </h2>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {["BSc", "CSE", "Developer", "Educator"].map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full border border-brand-gold/25 bg-brand-gold/10 px-3 py-1 text-xs font-semibold text-brand-goldLight"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Floating Card 1 */}
+            {/* Floating academic card */}
             <motion.div
-              className="absolute left-0 top-24 rounded-2xl border border-white/10 bg-white/10 px-5 py-4 shadow-xl backdrop-blur-md"
-              animate={{
-                y: [0, -12, 0],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-              }}
+              className="absolute -left-3 top-10 hidden rounded-2xl border border-white/10 bg-brand-navy/80 px-4 py-3 shadow-xl backdrop-blur-md sm:block"
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 4, repeat: Infinity }}
             >
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-brand-gold/15 p-2.5">
-                  <BookOpen className="h-5 w-5 text-brand-gold" />
+                  <GraduationCap className="h-5 w-5 text-brand-gold" />
                 </div>
-
                 <div>
-                  <p className="text-xs text-slate-400">
-                    Structured
-                  </p>
-
-                  <p className="font-semibold">
-                    Courses
-                  </p>
+                  <p className="text-xs text-slate-400">Academic</p>
+                  <p className="font-semibold text-white">Mentorship</p>
                 </div>
               </div>
             </motion.div>
 
-            {/* Floating Card 2 */}
+            {/* Floating developer card */}
             <motion.div
-              className="absolute bottom-20 right-0 rounded-2xl border border-white/10 bg-white/10 px-5 py-4 shadow-xl backdrop-blur-md"
-              animate={{
-                y: [0, 12, 0],
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-              }}
+              className="absolute -right-3 bottom-24 hidden rounded-2xl border border-white/10 bg-brand-navy/80 px-4 py-3 shadow-xl backdrop-blur-md sm:block"
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 5, repeat: Infinity }}
             >
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-brand-gold/15 p-2.5">
-                  <TrendingUp className="h-5 w-5 text-brand-gold" />
+                  <Zap className="h-5 w-5 text-brand-gold" />
                 </div>
-
                 <div>
-                  <p className="text-xs text-slate-400">
-                    Focused on
-                  </p>
-
-                  <p className="font-semibold">
-                    Results
-                  </p>
+                  <p className="text-xs text-slate-400">Tech</p>
+                  <p className="font-semibold text-white">Developer</p>
                 </div>
               </div>
-            </motion.div>
-
-            {/* Floating Star */}
-            <motion.div
-              className="absolute right-6 top-8 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/10 backdrop-blur-md"
-              animate={{
-                y: [0, -15, 0],
-              }}
-              transition={{
-                duration: 3.5,
-                repeat: Infinity,
-              }}
-            >
-              <Star className="h-5 w-5 text-brand-gold" />
             </motion.div>
           </motion.div>
         </div>
