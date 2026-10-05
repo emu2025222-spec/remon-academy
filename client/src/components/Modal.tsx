@@ -41,3 +41,5 @@ export function Modal({ open, title, onClose, children, maxWidth = "max-w-lg" }:
     </AnimatePresence>
   );
 }
+
+

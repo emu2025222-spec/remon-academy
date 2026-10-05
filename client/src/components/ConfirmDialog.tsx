@@ -41,3 +41,5 @@ export function ConfirmDialog({ open, title, message, confirmLabel = "Delete", l
     </AnimatePresence>
   );
 }
+
+

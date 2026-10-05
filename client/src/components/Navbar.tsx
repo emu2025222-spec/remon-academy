@@ -79,13 +79,13 @@ export function Navbar() {
           onClick={closeMenu}
           className="group flex items-center gap-3"
         >
-          {/* Temporary premium brand mark */}
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-navy shadow-[0_8px_24px_rgba(15,23,42,0.16)] transition-transform duration-300 group-hover:-translate-y-0.5 dark:bg-brand-gold">
-            <span className="absolute inset-[2px] rounded-[10px] border border-white/20 dark:border-brand-navy/20" />
-
-            <span className="relative font-display text-lg font-black tracking-tight text-white dark:text-brand-navy">
-              R
-            </span>
+          {/* REAL LOGO */}
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(15,23,42,0.10)] transition-transform duration-300 group-hover:-translate-y-0.5">
+            <img
+              src="/logo.jpg"
+              alt="REMON ACADEMY"
+              className="h-full w-full object-contain p-1.5"
+            />
           </div>
 
           <div className="leading-none">
@@ -214,8 +214,13 @@ export function Navbar() {
               <div className="container-page py-4">
                 {/* Mobile brand heading */}
                 <div className="mb-3 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-navy text-sm font-black text-white dark:bg-brand-gold dark:text-brand-navy">
-                    R
+                  {/* REAL MOBILE LOGO */}
+                  <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white">
+                    <img
+                      src="/logo.jpg"
+                      alt="REMON ACADEMY"
+                      className="h-full w-full object-contain p-1"
+                    />
                   </div>
 
                   <div>
@@ -312,3 +317,4 @@ export function Navbar() {
     </header>
   );
 }
+

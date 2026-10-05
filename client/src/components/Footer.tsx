@@ -34,15 +34,17 @@ export function Footer() {
       <div className="pointer-events-none absolute right-[-70px] top-[-70px] h-[200px] w-[200px] rounded-full border border-brand-gold/10" />
 
       <div className="container-page relative">
-        {/* =====================================================
-            TOP BRAND / CTA AREA
-        ====================================================== */}
-
+        {/* TOP BRAND / CTA AREA */}
         <div className="flex flex-col gap-8 border-b border-white/10 py-12 md:flex-row md:items-end md:justify-between md:py-16">
           <div className="max-w-2xl">
+            {/* REAL LOGO */}
             <div className="mb-5 inline-flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-gold text-lg font-black text-brand-navy shadow-lg">
-                R
+              <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg">
+                <img
+                  src="/logo.jpg"
+                  alt="REMON ACADEMY"
+                  className="h-full w-full object-contain p-1.5"
+                />
               </div>
 
               <div>
@@ -81,10 +83,7 @@ export function Footer() {
           </Link>
         </div>
 
-        {/* =====================================================
-            MAIN FOOTER GRID
-        ====================================================== */}
-
+        {/* MAIN FOOTER GRID */}
         <div className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12 lg:py-14">
           {/* Brand */}
           <div>
@@ -210,10 +209,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* =====================================================
-            BOTTOM BAR
-        ====================================================== */}
-
+        {/* BOTTOM BAR */}
         <div className="flex flex-col gap-4 border-t border-white/10 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {currentYear}{" "}
@@ -235,3 +231,4 @@ export function Footer() {
     </footer>
   );
 }
+

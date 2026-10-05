@@ -72,14 +72,19 @@ export default function AdminLogin() {
               to="/"
               className="inline-flex w-fit items-center gap-3 no-underline"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-brand-gold/40 bg-brand-gold/10 font-display text-xl font-semibold text-brand-goldLight">
-                R
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+                <img
+                  src="/logo.jpg"
+                  alt="REMON ACADEMY"
+                  className="h-full w-full object-contain p-1.5"
+                />
               </div>
 
               <div>
                 <p className="font-display text-lg font-semibold text-white">
                   {brand.name}
                 </p>
+
                 <p className="text-[10px] uppercase tracking-[0.28em] text-white/45">
                   Administration
                 </p>
@@ -136,14 +141,19 @@ export default function AdminLogin() {
                 to="/"
                 className="inline-flex items-center gap-3 no-underline"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-brand-gold/40 bg-brand-gold/10 font-display text-xl font-semibold text-brand-navyDark">
-                  R
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(15,23,42,0.10)]">
+                  <img
+                    src="/logo.jpg"
+                    alt="REMON ACADEMY"
+                    className="h-full w-full object-contain p-1.5"
+                  />
                 </div>
 
                 <div>
                   <p className="font-display text-lg font-semibold text-brand-navyDark">
                     {brand.name}
                   </p>
+
                   <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500">
                     Administration
                   </p>
@@ -194,6 +204,7 @@ export default function AdminLogin() {
                     <p className="text-sm font-semibold text-brand-navyDark">
                       Administrator account
                     </p>
+
                     <p className="text-xs text-slate-400">
                       Use your registered credentials
                     </p>
@@ -222,6 +233,7 @@ export default function AdminLogin() {
                     className="group w-full"
                   >
                     <span>Access Dashboard</span>
+
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                   </Button>
                 </div>
@@ -255,3 +267,4 @@ export default function AdminLogin() {
     </main>
   );
 }
+

@@ -22,3 +22,5 @@ export function Pagination({ page, totalPages, onChange }: { page: number; total
     </div>
   );
 }
+
+

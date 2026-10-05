@@ -785,3 +785,4 @@ export default function AdminResults() {
     </div>
   );
 }
+

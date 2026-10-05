@@ -32,3 +32,5 @@ export const adminLinks: SidebarLink[] = [
   { to: "/admin/messages", label: "Messages", icon: MessageSquare },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
+
+

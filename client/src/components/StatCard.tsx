@@ -34,3 +34,5 @@ export function StatCard({ icon: Icon, label, value, suffix = "" }: { icon: Luci
     </motion.div>
   );
 }
+
+
