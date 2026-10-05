@@ -71,7 +71,7 @@ export default function Login() {
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center overflow-hidden border border-brand-gold/40 bg-white">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="REMON ACADEMY"
                   className="h-full w-full object-contain p-1"
                 />
@@ -163,7 +163,7 @@ export default function Login() {
               {/* REAL LOGO */}
               <div className="flex h-11 w-11 items-center justify-center overflow-hidden border border-brand-gold/40 bg-white">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="REMON ACADEMY"
                   className="h-full w-full object-contain p-1"
                 />
@@ -287,4 +287,5 @@ export default function Login() {
     </main>
   );
 }
+
 

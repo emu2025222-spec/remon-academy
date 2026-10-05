@@ -82,7 +82,7 @@ export function Navbar() {
           {/* REAL LOGO */}
           <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(15,23,42,0.10)] transition-transform duration-300 group-hover:-translate-y-0.5">
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="REMON ACADEMY"
               className="h-full w-full object-contain p-1.5"
             />
@@ -217,7 +217,7 @@ export function Navbar() {
                   {/* REAL MOBILE LOGO */}
                   <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white">
                     <img
-                      src="/logo.jpg"
+                      src="/logo.png"
                       alt="REMON ACADEMY"
                       className="h-full w-full object-contain p-1"
                     />
@@ -317,4 +317,5 @@ export function Navbar() {
     </header>
   );
 }
+
 

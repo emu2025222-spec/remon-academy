@@ -79,7 +79,7 @@ export default function ResetPassword() {
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="REMON ACADEMY"
                   className="h-full w-full object-contain p-1.5"
                 />
@@ -168,7 +168,7 @@ export default function ResetPassword() {
             <div className="mb-10 flex items-center justify-center gap-3 lg:hidden">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(16,23,34,0.10)]">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="REMON ACADEMY"
                   className="h-full w-full object-contain p-1.5"
                 />
@@ -292,4 +292,5 @@ export default function ResetPassword() {
     </main>
   );
 }
+
 

@@ -41,7 +41,7 @@ export function Footer() {
             <div className="mb-5 inline-flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg">
                 <img
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="REMON ACADEMY"
                   className="h-full w-full object-contain p-1.5"
                 />
@@ -231,4 +231,5 @@ export function Footer() {
     </footer>
   );
 }
+
 
