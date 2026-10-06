@@ -27,17 +27,48 @@ interface Summary {
   courses?: (Course | string)[];
 }
 
+interface FeeSummaryResponse {
+  totals?: {
+    amount?: number;
+    paid?: number;
+    due?: number;
+    count?: number;
+  };
+
+  // Backward compatibility
+  pendingTotal?: number;
+}
+
 export default function StudentDashboard() {
-  const [profile, setProfile] = useState<Summary | null>(null);
-  const [attendancePct, setAttendancePct] = useState(0);
-  const [latestGpa, setLatestGpa] = useState<number | null>(null);
-  const [pendingFees, setPendingFees] = useState(0);
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] =
+    useState<Summary | null>(null);
+
+  const [attendancePct, setAttendancePct] =
+    useState(0);
+
+  const [latestGpa, setLatestGpa] =
+    useState<number | null>(null);
+
+  const [pendingFees, setPendingFees] =
+    useState(0);
+
+  const [notices, setNotices] =
+    useState<Notice[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
 
   useEffect(() => {
     Promise.all([
+      /* =====================================================
+         PROFILE
+      ===================================================== */
+
       api.get("/students/me"),
+
+      /* =====================================================
+         ATTENDANCE
+      ===================================================== */
 
       api
         .get("/attendance/my")
@@ -51,6 +82,10 @@ export default function StudentDashboard() {
           },
         })),
 
+      /* =====================================================
+         RESULTS
+      ===================================================== */
+
       api
         .get("/results/my")
         .catch(() => ({
@@ -61,15 +96,33 @@ export default function StudentDashboard() {
           },
         })),
 
+      /* =====================================================
+         FEES
+      ===================================================== */
+
       api
         .get("/fees/my")
         .catch(() => ({
           data: {
             data: {
+              totals: {
+                amount: 0,
+                paid: 0,
+                due: 0,
+                count: 0,
+              },
+
+              // Old API compatibility
               pendingTotal: 0,
+
+              fees: [],
             },
           },
         })),
+
+      /* =====================================================
+         NOTICES
+      ===================================================== */
 
       api
         .get("/notices/public")
@@ -79,63 +132,138 @@ export default function StudentDashboard() {
           },
         })),
     ])
-      .then(([p, att, res, fees, notice]) => {
-        setProfile(p.data.data);
+      .then(
+        ([
+          profileResponse,
+          attendanceResponse,
+          resultsResponse,
+          feesResponse,
+          noticeResponse,
+        ]) => {
+          /* =================================================
+             PROFILE
+          ================================================= */
 
-        setAttendancePct(
-          att.data.data.stats?.percentage || 0
-        );
+          setProfile(
+            profileResponse.data.data
+          );
 
-        const results = res.data.data.results || [];
+          /* =================================================
+             ATTENDANCE
+          ================================================= */
 
-        setLatestGpa(
-          results.length ? results[0].gpa : null
-        );
+          setAttendancePct(
+            Number(
+              attendanceResponse.data.data
+                .stats?.percentage || 0
+            )
+          );
 
-        setPendingFees(
-          fees.data.data.pendingTotal || 0
-        );
+          /* =================================================
+             RESULTS
+          ================================================= */
 
-        setNotices(
-          (notice.data.data || []).slice(0, 3)
-        );
+          const results =
+            resultsResponse.data.data
+              .results || [];
 
-        setLoading(false);
-      })
+          setLatestGpa(
+            results.length
+              ? results[0].gpa
+              : null
+          );
+
+          /* =================================================
+             FEES
+
+             New API:
+             data.totals.due
+
+             Old API:
+             data.pendingTotal
+          ================================================= */
+
+          const feeData =
+            feesResponse.data
+              .data as FeeSummaryResponse;
+
+          const dueAmount = Number(
+            feeData?.totals?.due ??
+              feeData?.pendingTotal ??
+              0
+          );
+
+          setPendingFees(
+            Number.isFinite(dueAmount)
+              ? dueAmount
+              : 0
+          );
+
+          /* =================================================
+             NOTICES
+          ================================================= */
+
+          setNotices(
+            (
+              noticeResponse.data
+                .data || []
+            ).slice(0, 3)
+          );
+
+          setLoading(false);
+        }
+      )
       .catch(() => {
         setLoading(false);
       });
   }, []);
 
+  /* =========================================================
+     LOADING
+  ========================================================= */
+
   if (loading) {
-    return <Loader label="Loading your dashboard..." />;
+    return (
+      <Loader label="Loading your dashboard..." />
+    );
   }
 
-  /*
-   * Build assigned courses.
-   *
-   * New students:
-   *   profile.courses[]
-   *
-   * Old students:
-   *   profile.course
-   *
-   * This keeps both old and new student data working.
-   */
+  /* =========================================================
+     BUILD ASSIGNED COURSES
+  =========================================================
+
+     New students:
+       profile.courses[]
+
+     Old students:
+       profile.course
+
+     Both are supported.
+  ========================================================= */
+
   const assignedCourses: Course[] = [];
 
-  if (Array.isArray(profile?.courses)) {
-    profile.courses.forEach((course) => {
-      if (
-        typeof course === "object" &&
-        course !== null
-      ) {
-        assignedCourses.push(course as Course);
+  if (
+    Array.isArray(profile?.courses)
+  ) {
+    profile.courses.forEach(
+      (course) => {
+        if (
+          typeof course === "object" &&
+          course !== null
+        ) {
+          assignedCourses.push(
+            course as Course
+          );
+        }
       }
-    });
+    );
   }
 
-  // Backward compatibility with old single-course data
+  /* =========================================================
+     BACKWARD COMPATIBILITY
+  ========================================================= */
+
   if (
     assignedCourses.length === 0 &&
     profile?.course &&
@@ -146,36 +274,43 @@ export default function StudentDashboard() {
     );
   }
 
-  const courseCount = assignedCourses.length;
+  const courseCount =
+    assignedCourses.length;
 
   return (
     <div className="space-y-8 pb-10">
-      {/* =========================================================
+      {/* =====================================================
           HEADER
-      ========================================================= */}
+      ===================================================== */}
+
       <section className="relative overflow-hidden rounded-3xl bg-brand-navyDark px-6 py-8 text-white shadow-sm sm:px-8 sm:py-10">
         <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full border border-brand-goldLight/10" />
+
         <div className="absolute -bottom-24 right-20 h-56 w-56 rounded-full border border-brand-goldLight/10" />
 
         <div className="relative z-10">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-goldLight">
             <GraduationCap className="h-3.5 w-3.5" />
+
             Student Portal
           </div>
 
           <h1 className="max-w-3xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            Welcome back, {profile?.fullName}
+            Welcome back,{" "}
+            {profile?.fullName}
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">
-            Your academic overview, assigned courses,
-            attendance, results and important academy
+            Your academic overview,
+            assigned courses, attendance,
+            results and important academy
             updates — all in one place.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
               Student ID:
+
               <span className="ml-1.5 font-semibold text-white">
                 {profile?.studentId}
               </span>
@@ -186,17 +321,22 @@ export default function StudentDashboard() {
               className="inline-flex items-center gap-2 rounded-full bg-brand-goldLight px-4 py-2 text-xs font-bold text-brand-navyDark no-underline transition hover:-translate-y-0.5"
             >
               View profile
+
               <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* =========================================================
+      {/* =====================================================
           SUMMARY STATS
-      ========================================================= */}
+      ===================================================== */}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Courses */}
+        {/* ===================================================
+            COURSES
+        =================================================== */}
+
         <div className="card-premium group relative overflow-hidden p-5">
           <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-brand-goldLight/10" />
 
@@ -223,7 +363,10 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Attendance */}
+        {/* ===================================================
+            ATTENDANCE
+        =================================================== */}
+
         <div className="card-premium group relative overflow-hidden p-5">
           <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-emerald-500/5" />
 
@@ -248,7 +391,10 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* GPA */}
+        {/* ===================================================
+            GPA
+        =================================================== */}
+
         <div className="card-premium group relative overflow-hidden p-5">
           <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-blue-500/5" />
 
@@ -273,7 +419,10 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Fees */}
+        {/* ===================================================
+            PENDING FEES
+        =================================================== */}
+
         <div className="card-premium group relative overflow-hidden p-5">
           <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-amber-500/5" />
 
@@ -284,7 +433,10 @@ export default function StudentDashboard() {
               </p>
 
               <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
-                ৳{pendingFees}
+                ৳
+                {pendingFees.toLocaleString(
+                  "en-BD"
+                )}
               </p>
 
               <p className="mt-1 text-xs text-slate-400">
@@ -299,19 +451,22 @@ export default function StudentDashboard() {
         </div>
       </section>
 
-      {/* =========================================================
+      {/* =====================================================
           MAIN CONTENT
-      ========================================================= */}
+      ===================================================== */}
+
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-        {/* =======================================================
+        {/* ===================================================
             COURSES
-        ======================================================= */}
+        =================================================== */}
+
         <section className="card-premium overflow-hidden">
           <div className="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-gold">
                   <BookOpen className="h-4 w-4" />
+
                   Academic
                 </div>
 
@@ -320,7 +475,8 @@ export default function StudentDashboard() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Courses currently assigned to your student account.
+                  Courses currently assigned to
+                  your student account.
                 </p>
               </div>
 
@@ -329,6 +485,7 @@ export default function StudentDashboard() {
                 className="inline-flex items-center gap-2 text-sm font-semibold text-brand-navy no-underline transition hover:text-brand-gold dark:text-brand-goldLight"
               >
                 View profile
+
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
@@ -342,100 +499,107 @@ export default function StudentDashboard() {
                 </div>
 
                 <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  No course has been assigned yet.
+                  No course has been assigned
+                  yet.
                 </p>
 
                 <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-400">
-                  Your academy administration will assign
-                  courses to your account. Please contact the
-                  academy office if you believe this is an error.
+                  Your academy administration
+                  will assign courses to your
+                  account. Please contact the
+                  academy office if you believe
+                  this is an error.
                 </p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
-                {assignedCourses.map((course, index) => (
-                  <div
-                    key={
-                      course._id ||
-                      `assigned-course-${index}`
-                    }
-                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-brand-goldLight/60 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900/40"
-                  >
-                    <div className="absolute left-0 top-0 h-full w-1 bg-brand-goldLight opacity-70" />
+                {assignedCourses.map(
+                  (course, index) => (
+                    <div
+                      key={
+                        course._id ||
+                        `assigned-course-${index}`
+                      }
+                      className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-brand-goldLight/60 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900/40"
+                    >
+                      <div className="absolute left-0 top-0 h-full w-1 bg-brand-goldLight opacity-70" />
 
-                    <div className="pl-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-display text-base font-semibold text-slate-900 dark:text-white">
-                            {course.title}
-                          </p>
-
-                          {course.subject && (
-                            <p className="mt-1 text-xs text-slate-400">
-                              {course.subject}
+                      <div className="pl-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-display text-base font-semibold text-slate-900 dark:text-white">
+                              {course.title}
                             </p>
-                          )}
+
+                            {course.subject && (
+                              <p className="mt-1 text-xs text-slate-400">
+                                {course.subject}
+                              </p>
+                            )}
+                          </div>
+
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-500/10 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" />
+
+                            Active
+                          </span>
                         </div>
 
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-500/10 dark:text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Active
-                        </span>
-                      </div>
+                        <div className="mt-5 space-y-3">
+                          {course.classLevel && (
+                            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5 text-xs dark:border-slate-800">
+                              <span className="text-slate-400">
+                                Class
+                              </span>
 
-                      <div className="mt-5 space-y-3">
-                        {course.classLevel && (
-                          <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5 text-xs dark:border-slate-800">
-                            <span className="text-slate-400">
-                              Class
-                            </span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {course.classLevel}
+                              </span>
+                            </div>
+                          )}
 
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              {course.classLevel}
-                            </span>
-                          </div>
-                        )}
+                          {course.duration && (
+                            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5 text-xs dark:border-slate-800">
+                              <span className="text-slate-400">
+                                Duration
+                              </span>
 
-                        {course.duration && (
-                          <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5 text-xs dark:border-slate-800">
-                            <span className="text-slate-400">
-                              Duration
-                            </span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {course.duration}
+                              </span>
+                            </div>
+                          )}
 
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              {course.duration}
-                            </span>
-                          </div>
-                        )}
+                          {course.fee !== undefined && (
+                            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5 text-xs dark:border-slate-800">
+                              <span className="text-slate-400">
+                                Course Fee
+                              </span>
 
-                        {course.fee !== undefined && (
-                          <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5 text-xs dark:border-slate-800">
-                            <span className="text-slate-400">
-                              Course Fee
-                            </span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                ৳{course.fee}
+                              </span>
+                            </div>
+                          )}
 
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              ৳{course.fee}
-                            </span>
-                          </div>
-                        )}
+                          {course.schedule && (
+                            <div className="flex items-start justify-between gap-4 text-xs">
+                              <span className="flex items-center gap-1.5 text-slate-400">
+                                <Clock3 className="h-3.5 w-3.5" />
 
-                        {course.schedule && (
-                          <div className="flex items-start justify-between gap-4 text-xs">
-                            <span className="flex items-center gap-1.5 text-slate-400">
-                              <Clock3 className="h-3.5 w-3.5" />
-                              Schedule
-                            </span>
+                                Schedule
+                              </span>
 
-                            <span className="max-w-[65%] text-right font-semibold text-slate-700 dark:text-slate-300">
-                              {course.schedule}
-                            </span>
-                          </div>
-                        )}
+                              <span className="max-w-[65%] text-right font-semibold text-slate-700 dark:text-slate-300">
+                                {course.schedule}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
 
@@ -443,22 +607,25 @@ export default function StudentDashboard() {
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-gold" />
 
               <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-                Course enrollment can only be changed by
-                the academy administration.
+                Course enrollment can only be
+                changed by the academy
+                administration.
               </p>
             </div>
           </div>
         </section>
 
-        {/* =======================================================
+        {/* ===================================================
             NOTICES
-        ======================================================= */}
+        =================================================== */}
+
         <section className="card-premium overflow-hidden">
           <div className="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-gold">
                   <Bell className="h-4 w-4" />
+
                   Updates
                 </div>
 
@@ -467,7 +634,8 @@ export default function StudentDashboard() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Important academy announcements.
+                  Important academy
+                  announcements.
                 </p>
               </div>
 
@@ -476,6 +644,7 @@ export default function StudentDashboard() {
                 className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-brand-navy no-underline hover:text-brand-gold dark:text-brand-goldLight"
               >
                 View all
+
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -492,45 +661,56 @@ export default function StudentDashboard() {
               </div>
             ) : (
               <div className="space-y-1">
-                {notices.map((notice, index) => (
-                  <div
-                    key={notice._id}
-                    className="group relative border-b border-slate-100 py-4 last:border-0 dark:border-slate-800"
-                  >
-                    <div className="flex gap-3">
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-goldLight/15 text-brand-gold">
-                        <span className="font-display text-xs font-bold">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                      </div>
+                {notices.map(
+                  (notice, index) => (
+                    <div
+                      key={notice._id}
+                      className="group relative border-b border-slate-100 py-4 last:border-0 dark:border-slate-800"
+                    >
+                      <div className="flex gap-3">
+                        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-goldLight/15 text-brand-gold">
+                          <span className="font-display text-xs font-bold">
+                            {String(
+                              index + 1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
+                        </div>
 
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold leading-5 text-slate-800 dark:text-slate-200">
-                          {notice.title}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold leading-5 text-slate-800 dark:text-slate-200">
+                            {notice.title}
+                          </p>
 
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {new Date(
-                            notice.date
-                          ).toLocaleDateString("en-BD", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {new Date(
+                              notice.date
+                            ).toLocaleDateString(
+                              "en-BD",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             )}
           </div>
         </section>
       </div>
 
-      {/* =========================================================
+      {/* =====================================================
           FOOTER INFO STRIP
-      ========================================================= */}
+      ===================================================== */}
+
       <section className="rounded-3xl border border-slate-200 bg-slate-50/70 px-6 py-6 dark:border-slate-800 dark:bg-slate-900/30">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
@@ -540,12 +720,15 @@ export default function StudentDashboard() {
 
             <div>
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                Keep your academic profile updated.
+                Keep your academic profile
+                updated.
               </p>
 
               <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
-                Check your attendance, results, fees and
-                academy notices regularly to stay informed.
+                Check your attendance,
+                results, fees and academy
+                notices regularly to stay
+                informed.
               </p>
             </div>
           </div>
@@ -555,6 +738,7 @@ export default function StudentDashboard() {
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 no-underline transition hover:border-brand-goldLight hover:text-brand-navy dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           >
             Account details
+
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -562,5 +746,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-
-
