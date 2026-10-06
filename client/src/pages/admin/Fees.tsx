@@ -199,6 +199,49 @@ function getCourseSubject(course: Fee["course"]) {
   return "";
 }
 
+/**
+ * Return a student's assigned course IDs.
+ *
+ * Supports both old:
+ *   student.course
+ *
+ * and new:
+ *   student.courses[]
+ */
+function getAssignedCourseIds(
+  student: Student
+): string[] {
+  const ids = new Set<string>();
+
+  if (Array.isArray(student.courses)) {
+    student.courses.forEach((course) => {
+      if (!course) return;
+
+      if (typeof course === "string") {
+        ids.add(course);
+        return;
+      }
+
+      if (typeof course === "object" && course._id) {
+        ids.add(course._id);
+      }
+    });
+  }
+
+  if (student.course) {
+    if (typeof student.course === "string") {
+      ids.add(student.course);
+    } else if (
+      typeof student.course === "object" &&
+      student.course._id
+    ) {
+      ids.add(student.course._id);
+    }
+  }
+
+  return Array.from(ids);
+}
+
 export default function AdminFees() {
   const [fees, setFees] = useState<FeeWithMonthly[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -211,6 +254,7 @@ export default function AdminFees() {
   const [saving, setSaving] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
+
   const [editTarget, setEditTarget] =
     useState<FeeWithMonthly | null>(null);
 
@@ -236,69 +280,34 @@ export default function AdminFees() {
    * LOAD ALL FEES
    * -------------------------------------------------------
    *
-   * Backend pagination can return only one page.
-   * So we request pages one by one until all records
-   * are loaded.
+   * Try to load a large page once instead of requesting:
+   * page 1 -> page 2 -> page 3 -> page 4...
+   *
+   * This makes the admin page much faster.
    */
   async function loadAllFees() {
-    const allFees: FeeWithMonthly[] = [];
+    const response = await api.get("/fees", {
+      params: {
+        page: 1,
+        limit: 1000,
+      },
+    });
 
-    let page = 1;
-    let hasMore = true;
+    const payload =
+      response.data?.data as
+        | PaginatedResponse<Fee>
+        | Fee[]
+        | undefined;
 
-    while (hasMore) {
-      const response = await api.get("/fees", {
-        params: {
-          page,
-        },
-      });
-
-      const payload =
-        response.data?.data as PaginatedResponse<Fee>;
-
-      const pageData =
-        Array.isArray(payload?.data)
-          ? payload.data
-          : [];
-
-      allFees.push(
-        ...(pageData as FeeWithMonthly[])
-      );
-
-      const totalPages =
-        Number(payload?.totalPages || 0);
-
-      const total =
-        Number(payload?.total || 0);
-
-      const pageSize = Number(
-        payload?.limit ?? pageData.length
-      );
-
-      if (totalPages > 0) {
-        hasMore = page < totalPages;
-      } else if (total > 0 && pageSize > 0) {
-        hasMore = allFees.length < total;
-      } else {
-        hasMore = pageData.length > 0;
-      }
-
-      if (pageData.length === 0) {
-        hasMore = false;
-      }
-
-      page += 1;
-
-      /*
-       * Safety protection.
-       * Prevents an accidental infinite request loop.
-       */
-      if (page > 1000) {
-        hasMore = false;
-      }
+    if (Array.isArray(payload)) {
+      return payload as FeeWithMonthly[];
     }
 
-    return allFees;
+    const pageData = Array.isArray(payload?.data)
+      ? payload.data
+      : [];
+
+    return pageData as FeeWithMonthly[];
   }
 
   /*
@@ -318,13 +327,61 @@ export default function AdminFees() {
 
       setFees(allFees);
 
+      /*
+       * Backend summary structure:
+       *
+       * {
+       *   totals: {
+       *     amount,
+       *     paid,
+       *     due,
+       *     count
+       *   }
+       * }
+       *
+       * Frontend structure:
+       *
+       * totalFee,
+       * totalPaid,
+       * totalDue,
+       * totalRecords
+       */
+      const backendTotals =
+        summaryResponse.data?.data?.totals || {};
+
+      const totalAmount = Number(
+        backendTotals.amount || 0
+      );
+
+      const totalPaid = Number(
+        backendTotals.paid || 0
+      );
+
+      const totalDue = Number(
+        backendTotals.due || 0
+      );
+
+      const totalRecords = Number(
+        backendTotals.count || 0
+      );
+
       setSummary({
-        ...emptySummary,
-        ...(summaryResponse.data?.data || {}),
+        totalRecords,
+        totalFee: totalAmount,
+        totalPaid,
+        totalDue,
+        paidPercentage:
+          totalAmount > 0
+            ? (totalPaid / totalAmount) * 100
+            : 0,
+        duePercentage:
+          totalAmount > 0
+            ? (totalDue / totalAmount) * 100
+            : 0,
       });
 
       /*
-       * Open every existing month initially.
+       * Open every month initially.
        */
       const monthState: Record<string, boolean> = {};
 
@@ -351,20 +408,22 @@ export default function AdminFees() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [studentsResponse, coursesResponse] =
-          await Promise.all([
-            api.get("/students", {
-              params: {
-                limit: 200,
-              },
-            }),
+        const [
+          studentsResponse,
+          coursesResponse,
+        ] = await Promise.all([
+          api.get("/students", {
+            params: {
+              limit: 200,
+            },
+          }),
 
-            api.get("/courses", {
-              params: {
-                limit: 100,
-              },
-            }),
-          ]);
+          api.get("/courses", {
+            params: {
+              limit: 100,
+            },
+          }),
+        ]);
 
         const studentsPayload =
           studentsResponse.data?.data;
@@ -404,13 +463,60 @@ export default function AdminFees() {
 
   /*
    * -------------------------------------------------------
+   * SELECTED STUDENT
+   * -------------------------------------------------------
+   */
+  const selectedCreateStudent = useMemo(() => {
+    if (!createForm.student) {
+      return null;
+    }
+
+    return (
+      students.find(
+        (student) =>
+          student._id === createForm.student
+      ) || null
+    );
+  }, [students, createForm.student]);
+
+  /*
+   * -------------------------------------------------------
+   * COURSES AVAILABLE FOR SELECTED STUDENT
+   * -------------------------------------------------------
+   *
+   * IMPORTANT:
+   * Admin will no longer see every course after selecting
+   * a student.
+   *
+   * Only assigned courses are displayed.
+   */
+  const createAvailableCourses = useMemo(() => {
+    if (!selectedCreateStudent) {
+      return [];
+    }
+
+    const assignedIds = new Set(
+      getAssignedCourseIds(
+        selectedCreateStudent
+      )
+    );
+
+    return courses.filter((course) =>
+      assignedIds.has(course._id)
+    );
+  }, [
+    selectedCreateStudent,
+    courses,
+  ]);
+
+  /*
+   * -------------------------------------------------------
    * FILTER
    * -------------------------------------------------------
    */
   const filteredFees = useMemo(() => {
-    const query = search
-      .trim()
-      .toLowerCase();
+    const query =
+      search.trim().toLowerCase();
 
     return fees.filter((fee) => {
       const studentName =
@@ -519,8 +625,13 @@ export default function AdminFees() {
   const filteredTotals = useMemo(() => {
     return filteredFees.reduce(
       (acc, fee) => {
-        acc.fee += Number(fee.amount || 0);
-        acc.paid += Number(fee.amountPaid || 0);
+        acc.fee += Number(
+          fee.amount || 0
+        );
+
+        acc.paid += Number(
+          fee.amountPaid || 0
+        );
 
         return acc;
       },
@@ -531,9 +642,11 @@ export default function AdminFees() {
     );
   }, [filteredFees]);
 
-  const filteredDue =
+  const filteredDue = Math.max(
+    0,
     filteredTotals.fee -
-    filteredTotals.paid;
+      filteredTotals.paid
+  );
 
   /*
    * -------------------------------------------------------
@@ -595,25 +708,66 @@ export default function AdminFees() {
       return;
     }
 
+    /*
+     * Extra frontend protection:
+     * make sure selected course belongs to selected student.
+     */
+    if (
+      selectedCreateStudent
+    ) {
+      const assignedIds =
+        getAssignedCourseIds(
+          selectedCreateStudent
+        );
+
+      if (
+        !assignedIds.includes(
+          createForm.course
+        )
+      ) {
+        show(
+          "This course is not assigned to the selected student.",
+          "error"
+        );
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
       await api.post("/fees", {
-        student: createForm.student,
-        course: createForm.course,
+        student:
+          createForm.student,
+
+        course:
+          createForm.course,
+
         billingMonth:
           createForm.billingMonth,
+
         amount,
+
         amountPaid,
-        dueDate: createForm.dueDate,
+
+        dueDate:
+          createForm.dueDate,
+
         paymentDate:
-          createForm.paymentDate || undefined,
+          createForm.paymentDate ||
+          undefined,
+
         paymentMethod:
-          createForm.paymentMethod || undefined,
+          createForm.paymentMethod ||
+          undefined,
+
         transactionId:
-          createForm.transactionId || undefined,
+          createForm.transactionId ||
+          undefined,
+
         note:
-          createForm.note || undefined,
+          createForm.note ||
+          undefined,
       });
 
       show(
@@ -622,11 +776,20 @@ export default function AdminFees() {
       );
 
       setCreateOpen(false);
-      setCreateForm(emptyCreate);
+
+      setCreateForm({
+        ...emptyCreate,
+        billingMonth:
+          getCurrentMonth(),
+        dueDate: getToday(),
+      });
 
       await load();
     } catch (err) {
-      show(getErrorMessage(err), "error");
+      show(
+        getErrorMessage(err),
+        "error"
+      );
     } finally {
       setSaving(false);
     }
@@ -637,28 +800,37 @@ export default function AdminFees() {
    * OPEN EDIT
    * -------------------------------------------------------
    */
-  function openEdit(fee: FeeWithMonthly) {
+  function openEdit(
+    fee: FeeWithMonthly
+  ) {
     setEditTarget(fee);
 
     setUpdateForm({
       billingMonth:
         fee.billingMonth || "",
+
       amount:
         String(fee.amount || 0),
+
       amountPaid:
         String(fee.amountPaid || 0),
+
       dueDate:
         fee.dueDate
           ? fee.dueDate.slice(0, 10)
           : "",
+
       paymentDate:
         fee.paymentDate
           ? fee.paymentDate.slice(0, 10)
           : "",
+
       paymentMethod:
         fee.paymentMethod || "",
+
       transactionId:
         fee.transactionId || "",
+
       note:
         fee.note || "",
     });
@@ -711,20 +883,27 @@ export default function AdminFees() {
           billingMonth:
             updateForm.billingMonth ||
             undefined,
+
           amount,
+
           amountPaid,
+
           dueDate:
             updateForm.dueDate ||
             undefined,
+
           paymentDate:
             updateForm.paymentDate ||
             undefined,
+
           paymentMethod:
             updateForm.paymentMethod ||
             undefined,
+
           transactionId:
             updateForm.transactionId ||
             undefined,
+
           note:
             updateForm.note ||
             undefined,
@@ -740,13 +919,23 @@ export default function AdminFees() {
 
       await load();
     } catch (err) {
-      show(getErrorMessage(err), "error");
+      show(
+        getErrorMessage(err),
+        "error"
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  function toggleMonth(month: string) {
+  /*
+   * -------------------------------------------------------
+   * MONTH TOGGLE
+   * -------------------------------------------------------
+   */
+  function toggleMonth(
+    month: string
+  ) {
     setOpenMonths((prev) => ({
       ...prev,
       [month]: !prev[month],
@@ -757,14 +946,18 @@ export default function AdminFees() {
     Math.max(
       0,
       Number(createForm.amount || 0) -
-        Number(createForm.amountPaid || 0)
+        Number(
+          createForm.amountPaid || 0
+        )
     );
 
   const updateDue =
     Math.max(
       0,
       Number(updateForm.amount || 0) -
-        Number(updateForm.amountPaid || 0)
+        Number(
+          updateForm.amountPaid || 0
+        )
     );
 
   /*
@@ -793,7 +986,13 @@ export default function AdminFees() {
 
         <Button
           onClick={() => {
-            setCreateForm(emptyCreate);
+            setCreateForm({
+              ...emptyCreate,
+              billingMonth:
+                getCurrentMonth(),
+              dueDate: getToday(),
+            });
+
             setCreateOpen(true);
           }}
           className="gap-2"
@@ -882,7 +1081,9 @@ export default function AdminFees() {
             type="month"
             value={monthFilter}
             onChange={(e) =>
-              setMonthFilter(e.target.value)
+              setMonthFilter(
+                e.target.value
+              )
             }
             className="input-field"
           />
@@ -890,7 +1091,9 @@ export default function AdminFees() {
           <select
             value={studentFilter}
             onChange={(e) =>
-              setStudentFilter(e.target.value)
+              setStudentFilter(
+                e.target.value
+              )
             }
             className="input-field"
           >
@@ -898,21 +1101,25 @@ export default function AdminFees() {
               All Students
             </option>
 
-            {students.map((student) => (
-              <option
-                key={student._id}
-                value={student._id}
-              >
-                {student.fullName} —{" "}
-                {student.studentId}
-              </option>
-            ))}
+            {students.map(
+              (student) => (
+                <option
+                  key={student._id}
+                  value={student._id}
+                >
+                  {student.fullName} —{" "}
+                  {student.studentId}
+                </option>
+              )
+            )}
           </select>
 
           <select
             value={courseFilter}
             onChange={(e) =>
-              setCourseFilter(e.target.value)
+              setCourseFilter(
+                e.target.value
+              )
             }
             className="input-field"
           >
@@ -920,20 +1127,24 @@ export default function AdminFees() {
               All Courses
             </option>
 
-            {courses.map((course) => (
-              <option
-                key={course._id}
-                value={course._id}
-              >
-                {course.title}
-              </option>
-            ))}
+            {courses.map(
+              (course) => (
+                <option
+                  key={course._id}
+                  value={course._id}
+                >
+                  {course.title}
+                </option>
+              )
+            )}
           </select>
 
           <select
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value)
+              setStatusFilter(
+                e.target.value
+              )
             }
             className="input-field"
           >
@@ -986,7 +1197,7 @@ export default function AdminFees() {
         )}
       </div>
 
-      {/* Filtered total */}
+      {/* Filtered totals */}
       {(search ||
         monthFilter ||
         studentFilter ||
@@ -997,8 +1208,11 @@ export default function AdminFees() {
             <p className="text-xs text-slate-500">
               Filtered Fee
             </p>
+
             <p className="mt-1 font-display text-xl font-bold text-slate-950 dark:text-white">
-              {money(filteredTotals.fee)}
+              {money(
+                filteredTotals.fee
+              )}
             </p>
           </div>
 
@@ -1006,8 +1220,11 @@ export default function AdminFees() {
             <p className="text-xs text-emerald-700 dark:text-emerald-300">
               Filtered Paid
             </p>
+
             <p className="mt-1 font-display text-xl font-bold text-emerald-700 dark:text-emerald-300">
-              {money(filteredTotals.paid)}
+              {money(
+                filteredTotals.paid
+              )}
             </p>
           </div>
 
@@ -1015,8 +1232,11 @@ export default function AdminFees() {
             <p className="text-xs text-red-700 dark:text-red-300">
               Filtered Due
             </p>
+
             <p className="mt-1 font-display text-xl font-bold text-red-700 dark:text-red-300">
-              {money(filteredDue)}
+              {money(
+                filteredDue
+              )}
             </p>
           </div>
         </div>
@@ -1056,7 +1276,11 @@ export default function AdminFees() {
                 );
 
               const monthDue =
-                monthFee - monthPaid;
+                Math.max(
+                  0,
+                  monthFee -
+                    monthPaid
+                );
 
               const isOpen =
                 openMonths[month] !== false;
@@ -1070,7 +1294,9 @@ export default function AdminFees() {
                   <button
                     type="button"
                     onClick={() =>
-                      toggleMonth(month)
+                      toggleMonth(
+                        month
+                      )
                     }
                     className="w-full border-b border-slate-200 bg-slate-50/80 p-5 text-left transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-900"
                   >
@@ -1082,7 +1308,9 @@ export default function AdminFees() {
 
                         <div>
                           <p className="font-display text-xl font-bold text-slate-950 dark:text-white">
-                            {monthLabel(month)}
+                            {monthLabel(
+                              month
+                            )}
                           </p>
 
                           <p className="mt-1 text-sm text-slate-500">
@@ -1100,8 +1328,11 @@ export default function AdminFees() {
                           <span className="text-xs text-slate-500">
                             Fee
                           </span>
+
                           <p className="font-bold text-slate-950 dark:text-white">
-                            {money(monthFee)}
+                            {money(
+                              monthFee
+                            )}
                           </p>
                         </div>
 
@@ -1109,8 +1340,11 @@ export default function AdminFees() {
                           <span className="text-xs text-emerald-700 dark:text-emerald-300">
                             Paid
                           </span>
+
                           <p className="font-bold text-emerald-700 dark:text-emerald-300">
-                            {money(monthPaid)}
+                            {money(
+                              monthPaid
+                            )}
                           </p>
                         </div>
 
@@ -1118,8 +1352,11 @@ export default function AdminFees() {
                           <span className="text-xs text-red-700 dark:text-red-300">
                             Due
                           </span>
+
                           <p className="font-bold text-red-700 dark:text-red-300">
-                            {money(monthDue)}
+                            {money(
+                              monthDue
+                            )}
                           </p>
                         </div>
 
@@ -1134,9 +1371,9 @@ export default function AdminFees() {
                     </div>
                   </button>
 
-                  {/* Desktop table */}
                   {isOpen && (
                     <>
+                      {/* Desktop */}
                       <div className="hidden overflow-x-auto lg:block">
                         <table className="w-full min-w-[1000px]">
                           <thead>
@@ -1384,6 +1621,7 @@ export default function AdminFees() {
                                     <p className="text-[10px] font-semibold uppercase text-slate-500">
                                       Fee
                                     </p>
+
                                     <p className="mt-1 font-bold text-slate-950 dark:text-white">
                                       {money(
                                         amount
@@ -1395,6 +1633,7 @@ export default function AdminFees() {
                                     <p className="text-[10px] font-semibold uppercase text-emerald-600">
                                       Paid
                                     </p>
+
                                     <p className="mt-1 font-bold text-emerald-700 dark:text-emerald-300">
                                       {money(
                                         paid
@@ -1406,6 +1645,7 @@ export default function AdminFees() {
                                     <p className="text-[10px] font-semibold uppercase text-red-600">
                                       Due
                                     </p>
+
                                     <p className="mt-1 font-bold text-red-700 dark:text-red-300">
                                       {money(
                                         due
@@ -1514,6 +1754,7 @@ export default function AdminFees() {
             </div>
           </div>
 
+          {/* Student */}
           <div>
             <label className="label-field">
               Student
@@ -1521,15 +1762,19 @@ export default function AdminFees() {
 
             <select
               value={createForm.student}
-              onChange={(e) =>
+              onChange={(e) => {
+                const studentId =
+                  e.target.value;
+
                 setCreateForm(
                   (prev) => ({
                     ...prev,
                     student:
-                      e.target.value,
+                      studentId,
+                    course: "",
                   })
-                )
-              }
+                );
+              }}
               className="input-field"
             >
               <option value="">
@@ -1550,6 +1795,7 @@ export default function AdminFees() {
             </select>
           </div>
 
+          {/* Course */}
           <div>
             <label className="label-field">
               Course
@@ -1566,65 +1812,86 @@ export default function AdminFees() {
                   })
                 )
               }
-              className="input-field"
+              disabled={
+                !createForm.student
+              }
+              className="input-field disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">
-                Select course
+                {!createForm.student
+                  ? "Select student first"
+                  : createAvailableCourses.length ===
+                    0
+                  ? "No assigned course"
+                  : "Select course"}
               </option>
 
-              {courses.map(
+              {createAvailableCourses.map(
                 (course) => (
                   <option
                     key={course._id}
                     value={course._id}
                   >
                     {course.title}
+                    {course.classLevel
+                      ? ` — ${course.classLevel}`
+                      : ""}
+                    {course.subject
+                      ? ` • ${course.subject}`
+                      : ""}
                   </option>
                 )
               )}
             </select>
+
+            {createForm.student &&
+              createAvailableCourses.length ===
+                0 && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                  No course is assigned to this
+                  student. Assign a course from
+                  the Student management page
+                  first.
+                </p>
+              )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <Input
-                label="Monthly Fee"
-                type="number"
-                min="0"
-                value={createForm.amount}
-                onChange={(e) =>
-                  setCreateForm(
-                    (prev) => ({
-                      ...prev,
-                      amount:
-                        e.target.value,
-                    })
-                  )
-                }
-                placeholder="1000"
-              />
-            </div>
+            <Input
+              label="Monthly Fee"
+              type="number"
+              min="0"
+              value={createForm.amount}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    amount:
+                      e.target.value,
+                  })
+                )
+              }
+              placeholder="1000"
+            />
 
-            <div>
-              <Input
-                label="Paid Amount"
-                type="number"
-                min="0"
-                value={
-                  createForm.amountPaid
-                }
-                onChange={(e) =>
-                  setCreateForm(
-                    (prev) => ({
-                      ...prev,
-                      amountPaid:
-                        e.target.value,
-                    })
-                  )
-                }
-                placeholder="500"
-              />
-            </div>
+            <Input
+              label="Paid Amount"
+              type="number"
+              min="0"
+              value={
+                createForm.amountPaid
+              }
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    amountPaid:
+                      e.target.value,
+                  })
+                )
+              }
+              placeholder="500"
+            />
 
             <div>
               <label className="label-field">
@@ -1724,10 +1991,15 @@ export default function AdminFees() {
 
             <Button
               onClick={handleCreate}
-              disabled={saving}
+              disabled={
+                saving ||
+                !createForm.student ||
+                !createForm.course
+              }
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
+
               {saving
                 ? "Saving..."
                 : "Create Fee"}
@@ -1812,7 +2084,9 @@ export default function AdminFees() {
               label="Fee"
               type="number"
               min="0"
-              value={updateForm.amount}
+              value={
+                updateForm.amount
+              }
               onChange={(e) =>
                 setUpdateForm(
                   (prev) => ({
