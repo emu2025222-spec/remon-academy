@@ -77,12 +77,11 @@ export interface Student {
   class: string;
   group?: string;
 
-  // Existing single-course field.
-  // Kept so old student data continues to work.
+  // Old single-course field.
+  // Kept for backward compatibility.
   course?: Course | string;
 
   // New multiple-course field.
-  // A student can now have multiple courses.
   courses?: (Course | string)[];
 
   profilePhoto?: string;
@@ -114,20 +113,145 @@ export interface AttendanceRecord {
     | "LATE";
 }
 
+/**
+ * Fee
+ *
+ * Monthly fee record.
+ *
+ * billingMonth format:
+ * YYYY-MM
+ *
+ * Example:
+ * 2026-01
+ * 2026-02
+ * 2026-10
+ */
 export interface Fee {
   _id: string;
+
   student: string | Student;
+
   course: string | Course;
+
+  /**
+   * Monthly billing period.
+   *
+   * Optional because old fee records may not
+   * have a billingMonth value.
+   */
+  billingMonth?: string;
+
+  /**
+   * Total fee for this particular month.
+   */
   amount: number;
+
+  /**
+   * Amount already paid for this month.
+   */
   amountPaid: number;
+
+  /**
+   * Remaining amount is calculated as:
+   *
+   * amount - amountPaid
+   */
   dueDate: string;
+
   status:
     | "PAID"
     | "PENDING"
     | "PARTIAL";
+
   paymentDate?: string;
+
   paymentMethod?: string;
+
   transactionId?: string;
+
+  /**
+   * Optional admin note.
+   */
+  note?: string;
+
+  createdAt?: string;
+
+  updatedAt?: string;
+}
+
+/**
+ * Monthly fee summary.
+ *
+ * Used by Admin and Student fee dashboards.
+ */
+export interface MonthlyFeeSummary {
+  month: string;
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+  records: number;
+}
+
+/**
+ * Course-wise fee summary.
+ */
+export interface CourseFeeSummary {
+  courseId?: string;
+
+  course:
+    | {
+        _id?: string;
+        title?: string;
+        subject?: string;
+        classLevel?: string;
+      }
+    | null;
+
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+  records: number;
+}
+
+/**
+ * Admin fee summary response.
+ */
+export interface FeeSummary {
+  totalRecords: number;
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+  paidPercentage: number;
+  duePercentage: number;
+
+  monthlySummary: MonthlyFeeSummary[];
+
+  courseSummary: CourseFeeSummary[];
+}
+
+/**
+ * Student fee response.
+ */
+export interface MyFeesResponse {
+  fees: Fee[];
+
+  pendingTotal: number;
+
+  totalFee: number;
+
+  totalPaid: number;
+
+  totalDue: number;
+
+  totalRecords: number;
+
+  paidPercentage: number;
+
+  duePercentage: number;
+
+  monthlySummary: MonthlyFeeSummary[];
+
+  courseSummary: CourseFeeSummary[];
 }
 
 export interface Assignment {
