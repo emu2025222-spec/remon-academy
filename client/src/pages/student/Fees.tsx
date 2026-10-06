@@ -130,6 +130,10 @@ export default function StudentFees() {
         initialOpen[month] = true;
       });
 
+      if (feeList.some((fee: FeeWithMonthly) => !fee.billingMonth)) {
+        initialOpen.UNASSIGNED = true;
+      }
+
       setOpenMonths(initialOpen);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -166,6 +170,42 @@ export default function StudentFees() {
           .filter(Boolean) as string[]
       )
     ).sort((a, b) => b.localeCompare(a));
+  }, [fees]);
+
+  /*
+   * OVERALL TOTALS
+   *
+   * These are calculated directly from the student's
+   * actual fee records instead of depending on the
+   * backend summary fields.
+   */
+  const overallTotals = useMemo(() => {
+    const totalFee = fees.reduce(
+      (sum, fee) => sum + Number(fee.amount || 0),
+      0
+    );
+
+    const totalPaid = fees.reduce(
+      (sum, fee) => sum + Number(fee.amountPaid || 0),
+      0
+    );
+
+    const totalDue = fees.reduce(
+      (sum, fee) =>
+        sum +
+        Math.max(
+          Number(fee.amount || 0) -
+            Number(fee.amountPaid || 0),
+          0
+        ),
+      0
+    );
+
+    return {
+      totalFee,
+      totalPaid,
+      totalDue,
+    };
   }, [fees]);
 
   const filteredFees = useMemo(() => {
@@ -274,10 +314,17 @@ export default function StudentFees() {
     };
   }, [filteredFees]);
 
+  const displayedTotals =
+    selectedMonth === "ALL" && selectedCourse === "ALL"
+      ? overallTotals
+      : filteredTotals;
+
   const paidPercentage =
-    filteredTotals.totalFee > 0
+    displayedTotals.totalFee > 0
       ? Math.round(
-          (filteredTotals.totalPaid / filteredTotals.totalFee) * 100
+          (displayedTotals.totalPaid /
+            displayedTotals.totalFee) *
+            100
         )
       : 0;
 
@@ -326,8 +373,10 @@ export default function StudentFees() {
     return (
       <div className="container-page py-16">
         <EmptyState message="No fee records found" />
+
         <p className="mt-3 text-center text-sm text-slate-500">
-          Your monthly fee records will appear here once the administration adds them.
+          Your monthly fee records will appear here once the
+          administration adds them.
         </p>
       </div>
     );
@@ -375,6 +424,7 @@ export default function StudentFees() {
 
       {/* Overall cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Total Fee */}
         <div className="card-premium p-5">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-slate-100 p-3">
@@ -387,11 +437,7 @@ export default function StudentFees() {
           </div>
 
           <p className="mt-5 text-2xl font-bold text-slate-950">
-            {formatCurrency(
-              selectedMonth === "ALL" && selectedCourse === "ALL"
-                ? Number(summary?.totalFee || 0)
-                : filteredTotals.totalFee
-            )}
+            {formatCurrency(displayedTotals.totalFee)}
           </p>
 
           <p className="mt-1 text-sm text-slate-500">
@@ -399,6 +445,7 @@ export default function StudentFees() {
           </p>
         </div>
 
+        {/* Paid */}
         <div className="card-premium p-5">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-emerald-50 p-3">
@@ -411,11 +458,7 @@ export default function StudentFees() {
           </div>
 
           <p className="mt-5 text-2xl font-bold text-emerald-700">
-            {formatCurrency(
-              selectedMonth === "ALL" && selectedCourse === "ALL"
-                ? Number(summary?.totalPaid || 0)
-                : filteredTotals.totalPaid
-            )}
+            {formatCurrency(displayedTotals.totalPaid)}
           </p>
 
           <p className="mt-1 text-sm text-slate-500">
@@ -423,6 +466,7 @@ export default function StudentFees() {
           </p>
         </div>
 
+        {/* Due / Unpaid */}
         <div className="card-premium p-5">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-red-50 p-3">
@@ -430,16 +474,12 @@ export default function StudentFees() {
             </div>
 
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Due
+              Due / Unpaid
             </span>
           </div>
 
           <p className="mt-5 text-2xl font-bold text-red-700">
-            {formatCurrency(
-              selectedMonth === "ALL" && selectedCourse === "ALL"
-                ? Number(summary?.totalDue || 0)
-                : filteredTotals.totalDue
-            )}
+            {formatCurrency(displayedTotals.totalDue)}
           </p>
 
           <p className="mt-1 text-sm text-slate-500">
@@ -447,6 +487,7 @@ export default function StudentFees() {
           </p>
         </div>
 
+        {/* Progress */}
         <div className="card-premium p-5">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-brand-gold/10 p-3">

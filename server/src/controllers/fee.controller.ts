@@ -18,18 +18,30 @@ const base = makeCrudControllers(Fee, {
    HELPERS
 ========================================================= */
 
-function normalizeAmount(value: unknown, fieldName: string): number {
+function normalizeAmount(
+  value: unknown,
+  fieldName: string
+): number {
   const amount = Number(value);
 
   if (!Number.isFinite(amount) || amount < 0) {
-    throw new ApiError(400, `${fieldName} must be a valid non-negative number`);
+    throw new ApiError(
+      400,
+      `${fieldName} must be a valid non-negative number`
+    );
   }
 
   return amount;
 }
 
-function validateBillingMonth(value: unknown): string | undefined {
-  if (value === undefined || value === null || value === "") {
+function validateBillingMonth(
+  value: unknown
+): string | undefined {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
     return undefined;
   }
 
@@ -61,9 +73,9 @@ function calculateStatus(
 }
 
 /**
- * Returns all course IDs assigned to a student.
+ * Get all courses assigned to a student.
  *
- * Supports both:
+ * Supports:
  * - old `course`
  * - new `courses[]`
  */
@@ -73,7 +85,10 @@ function getStudentCourseIds(student: {
 }): string[] {
   const ids = new Set<string>();
 
-  if (student.courses && Array.isArray(student.courses)) {
+  if (
+    student.courses &&
+    Array.isArray(student.courses)
+  ) {
     for (const course of student.courses) {
       if (course) {
         ids.add(String(course));
@@ -89,48 +104,98 @@ function getStudentCourseIds(student: {
 }
 
 /**
- * Validate that a course actually belongs to the selected student.
+ * Validate that a course belongs to a student.
  */
 async function validateStudentCourse(
   studentId: string,
   courseId: string
 ) {
   if (!mongoose.Types.ObjectId.isValid(studentId)) {
-    throw new ApiError(400, "Invalid student ID");
+    throw new ApiError(
+      400,
+      "Invalid student ID"
+    );
   }
 
   if (!mongoose.Types.ObjectId.isValid(courseId)) {
-    throw new ApiError(400, "Invalid course ID");
+    throw new ApiError(
+      400,
+      "Invalid course ID"
+    );
   }
 
-  const student = await Student.findById(studentId).select(
+  const student = await Student.findById(
+    studentId
+  ).select(
     "fullName studentId class course courses"
   );
 
   if (!student) {
-    throw new ApiError(404, "Student not found");
+    throw new ApiError(
+      404,
+      "Student not found"
+    );
   }
 
-  const assignedCourseIds = getStudentCourseIds(student);
+  const assignedCourseIds =
+    getStudentCourseIds(student);
 
-  if (!assignedCourseIds.includes(String(courseId))) {
+  if (
+    !assignedCourseIds.includes(
+      String(courseId)
+    )
+  ) {
     throw new ApiError(
       400,
       `The selected course is not assigned to student ${student.fullName}. Please select one of the student's assigned courses.`
     );
   }
 
-  const course = await Course.findById(courseId).select(
+  const course = await Course.findById(
+    courseId
+  ).select(
     "title subject classLevel"
   );
 
   if (!course) {
-    throw new ApiError(404, "Course not found");
+    throw new ApiError(
+      404,
+      "Course not found"
+    );
   }
 
   return {
     student,
     course,
+  };
+}
+
+/**
+ * Safely convert Mongo populated course
+ * into summary information.
+ */
+function getCourseInfo(fee: any) {
+  const populatedCourse =
+    fee.course &&
+    typeof fee.course === "object"
+      ? fee.course
+      : null;
+
+  const courseId = populatedCourse?._id
+    ? String(populatedCourse._id)
+    : String(fee.course || "");
+
+  const courseName =
+    populatedCourse?.title ||
+    "Unknown Course";
+
+  const subject =
+    populatedCourse?.subject || "";
+
+  return {
+    courseId,
+    courseName,
+    subject,
   };
 }
 
@@ -162,31 +227,69 @@ export const createFee = asyncHandler(
     } = req.body;
 
     if (!student) {
-      throw new ApiError(400, "Student is required");
+      throw new ApiError(
+        400,
+        "Student is required"
+      );
     }
 
     if (!course) {
-      throw new ApiError(400, "Course is required");
+      throw new ApiError(
+        400,
+        "Course is required"
+      );
     }
 
     if (!dueDate) {
-      throw new ApiError(400, "Due date is required");
+      throw new ApiError(
+        400,
+        "Due date is required"
+      );
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        String(student)
+      )
+    ) {
+      throw new ApiError(
+        400,
+        "Invalid student ID"
+      );
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        String(course)
+      )
+    ) {
+      throw new ApiError(
+        400,
+        "Invalid course ID"
+      );
     }
 
     const normalizedBillingMonth =
-      validateBillingMonth(billingMonth);
+      validateBillingMonth(
+        billingMonth
+      );
 
-    const normalizedAmount = normalizeAmount(
-      amount,
-      "amount"
-    );
+    const normalizedAmount =
+      normalizeAmount(
+        amount,
+        "amount"
+      );
 
-    const normalizedAmountPaid = normalizeAmount(
-      amountPaid ?? 0,
-      "amountPaid"
-    );
+    const normalizedAmountPaid =
+      normalizeAmount(
+        amountPaid ?? 0,
+        "amountPaid"
+      );
 
-    if (normalizedAmountPaid > normalizedAmount) {
+    if (
+      normalizedAmountPaid >
+      normalizedAmount
+    ) {
       throw new ApiError(
         400,
         "amountPaid cannot be greater than amount"
@@ -194,8 +297,7 @@ export const createFee = asyncHandler(
     }
 
     /* ---------------------------------------------
-       IMPORTANT:
-       Make sure course belongs to this student.
+       Validate student + course relationship
     --------------------------------------------- */
 
     await validateStudentCourse(
@@ -205,15 +307,16 @@ export const createFee = asyncHandler(
 
     /* ---------------------------------------------
        Prevent duplicate monthly fee
-       for same student + course + month
     --------------------------------------------- */
 
     if (normalizedBillingMonth) {
-      const existingFee = await Fee.findOne({
-        student,
-        course,
-        billingMonth: normalizedBillingMonth,
-      });
+      const existingFee =
+        await Fee.findOne({
+          student,
+          course,
+          billingMonth:
+            normalizedBillingMonth,
+        });
 
       if (existingFee) {
         throw new ApiError(
@@ -223,28 +326,64 @@ export const createFee = asyncHandler(
       }
     }
 
+    const parsedDueDate =
+      new Date(dueDate);
+
+    if (
+      Number.isNaN(
+        parsedDueDate.getTime()
+      )
+    ) {
+      throw new ApiError(
+        400,
+        "Invalid due date"
+      );
+    }
+
+    let parsedPaymentDate:
+      | Date
+      | undefined;
+
+    if (paymentDate) {
+      parsedPaymentDate =
+        new Date(paymentDate);
+
+      if (
+        Number.isNaN(
+          parsedPaymentDate.getTime()
+        )
+      ) {
+        throw new ApiError(
+          400,
+          "Invalid payment date"
+        );
+      }
+    }
+
     const fee = await Fee.create({
       student,
       course,
-      billingMonth: normalizedBillingMonth,
+      billingMonth:
+        normalizedBillingMonth,
       amount: normalizedAmount,
-      amountPaid: normalizedAmountPaid,
-      dueDate: new Date(dueDate),
+      amountPaid:
+        normalizedAmountPaid,
+      dueDate: parsedDueDate,
       status: calculateStatus(
         normalizedAmount,
         normalizedAmountPaid
       ),
-      paymentDate: paymentDate
-        ? new Date(paymentDate)
-        : undefined,
+      paymentDate:
+        parsedPaymentDate,
       paymentMethod,
       transactionId,
       note,
     });
 
-    const populatedFee = await Fee.findById(fee._id)
-      .populate("student")
-      .populate("course");
+    const populatedFee =
+      await Fee.findById(fee._id)
+        .populate("student")
+        .populate("course");
 
     return success(
       res,
@@ -263,14 +402,23 @@ export const updateFee = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new ApiError(400, "Invalid fee ID");
+    if (
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
+      throw new ApiError(
+        400,
+        "Invalid fee ID"
+      );
     }
 
-    const existingFee = await Fee.findById(id);
+    const existingFee =
+      await Fee.findById(id);
 
     if (!existingFee) {
-      throw new ApiError(404, "Fee not found");
+      throw new ApiError(
+        404,
+        "Fee not found"
+      );
     }
 
     const {
@@ -286,10 +434,10 @@ export const updateFee = asyncHandler(
       note,
     } = req.body;
 
-    /*
-     * If student/course are not changed,
-     * use the existing values.
-     */
+    /* ---------------------------------------------
+       Determine final student/course
+    --------------------------------------------- */
+
     const finalStudentId = student
       ? String(student)
       : String(existingFee.student);
@@ -299,10 +447,7 @@ export const updateFee = asyncHandler(
       : String(existingFee.course);
 
     /* ---------------------------------------------
-       IMPORTANT:
-       Always validate final student + course pair.
-       This prevents changing a fee to another
-       student's unrelated course.
+       Always validate student + course
     --------------------------------------------- */
 
     await validateStudentCourse(
@@ -310,79 +455,69 @@ export const updateFee = asyncHandler(
       finalCourseId
     );
 
-    const updateData: Record<string, unknown> = {
-      student: finalStudentId,
-      course: finalCourseId,
-    };
+    /* ---------------------------------------------
+       Billing month
+    --------------------------------------------- */
+
+    let finalBillingMonth:
+      | string
+      | undefined;
 
     if (billingMonth !== undefined) {
-      updateData.billingMonth =
-        validateBillingMonth(billingMonth);
+      finalBillingMonth =
+        validateBillingMonth(
+          billingMonth
+        );
+    } else {
+      finalBillingMonth =
+        existingFee.billingMonth;
     }
+
+    /* ---------------------------------------------
+       Amount
+    --------------------------------------------- */
 
     const finalAmount =
       amount !== undefined
-        ? normalizeAmount(amount, "amount")
+        ? normalizeAmount(
+            amount,
+            "amount"
+          )
         : Number(existingFee.amount);
 
     const finalAmountPaid =
       amountPaid !== undefined
-        ? normalizeAmount(amountPaid, "amountPaid")
-        : Number(existingFee.amountPaid);
+        ? normalizeAmount(
+            amountPaid,
+            "amountPaid"
+          )
+        : Number(
+            existingFee.amountPaid
+          );
 
-    if (finalAmountPaid > finalAmount) {
+    if (
+      finalAmountPaid >
+      finalAmount
+    ) {
       throw new ApiError(
         400,
         "amountPaid cannot be greater than amount"
       );
     }
 
-    updateData.amount = finalAmount;
-    updateData.amountPaid = finalAmountPaid;
-
-    if (dueDate !== undefined) {
-      updateData.dueDate = new Date(dueDate);
-    }
-
-    if (paymentDate !== undefined) {
-      updateData.paymentDate = paymentDate
-        ? new Date(paymentDate)
-        : undefined;
-    }
-
-    if (paymentMethod !== undefined) {
-      updateData.paymentMethod = paymentMethod;
-    }
-
-    if (transactionId !== undefined) {
-      updateData.transactionId = transactionId;
-    }
-
-    if (note !== undefined) {
-      updateData.note = note;
-    }
-
-    updateData.status = calculateStatus(
-      finalAmount,
-      finalAmountPaid
-    );
-
     /* ---------------------------------------------
-       Prevent duplicate monthly fee
+       Duplicate monthly fee check
     --------------------------------------------- */
 
-    const finalBillingMonth =
-      updateData.billingMonth !== undefined
-        ? updateData.billingMonth
-        : existingFee.billingMonth;
-
     if (finalBillingMonth) {
-      const duplicate = await Fee.findOne({
-        _id: { $ne: id },
-        student: finalStudentId,
-        course: finalCourseId,
-        billingMonth: finalBillingMonth,
-      });
+      const duplicate =
+        await Fee.findOne({
+          _id: { $ne: id },
+          student: finalStudentId,
+          course: finalCourseId,
+          billingMonth:
+            finalBillingMonth,
+        });
 
       if (duplicate) {
         throw new ApiError(
@@ -392,16 +527,117 @@ export const updateFee = asyncHandler(
       }
     }
 
-    const updatedFee = await Fee.findByIdAndUpdate(
-      id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
+    /* ---------------------------------------------
+       Build update object
+    --------------------------------------------- */
+
+    const updateData: Record<
+      string,
+      unknown
+    > = {
+      student: finalStudentId,
+      course: finalCourseId,
+      billingMonth:
+        finalBillingMonth,
+      amount: finalAmount,
+      amountPaid:
+        finalAmountPaid,
+      status: calculateStatus(
+        finalAmount,
+        finalAmountPaid
+      ),
+    };
+
+    /* ---------------------------------------------
+       Due date
+    --------------------------------------------- */
+
+    if (dueDate !== undefined) {
+      const parsedDueDate =
+        new Date(dueDate);
+
+      if (
+        Number.isNaN(
+          parsedDueDate.getTime()
+        )
+      ) {
+        throw new ApiError(
+          400,
+          "Invalid due date"
+        );
       }
-    )
-      .populate("student")
-      .populate("course");
+
+      updateData.dueDate =
+        parsedDueDate;
+    }
+
+    /* ---------------------------------------------
+       Payment date
+    --------------------------------------------- */
+
+    if (
+      paymentDate !== undefined
+    ) {
+      if (!paymentDate) {
+        updateData.paymentDate =
+          undefined;
+      } else {
+        const parsedPaymentDate =
+          new Date(paymentDate);
+
+        if (
+          Number.isNaN(
+            parsedPaymentDate.getTime()
+          )
+        ) {
+          throw new ApiError(
+            400,
+            "Invalid payment date"
+          );
+        }
+
+        updateData.paymentDate =
+          parsedPaymentDate;
+      }
+    }
+
+    /* ---------------------------------------------
+       Other fields
+    --------------------------------------------- */
+
+    if (
+      paymentMethod !== undefined
+    ) {
+      updateData.paymentMethod =
+        paymentMethod;
+    }
+
+    if (
+      transactionId !== undefined
+    ) {
+      updateData.transactionId =
+        transactionId;
+    }
+
+    if (note !== undefined) {
+      updateData.note = note;
+    }
+
+    /* ---------------------------------------------
+       Update
+    --------------------------------------------- */
+
+    const updatedFee =
+      await Fee.findByIdAndUpdate(
+        id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      )
+        .populate("student")
+        .populate("course");
 
     return success(
       res,
@@ -460,22 +696,44 @@ export const summaryFees = asyncHandler(
     >();
 
     for (const fee of fees) {
-      const amount = Number(fee.amount || 0);
-      const paid = Number(fee.amountPaid || 0);
-      const due = Math.max(amount - paid, 0);
+      const amount = Number(
+        fee.amount || 0
+      );
+
+      const paid = Number(
+        fee.amountPaid || 0
+      );
+
+      const due = Math.max(
+        amount - paid,
+        0
+      );
 
       totalAmount += amount;
       totalPaid += paid;
       totalDue += due;
 
-      const month = fee.billingMonth || "Legacy";
+      /* ---------------------------------------------
+         Monthly summary
+      --------------------------------------------- */
 
-      const existingMonth = monthlyMap.get(month);
+      const month =
+        fee.billingMonth ||
+        "Legacy";
+
+      const existingMonth =
+        monthlyMap.get(month);
 
       if (existingMonth) {
-        existingMonth.amount += amount;
-        existingMonth.paid += paid;
-        existingMonth.due += due;
+        existingMonth.amount +=
+          amount;
+
+        existingMonth.paid +=
+          paid;
+
+        existingMonth.due +=
+          due;
+
         existingMonth.count += 1;
       } else {
         monthlyMap.set(month, {
@@ -487,31 +745,31 @@ export const summaryFees = asyncHandler(
         });
       }
 
-      const populatedCourse =
-        fee.course &&
-        typeof fee.course === "object"
-          ? (fee.course as any)
-          : null;
+      /* ---------------------------------------------
+         Course summary
+      --------------------------------------------- */
 
-      const courseId = populatedCourse?._id
-        ? String(populatedCourse._id)
-        : String(fee.course);
-
-      const courseName =
-        populatedCourse?.title ||
-        "Unknown Course";
-
-      const subject =
-        populatedCourse?.subject || "";
+      const {
+        courseId,
+        courseName,
+        subject,
+      } = getCourseInfo(fee);
 
       const existingCourse =
         courseMap.get(courseId);
 
       if (existingCourse) {
-        existingCourse.amount += amount;
-        existingCourse.paid += paid;
-        existingCourse.due += due;
-        existingCourse.count += 1;
+        existingCourse.amount +=
+          amount;
+
+        existingCourse.paid +=
+          paid;
+
+        existingCourse.due +=
+          due;
+
+        existingCourse.count +=
+          1;
       } else {
         courseMap.set(courseId, {
           courseId,
@@ -533,9 +791,12 @@ export const summaryFees = asyncHandler(
         count: fees.length,
       },
 
-      monthly: Array.from(monthlyMap.values()).sort(
-        (a, b) =>
-          a.month.localeCompare(b.month)
+      monthly: Array.from(
+        monthlyMap.values()
+      ).sort((a, b) =>
+        a.month.localeCompare(
+          b.month
+        )
       ),
 
       courseWise: Array.from(
@@ -555,7 +816,8 @@ export const summaryFees = asyncHandler(
 
 export const myFees = asyncHandler(
   async (req: Request, res: Response) => {
-    const studentId = req.params.studentDocId;
+    const studentId =
+      req.params.studentDocId;
 
     if (!studentId) {
       throw new ApiError(
@@ -564,7 +826,11 @@ export const myFees = asyncHandler(
       );
     }
 
-    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        studentId
+      )
+    ) {
       throw new ApiError(
         400,
         "Invalid student ID"
@@ -609,24 +875,48 @@ export const myFees = asyncHandler(
     >();
 
     for (const fee of fees) {
-      const amount = Number(fee.amount || 0);
-      const paid = Number(fee.amountPaid || 0);
-      const due = Math.max(amount - paid, 0);
+      const amount = Number(
+        fee.amount || 0
+      );
+
+      const paid = Number(
+        fee.amountPaid || 0
+      );
+
+      const due = Math.max(
+        amount - paid,
+        0
+      );
+
+      /* ---------------------------------------------
+         Overall totals
+      --------------------------------------------- */
 
       totalAmount += amount;
       totalPaid += paid;
       totalDue += due;
 
+      /* ---------------------------------------------
+         Monthly summary
+      --------------------------------------------- */
+
       const month =
-        fee.billingMonth || "Legacy";
+        fee.billingMonth ||
+        "Legacy";
 
       const existingMonth =
         monthlyMap.get(month);
 
       if (existingMonth) {
-        existingMonth.amount += amount;
-        existingMonth.paid += paid;
-        existingMonth.due += due;
+        existingMonth.amount +=
+          amount;
+
+        existingMonth.paid +=
+          paid;
+
+        existingMonth.due +=
+          due;
+
         existingMonth.count += 1;
       } else {
         monthlyMap.set(month, {
@@ -638,31 +928,31 @@ export const myFees = asyncHandler(
         });
       }
 
-      const populatedCourse =
-        fee.course &&
-        typeof fee.course === "object"
-          ? (fee.course as any)
-          : null;
+      /* ---------------------------------------------
+         Course summary
+      --------------------------------------------- */
 
-      const courseId = populatedCourse?._id
-        ? String(populatedCourse._id)
-        : String(fee.course);
-
-      const courseName =
-        populatedCourse?.title ||
-        "Unknown Course";
-
-      const subject =
-        populatedCourse?.subject || "";
+      const {
+        courseId,
+        courseName,
+        subject,
+      } = getCourseInfo(fee);
 
       const existingCourse =
         courseMap.get(courseId);
 
       if (existingCourse) {
-        existingCourse.amount += amount;
-        existingCourse.paid += paid;
-        existingCourse.due += due;
-        existingCourse.count += 1;
+        existingCourse.amount +=
+          amount;
+
+        existingCourse.paid +=
+          paid;
+
+        existingCourse.due +=
+          due;
+
+        existingCourse.count +=
+          1;
       } else {
         courseMap.set(courseId, {
           courseId,
@@ -676,6 +966,10 @@ export const myFees = asyncHandler(
       }
     }
 
+    /* ---------------------------------------------
+       Return student fee data
+    --------------------------------------------- */
+
     return success(res, {
       totals: {
         amount: totalAmount,
@@ -687,7 +981,9 @@ export const myFees = asyncHandler(
       monthly: Array.from(
         monthlyMap.values()
       ).sort((a, b) =>
-        a.month.localeCompare(b.month)
+        a.month.localeCompare(
+          b.month
+        )
       ),
 
       courseWise: Array.from(
