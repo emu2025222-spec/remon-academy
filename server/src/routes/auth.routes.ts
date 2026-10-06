@@ -1,7 +1,9 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+
 import { validate } from "../middleware/validate";
 import { requireAuth } from "../middleware/auth";
+
 import {
   registerSchema,
   loginSchema,
@@ -9,6 +11,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
 } from "../utils/validators";
+
 import {
   registerStudent,
   login,
@@ -17,6 +20,7 @@ import {
   me,
   forgotPassword,
   resetPassword,
+  heartbeat,
 } from "../controllers/auth.controller";
 
 const router = Router();
@@ -26,15 +30,95 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Too many attempts. Please try again later.", errors: [] },
+  message: {
+    success: false,
+    message: "Too many attempts. Please try again later.",
+    errors: [],
+  },
 });
 
-router.post("/register", authLimiter, validate(registerSchema), registerStudent);
-router.post("/login", authLimiter, validate(loginSchema), login);
-router.post("/admin/login", authLimiter, validate(adminLoginSchema), adminLogin);
-router.post("/logout", logout);
-router.get("/me", requireAuth, me);
-router.post("/forgot-password", authLimiter, validate(forgotPasswordSchema), forgotPassword);
-router.post("/reset-password/:token", authLimiter, validate(resetPasswordSchema), resetPassword);
+/* =========================================================
+   REGISTER
+========================================================= */
+
+router.post(
+  "/register",
+  authLimiter,
+  validate(registerSchema),
+  registerStudent
+);
+
+/* =========================================================
+   STUDENT LOGIN
+========================================================= */
+
+router.post(
+  "/login",
+  authLimiter,
+  validate(loginSchema),
+  login
+);
+
+/* =========================================================
+   ADMIN LOGIN
+========================================================= */
+
+router.post(
+  "/admin/login",
+  authLimiter,
+  validate(adminLoginSchema),
+  adminLogin
+);
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+router.post(
+  "/logout",
+  logout
+);
+
+/* =========================================================
+   CURRENT USER
+========================================================= */
+
+router.get(
+  "/me",
+  requireAuth,
+  me
+);
+
+/* =========================================================
+   LIVE SESSION HEARTBEAT
+========================================================= */
+
+router.post(
+  "/heartbeat",
+  requireAuth,
+  heartbeat
+);
+
+/* =========================================================
+   FORGOT PASSWORD
+========================================================= */
+
+router.post(
+  "/forgot-password",
+  authLimiter,
+  validate(forgotPasswordSchema),
+  forgotPassword
+);
+
+/* =========================================================
+   RESET PASSWORD
+========================================================= */
+
+router.post(
+  "/reset-password/:token",
+  authLimiter,
+  validate(resetPasswordSchema),
+  resetPassword
+);
 
 export default router;

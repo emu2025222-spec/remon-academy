@@ -47,39 +47,104 @@ import AdminFees from "./pages/admin/Fees";
 import AdminGallery from "./pages/admin/Gallery";
 import AdminMessages from "./pages/admin/Messages";
 import AdminSettings from "./pages/admin/Settings";
+import AdminOnlineStudents from "./pages/admin/OnlineStudents";
 
 export default function App() {
   return (
     <AnimatePresence mode="wait">
       <Routes>
-        {/* Public site */}
+        {/* =====================================================
+            PUBLIC SITE
+        ===================================================== */}
+
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/founder" element={<Founder />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/courses/:id" element={<CourseDetails />} />
-          <Route path="/teachers" element={<Teachers />} />
-          <Route path="/results" element={<Results />} />
-          <Route path="/notices" element={<Notices />} />
-          <Route path="/notices/:id" element={<NoticeDetails />} />
-          <Route path="/gallery" element={<Gallery />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+
+          <Route
+            path="/about"
+            element={<About />}
+          />
+
+          <Route
+            path="/founder"
+            element={<Founder />}
+          />
+
+          <Route
+            path="/courses"
+            element={<Courses />}
+          />
+
+          <Route
+            path="/courses/:id"
+            element={<CourseDetails />}
+          />
+
+          <Route
+            path="/teachers"
+            element={<Teachers />}
+          />
+
+          <Route
+            path="/results"
+            element={<Results />}
+          />
+
+          <Route
+            path="/notices"
+            element={<Notices />}
+          />
+
+          <Route
+            path="/notices/:id"
+            element={<NoticeDetails />}
+          />
+
+          <Route
+            path="/gallery"
+            element={<Gallery />}
+          />
+
+          <Route
+            path="/contact"
+            element={<Contact />}
+          />
+
+          <Route
+            path="/login"
+            element={<Login />}
+          />
+
+          <Route
+            path="/register"
+            element={<Register />}
+          />
+
           <Route
             path="/forgot-password"
             element={<ForgotPassword />}
           />
+
           <Route
             path="/reset-password/:token"
             element={<ResetPassword />}
           />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="*" element={<NotFound />} />
+
+          <Route
+            path="/admin/login"
+            element={<AdminLogin />}
+          />
+
+          <Route
+            path="*"
+            element={<NotFound />}
+          />
         </Route>
 
-        {/* Student dashboard */}
+        {/* =====================================================
+            STUDENT DASHBOARD
+        ===================================================== */}
+
         <Route element={<ProtectedRoute role="STUDENT" />}>
           <Route
             element={
@@ -93,38 +158,47 @@ export default function App() {
               path="/student/dashboard"
               element={<StudentDashboard />}
             />
+
             <Route
               path="/student/profile"
               element={<StudentProfile />}
             />
+
             <Route
               path="/student/courses"
               element={<StudentMyCourses />}
             />
+
             <Route
               path="/student/schedule"
               element={<StudentSchedule />}
             />
+
             <Route
               path="/student/attendance"
               element={<StudentAttendance />}
             />
+
             <Route
               path="/student/results"
               element={<StudentResults />}
             />
+
             <Route
               path="/student/notices"
               element={<StudentNotices />}
             />
+
             <Route
               path="/student/assignments"
               element={<StudentAssignments />}
             />
+
             <Route
               path="/student/fees"
               element={<StudentFees />}
             />
+
             <Route
               path="/student/change-password"
               element={<StudentChangePassword />}
@@ -132,7 +206,10 @@ export default function App() {
           </Route>
         </Route>
 
-        {/* Admin dashboard */}
+        {/* =====================================================
+            ADMIN DASHBOARD
+        ===================================================== */}
+
         <Route element={<ProtectedRoute role="ADMIN" />}>
           <Route
             element={
@@ -146,50 +223,71 @@ export default function App() {
               path="/admin/dashboard"
               element={<AdminDashboard />}
             />
+
             <Route
               path="/admin/students"
               element={<AdminStudents />}
             />
+
             <Route
               path="/admin/courses"
               element={<AdminCourses />}
             />
+
             <Route
               path="/admin/teachers"
               element={<AdminTeachers />}
             />
+
             <Route
               path="/admin/attendance"
               element={<AdminAttendance />}
             />
+
             <Route
               path="/admin/results"
               element={<AdminResults />}
             />
+
             <Route
               path="/admin/notices"
               element={<AdminNotices />}
             />
+
             <Route
               path="/admin/assignments"
               element={<AdminAssignments />}
             />
+
             <Route
               path="/admin/schedule"
               element={<AdminSchedule />}
             />
+
             <Route
               path="/admin/fees"
               element={<AdminFees />}
             />
+
             <Route
               path="/admin/gallery"
               element={<AdminGallery />}
             />
+
             <Route
               path="/admin/messages"
               element={<AdminMessages />}
             />
+
+            {/* =================================================
+                LIVE ONLINE STUDENTS
+            ================================================= */}
+
+            <Route
+              path="/admin/online-students"
+              element={<AdminOnlineStudents />}
+            />
+
             <Route
               path="/admin/settings"
               element={<AdminSettings />}

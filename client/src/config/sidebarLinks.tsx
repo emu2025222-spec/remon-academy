@@ -1,7 +1,22 @@
 import {
-  LayoutDashboard, User, BookOpen, CalendarDays, CalendarCheck, Award, Bell,
-  ClipboardList, Wallet, KeyRound, Users, GraduationCap, Image, MessageSquare, Settings,
+  LayoutDashboard,
+  User,
+  BookOpen,
+  CalendarDays,
+  CalendarCheck,
+  Award,
+  Bell,
+  ClipboardList,
+  Wallet,
+  KeyRound,
+  Users,
+  GraduationCap,
+  Image,
+  MessageSquare,
+  Settings,
+  Activity,
 } from "lucide-react";
+
 import { SidebarLink } from "../layouts/DashboardLayout";
 
 export const studentLinks: SidebarLink[] = [
@@ -28,10 +43,14 @@ export const adminLinks: SidebarLink[] = [
   { to: "/admin/assignments", label: "Assignments", icon: ClipboardList },
   { to: "/admin/schedule", label: "Schedule", icon: CalendarDays },
   { to: "/admin/fees", label: "Fees", icon: Wallet },
+
+  {
+    to: "/admin/online-students",
+    label: "Live Visitors",
+    icon: Activity,
+  },
+
   { to: "/admin/gallery", label: "Gallery", icon: Image },
   { to: "/admin/messages", label: "Messages", icon: MessageSquare },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
-
-
-

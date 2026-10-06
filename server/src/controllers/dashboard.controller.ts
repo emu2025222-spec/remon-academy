@@ -7,18 +7,34 @@ import { Fee } from "../models/Fee";
 import { Attendance } from "../models/Attendance";
 import { ContactMessage } from "../models/ContactMessage";
 import { Notice } from "../models/Notice";
+import { LoginSession } from "../models/LoginSession";
 
 import { asyncHandler } from "../utils/asyncHandler";
 import { success } from "../utils/apiResponse";
 
+/* =========================================================
+   PUBLIC STATS
+========================================================= */
+
 export const publicStats = asyncHandler(
   async (req: Request, res: Response) => {
-    const [totalStudents, totalTeachers, totalCourses] =
-      await Promise.all([
-        Student.countDocuments({ isActive: true }),
-        Teacher.countDocuments({ isActive: true }),
-        Course.countDocuments({ isPublished: true }),
-      ]);
+    const [
+      totalStudents,
+      totalTeachers,
+      totalCourses,
+    ] = await Promise.all([
+      Student.countDocuments({
+        isActive: true,
+      }),
+
+      Teacher.countDocuments({
+        isActive: true,
+      }),
+
+      Course.countDocuments({
+        isPublished: true,
+      }),
+    ]);
 
     return success(res, {
       totalStudents,
@@ -29,19 +45,45 @@ export const publicStats = asyncHandler(
   }
 );
 
+/* =========================================================
+   ADMIN DASHBOARD STATS
+========================================================= */
+
 export const adminDashboardStats = asyncHandler(
   async (req: Request, res: Response) => {
     const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+
+    startOfDay.setHours(
+      0,
+      0,
+      0,
+      0
+    );
 
     const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+
+    endOfDay.setHours(
+      23,
+      59,
+      59,
+      999
+    );
 
     // Last 6 months
     const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+
+    sixMonthsAgo.setMonth(
+      sixMonthsAgo.getMonth() - 5
+    );
+
     sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    sixMonthsAgo.setHours(
+      0,
+      0,
+      0,
+      0
+    );
 
     const [
       totalStudents,
@@ -57,25 +99,42 @@ export const adminDashboardStats = asyncHandler(
       courseWiseStudents,
       studentGrowth,
     ] = await Promise.all([
-      // Students
+      /* =========================
+         STUDENTS
+      ========================= */
+
       Student.countDocuments(),
 
       Student.countDocuments({
         isActive: true,
       }),
 
-      // Courses
+      /* =========================
+         COURSES
+      ========================= */
+
       Course.countDocuments(),
 
-      // Teachers
+      /* =========================
+         TEACHERS
+      ========================= */
+
       Teacher.countDocuments(),
 
-      // Number of unpaid/partial fee records
+      /* =========================
+         FEES
+      ========================= */
+
       Fee.countDocuments({
-        status: { $ne: "PAID" },
+        status: {
+          $ne: "PAID",
+        },
       }),
 
-      // Today's attendance records
+      /* =========================
+         TODAY ATTENDANCE
+      ========================= */
+
       Attendance.countDocuments({
         date: {
           $gte: startOfDay,
@@ -83,28 +142,40 @@ export const adminDashboardStats = asyncHandler(
         },
       }),
 
-      // Unread messages
+      /* =========================
+         CONTACT MESSAGES
+      ========================= */
+
       ContactMessage.countDocuments({
         isRead: false,
       }),
 
-      // Latest notices
+      /* =========================
+         LATEST NOTICES
+      ========================= */
+
       Notice.find()
         .sort("-date")
         .limit(5)
         .lean(),
 
-      // Overall fee summary
+      /* =========================
+         OVERALL FEE SUMMARY
+      ========================= */
+
       Fee.aggregate([
         {
           $group: {
             _id: null,
+
             totalFee: {
               $sum: "$amount",
             },
+
             totalPaid: {
               $sum: "$amountPaid",
             },
+
             totalDue: {
               $sum: {
                 $max: [
@@ -118,6 +189,7 @@ export const adminDashboardStats = asyncHandler(
                 ],
               },
             },
+
             totalRecords: {
               $sum: 1,
             },
@@ -125,7 +197,10 @@ export const adminDashboardStats = asyncHandler(
         },
       ]),
 
-      // Monthly fee collection
+      /* =========================
+         MONTHLY FEE COLLECTION
+      ========================= */
+
       Fee.aggregate([
         {
           $match: {
@@ -134,6 +209,7 @@ export const adminDashboardStats = asyncHandler(
             },
           },
         },
+
         {
           $project: {
             month: {
@@ -146,6 +222,7 @@ export const adminDashboardStats = asyncHandler(
                         null,
                       ],
                     },
+
                     {
                       $ne: [
                         "$billingMonth",
@@ -154,7 +231,9 @@ export const adminDashboardStats = asyncHandler(
                     },
                   ],
                 },
+
                 "$billingMonth",
+
                 {
                   $dateToString: {
                     format: "%Y-%m",
@@ -163,23 +242,35 @@ export const adminDashboardStats = asyncHandler(
                 },
               ],
             },
+
             amount: {
-              $ifNull: ["$amount", 0],
+              $ifNull: [
+                "$amount",
+                0,
+              ],
             },
+
             amountPaid: {
-              $ifNull: ["$amountPaid", 0],
+              $ifNull: [
+                "$amountPaid",
+                0,
+              ],
             },
           },
         },
+
         {
           $group: {
             _id: "$month",
+
             totalFee: {
               $sum: "$amount",
             },
+
             paid: {
               $sum: "$amountPaid",
             },
+
             due: {
               $sum: {
                 $max: [
@@ -195,6 +286,7 @@ export const adminDashboardStats = asyncHandler(
             },
           },
         },
+
         {
           $sort: {
             _id: 1,
@@ -202,7 +294,10 @@ export const adminDashboardStats = asyncHandler(
         },
       ]),
 
-      // Course-wise student count
+      /* =========================
+         COURSE-WISE STUDENTS
+      ========================= */
+
       Student.aggregate([
         {
           $project: {
@@ -214,6 +309,7 @@ export const adminDashboardStats = asyncHandler(
                     [],
                   ],
                 },
+
                 {
                   $cond: [
                     {
@@ -222,7 +318,9 @@ export const adminDashboardStats = asyncHandler(
                         null,
                       ],
                     },
+
                     ["$course"],
+
                     [],
                   ],
                 },
@@ -230,17 +328,21 @@ export const adminDashboardStats = asyncHandler(
             },
           },
         },
+
         {
           $unwind: "$courseIds",
         },
+
         {
           $group: {
             _id: "$courseIds",
+
             students: {
               $sum: 1,
             },
           },
         },
+
         {
           $lookup: {
             from: "courses",
@@ -249,24 +351,29 @@ export const adminDashboardStats = asyncHandler(
             as: "course",
           },
         },
+
         {
           $unwind: {
             path: "$course",
             preserveNullAndEmptyArrays: true,
           },
         },
+
         {
           $project: {
             _id: 1,
+
             courseName: {
               $ifNull: [
                 "$course.name",
                 "Unknown Course",
               ],
             },
+
             students: 1,
           },
         },
+
         {
           $sort: {
             students: -1,
@@ -274,7 +381,10 @@ export const adminDashboardStats = asyncHandler(
         },
       ]),
 
-      // Monthly student growth
+      /* =========================
+         STUDENT GROWTH
+      ========================= */
+
       Student.aggregate([
         {
           $group: {
@@ -282,42 +392,51 @@ export const adminDashboardStats = asyncHandler(
               year: {
                 $year: "$createdAt",
               },
+
               month: {
                 $month: "$createdAt",
               },
             },
+
             count: {
               $sum: 1,
             },
           },
         },
+
         {
           $sort: {
             "_id.year": 1,
             "_id.month": 1,
           },
         },
+
         {
           $limit: 12,
         },
       ]),
     ]);
 
-    const feeTotals = feeOverview[0] || {
-      totalFee: 0,
-      totalPaid: 0,
-      totalDue: 0,
-      totalRecords: 0,
-    };
+    const feeTotals =
+      feeOverview[0] || {
+        totalFee: 0,
+        totalPaid: 0,
+        totalDue: 0,
+        totalRecords: 0,
+      };
 
     const inactiveStudents =
       Math.max(
-        totalStudents - activeStudents,
+        totalStudents -
+          activeStudents,
         0
       );
 
     return success(res, {
-      // Existing dashboard stats
+      /* =========================
+         EXISTING DASHBOARD STATS
+      ========================= */
+
       totalStudents,
       activeStudents,
       totalCourses,
@@ -327,94 +446,447 @@ export const adminDashboardStats = asyncHandler(
       newMessages,
       latestNotices,
 
-      // Analytics
+      /* =========================
+         STUDENT STATUS
+      ========================= */
+
       studentStatus: {
         active: activeStudents,
         inactive: inactiveStudents,
       },
 
+      /* =========================
+         FEE OVERVIEW
+      ========================= */
+
       feeOverview: {
         totalFee: Number(
           feeTotals.totalFee || 0
         ),
+
         totalPaid: Number(
           feeTotals.totalPaid || 0
         ),
+
         totalDue: Number(
           feeTotals.totalDue || 0
         ),
+
         totalRecords: Number(
           feeTotals.totalRecords || 0
         ),
       },
 
-      monthlyFees: monthlyFees.map(
-        (item) => ({
-          month: item._id,
-          totalFee: Number(
-            item.totalFee || 0
-          ),
-          paid: Number(
-            item.paid || 0
-          ),
-          due: Number(
-            item.due || 0
-          ),
-        })
-      ),
+      /* =========================
+         MONTHLY FEES
+      ========================= */
+
+      monthlyFees:
+        monthlyFees.map(
+          (item) => ({
+            month: item._id,
+
+            totalFee: Number(
+              item.totalFee || 0
+            ),
+
+            paid: Number(
+              item.paid || 0
+            ),
+
+            due: Number(
+              item.due || 0
+            ),
+          })
+        ),
+
+      /* =========================
+         COURSE-WISE STUDENTS
+      ========================= */
 
       courseWiseStudents:
         courseWiseStudents.map(
           (item) => ({
             courseId: item._id,
+
             courseName:
               item.courseName,
+
             students: Number(
               item.students || 0
             ),
           })
         ),
 
-      studentGrowth: studentGrowth.map(
-        (item) => ({
-          year: item._id.year,
-          month: item._id.month,
-          count: item.count,
-        })
-      ),
+      /* =========================
+         STUDENT GROWTH
+      ========================= */
+
+      studentGrowth:
+        studentGrowth.map(
+          (item) => ({
+            year:
+              item._id.year,
+
+            month:
+              item._id.month,
+
+            count: item.count,
+          })
+        ),
     });
   }
 );
 
-export const studentGrowthChart = asyncHandler(
-  async (req: Request, res: Response) => {
-    const results = await Student.aggregate([
-      {
-        $group: {
-          _id: {
-            year: {
-              $year: "$createdAt",
-            },
-            month: {
-              $month: "$createdAt",
-            },
-          },
-          count: {
-            $sum: 1,
-          },
-        },
-      },
-      {
-        $sort: {
-          "_id.year": 1,
-          "_id.month": 1,
-        },
-      },
-      {
-        $limit: 12,
-      },
-    ]);
+/* =========================================================
+   LIVE ONLINE STUDENTS
+========================================================= */
 
-    return success(res, results);
+/**
+ * Returns currently active student sessions.
+ *
+ * A student is considered online when:
+ *
+ * 1. role = STUDENT
+ * 2. isOnline = true
+ * 3. lastActiveAt is within the last 60 seconds
+ *
+ * If the browser is closed without logout,
+ * the session automatically becomes offline
+ * after the 60-second threshold.
+ */
+
+export const onlineStudents = asyncHandler(
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    const now = new Date();
+
+    const onlineThreshold =
+      new Date(
+        now.getTime() -
+          60 * 1000
+      );
+
+    /* =========================
+       MARK STALE STUDENTS OFFLINE
+    ========================= */
+
+    await LoginSession.updateMany(
+      {
+        role: "STUDENT",
+
+        isOnline: true,
+
+        lastActiveAt: {
+          $lt: onlineThreshold,
+        },
+      },
+
+      {
+        $set: {
+          isOnline: false,
+        },
+      }
+    );
+
+    /* =========================
+       GET CURRENTLY ONLINE
+    ========================= */
+
+    const sessions =
+      await LoginSession.find({
+        role: "STUDENT",
+
+        isOnline: true,
+
+        lastActiveAt: {
+          $gte: onlineThreshold,
+        },
+      })
+        .populate(
+          "student",
+          "studentId fullName phone class group courses course profilePhoto isActive"
+        )
+        .sort({
+          lastActiveAt: -1,
+        })
+        .lean();
+
+    /* =========================
+       FORMAT RESPONSE
+    ========================= */
+
+    const students =
+      sessions.map(
+        (session) => {
+          const student =
+            session.student as
+              | {
+                  _id?: unknown;
+                  studentId?: string;
+                  fullName?: string;
+                  phone?: string;
+                  class?: string;
+                  group?: string;
+                  profilePhoto?: string;
+                  isActive?: boolean;
+                }
+              | null
+              | undefined;
+
+          return {
+            sessionId:
+              session.sessionId,
+
+            studentId:
+              student?.studentId ||
+              "N/A",
+
+            fullName:
+              student?.fullName ||
+              "Unknown Student",
+
+            phone:
+              student?.phone || "",
+
+            class:
+              student?.class || "",
+
+            group:
+              student?.group || "",
+
+            profilePhoto:
+              student?.profilePhoto ||
+              "",
+
+            loginAt:
+              session.loginAt,
+
+            lastActiveAt:
+              session.lastActiveAt,
+
+            isOnline: true,
+
+            userAgent:
+              session.userAgent ||
+              "",
+          };
+        }
+      );
+
+    return success(res, {
+      online: true,
+
+      count:
+        students.length,
+
+      students,
+
+      checkedAt: now,
+    });
   }
 );
+
+/* =========================================================
+   LOGIN HISTORY
+========================================================= */
+
+/**
+ * Returns recent login sessions.
+ *
+ * This includes both:
+ *
+ * - STUDENT
+ * - ADMIN
+ *
+ * Default: latest 50 sessions
+ *
+ * Maximum: 200 sessions
+ */
+
+export const loginHistory = asyncHandler(
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    const limitParam =
+      Number(
+        req.query.limit || 50
+      );
+
+    const limit =
+      Math.min(
+        Math.max(
+          limitParam,
+          1
+        ),
+        200
+      );
+
+    const sessions =
+      await LoginSession.find()
+        .populate(
+          "student",
+          "studentId fullName phone class group profilePhoto"
+        )
+        .populate(
+          "user",
+          "email role lastLoginAt"
+        )
+        .sort({
+          loginAt: -1,
+        })
+        .limit(limit)
+        .lean();
+
+    const now = Date.now();
+
+    const onlineThreshold =
+      now -
+      60 * 1000;
+
+    const history =
+      sessions.map(
+        (session) => {
+          const student =
+            session.student as
+              | {
+                  studentId?: string;
+                  fullName?: string;
+                  phone?: string;
+                  class?: string;
+                  group?: string;
+                  profilePhoto?: string;
+                }
+              | null
+              | undefined;
+
+          const user =
+            session.user as
+              | {
+                  email?: string;
+                  role?: string;
+                }
+              | null
+              | undefined;
+
+          const isCurrentlyOnline =
+            session.isOnline === true &&
+            session.lastActiveAt.getTime() >=
+              onlineThreshold;
+
+          return {
+            sessionId:
+              session.sessionId,
+
+            role:
+              session.role,
+
+            email:
+              user?.email || "",
+
+            studentId:
+              student?.studentId || "",
+
+            fullName:
+              student?.fullName ||
+              "Admin",
+
+            phone:
+              student?.phone || "",
+
+            class:
+              student?.class || "",
+
+            group:
+              student?.group || "",
+
+            profilePhoto:
+              student?.profilePhoto ||
+              "",
+
+            loginAt:
+              session.loginAt,
+
+            lastActiveAt:
+              session.lastActiveAt,
+
+            logoutAt:
+              session.logoutAt ||
+              null,
+
+            isOnline:
+              isCurrentlyOnline,
+
+            userAgent:
+              session.userAgent ||
+              "",
+
+            ipAddress:
+              session.ipAddress ||
+              "",
+          };
+        }
+      );
+
+    return success(res, {
+      count:
+        history.length,
+
+      history,
+    });
+  }
+);
+
+/* =========================================================
+   STUDENT GROWTH CHART
+========================================================= */
+
+export const studentGrowthChart =
+  asyncHandler(
+    async (
+      req: Request,
+      res: Response
+    ) => {
+      const results =
+        await Student.aggregate([
+          {
+            $group: {
+              _id: {
+                year: {
+                  $year:
+                    "$createdAt",
+                },
+
+                month: {
+                  $month:
+                    "$createdAt",
+                },
+              },
+
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+
+          {
+            $sort: {
+              "_id.year": 1,
+              "_id.month": 1,
+            },
+          },
+
+          {
+            $limit: 12,
+          },
+        ]);
+
+      return success(
+        res,
+        results
+      );
+    }
+  );

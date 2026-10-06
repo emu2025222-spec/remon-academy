@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+} from "react";
 import { api, getErrorMessage } from "../services/api";
 import { UserRole } from "../types";
 
@@ -38,10 +45,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
+  // Keep the student's login session active.
+  useEffect(() => {
+    if (!user || user.role !== "STUDENT") {
+      return;
+    }
+
+    let active = true;
+
+    const sendHeartbeat = async () => {
+      if (!active) return;
+
+      try {
+        await api.post("/auth/heartbeat");
+      } catch {
+        // Do not force logout here.
+        // The existing auth/session flow will handle authentication
+        // if the session is actually invalid.
+      }
+    };
+
+    // Mark the student active immediately.
+    sendHeartbeat();
+
+    // Then keep updating lastActiveAt every 20 seconds.
+    const interval = window.setInterval(() => {
+      sendHeartbeat();
+    }, 20_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [user]);
+
   async function login(identifier: string, password: string) {
     try {
-      const res = await api.post("/auth/login", { identifier, password });
-      setUser({ email: identifier, role: res.data.data.role, profile: res.data.data.profile });
+      const res = await api.post("/auth/login", {
+        identifier,
+        password,
+      });
+
+      setUser({
+        email: identifier,
+        role: res.data.data.role,
+        profile: res.data.data.profile,
+      });
     } catch (err) {
       throw new Error(getErrorMessage(err));
     }
@@ -49,20 +98,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function adminLogin(email: string, password: string) {
     try {
-      const res = await api.post("/auth/admin/login", { email, password });
-      setUser({ email, role: "ADMIN", profile: res.data.data.profile });
+      const res = await api.post("/auth/admin/login", {
+        email,
+        password,
+      });
+
+      setUser({
+        email,
+        role: "ADMIN",
+        profile: res.data.data.profile,
+      });
     } catch (err) {
       throw new Error(getErrorMessage(err));
     }
   }
 
   async function logout() {
-    await api.post("/auth/logout");
-    setUser(null);
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      setUser(null);
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, adminLogin, logout, refresh }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        adminLogin,
+        logout,
+        refresh,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -70,9 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
   return ctx;
 }
-
-
-
