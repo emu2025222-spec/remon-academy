@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
+  ChevronUp,
   CircleDollarSign,
   Edit3,
   FileText,
@@ -10,24 +10,29 @@ import {
   Search,
   UserRound,
   Wallet,
-  X,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
 import {
   Course,
   Fee,
+  PaginatedResponse,
   Student,
 } from "../../types";
 
 import { Loader } from "../../components/Loader";
 import { EmptyState } from "../../components/EmptyState";
-import { Badge } from "../../components/Badge";
-import { Button } from "../../components/Button";
+import { Modal } from "../../components/Modal";
 import { Input } from "../../components/Input";
+import { Button } from "../../components/Button";
+import { Badge } from "../../components/Badge";
 import { useToast } from "../../components/Toast";
 
-interface FeeForm {
+interface FeeWithMonthly extends Fee {
+  billingMonth?: string;
+}
+
+interface CreateForm {
   student: string;
   course: string;
   billingMonth: string;
@@ -40,17 +45,57 @@ interface FeeForm {
   note: string;
 }
 
-interface MonthlyGroup {
-  month: string;
-  records: Fee[];
+interface UpdateForm {
+  billingMonth: string;
+  amount: string;
+  amountPaid: string;
+  dueDate: string;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionId: string;
+  note: string;
+}
+
+interface FeeSummary {
+  totalRecords: number;
   totalFee: number;
   totalPaid: number;
   totalDue: number;
+  paidPercentage: number;
+  duePercentage: number;
 }
 
-const emptyForm: FeeForm = {
+const emptySummary: FeeSummary = {
+  totalRecords: 0,
+  totalFee: 0,
+  totalPaid: 0,
+  totalDue: 0,
+  paidPercentage: 0,
+  duePercentage: 0,
+};
+
+function getCurrentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function getToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const emptyCreate: CreateForm = {
   student: "",
   course: "",
+  billingMonth: getCurrentMonth(),
+  amount: "",
+  amountPaid: "0",
+  dueDate: getToday(),
+  paymentDate: "",
+  paymentMethod: "",
+  transactionId: "",
+  note: "",
+};
+
+const emptyUpdate: UpdateForm = {
   billingMonth: "",
   amount: "",
   amountPaid: "0",
@@ -61,24 +106,22 @@ const emptyForm: FeeForm = {
   note: "",
 };
 
-function formatMonth(month?: string) {
-  if (!month) return "No Month";
+function money(value: number) {
+  return `৳${Number(value || 0).toLocaleString("en-BD")}`;
+}
+
+function monthLabel(month?: string) {
+  if (!month) return "Unassigned";
 
   const [year, monthNumber] = month.split("-");
 
-  if (!year || !monthNumber) {
-    return month;
-  }
+  if (!year || !monthNumber) return month;
 
   const date = new Date(
     Number(year),
     Number(monthNumber) - 1,
     1
   );
-
-  if (Number.isNaN(date.getTime())) {
-    return month;
-  }
 
   return date.toLocaleDateString("en-US", {
     month: "long",
@@ -95,563 +138,450 @@ function formatDate(value?: string) {
     return "-";
   }
 
-  return date.toLocaleDateString("en-BD", {
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 }
 
-function money(value: number) {
-  return `৳${Number(value || 0).toLocaleString()}`;
-}
-
-function getStudentName(
-  student: Fee["student"],
-  students: Student[]
-) {
-  if (
-    typeof student === "object" &&
-    student !== null
-  ) {
-    return student.fullName;
-  }
-
-  const found = students.find(
-    (item) => item._id === student
-  );
-
-  return found?.fullName || "Unknown Student";
-}
-
-function getStudentId(
-  student: Fee["student"],
-  students: Student[]
-) {
-  if (
-    typeof student === "object" &&
-    student !== null
-  ) {
-    return student.studentId;
-  }
-
-  const found = students.find(
-    (item) => item._id === student
-  );
-
-  return found?.studentId || "";
-}
-
-function getCourseName(
-  course: Fee["course"],
-  courses: Course[]
-) {
-  if (
-    typeof course === "object" &&
-    course !== null
-  ) {
-    return course.title;
-  }
-
-  const found = courses.find(
-    (item) => item._id === course
-  );
-
-  return found?.title || "Unknown Course";
-}
-
 function getStatus(amount: number, paid: number) {
-  if (amount <= 0) return "PENDING";
-  if (paid >= amount) return "PAID";
-  if (paid > 0) return "PARTIAL";
+  if (paid >= amount && amount > 0) {
+    return "PAID";
+  }
+
+  if (paid > 0) {
+    return "PARTIAL";
+  }
+
   return "PENDING";
 }
 
-function statusColor(status: string) {
+function getStatusColor(status: string) {
   if (status === "PAID") return "green";
   if (status === "PARTIAL") return "gold";
   return "red";
 }
 
+function getStudentName(student: Fee["student"]) {
+  if (typeof student === "object" && student) {
+    return (student as Student).fullName || "Unknown Student";
+  }
+
+  return "Unknown Student";
+}
+
+function getStudentId(student: Fee["student"]) {
+  if (typeof student === "object" && student) {
+    return (student as Student).studentId || "-";
+  }
+
+  return "-";
+}
+
+function getCourseName(course: Fee["course"]) {
+  if (typeof course === "object" && course) {
+    return (course as Course).title || "Unknown Course";
+  }
+
+  return "Unknown Course";
+}
+
+function getCourseSubject(course: Fee["course"]) {
+  if (typeof course === "object" && course) {
+    const c = course as Course;
+
+    return [c.classLevel, c.subject]
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  return "";
+}
+
 export default function AdminFees() {
-  const [fees, setFees] = useState<Fee[]>([]);
+  const [fees, setFees] = useState<FeeWithMonthly[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+
+  const [summary, setSummary] =
+    useState<FeeSummary>(emptySummary);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] =
+    useState<FeeWithMonthly | null>(null);
+
+  const [createForm, setCreateForm] =
+    useState<CreateForm>(emptyCreate);
+
+  const [updateForm, setUpdateForm] =
+    useState<UpdateForm>(emptyUpdate);
+
   const [search, setSearch] = useState("");
-  const [selectedMonth, setSelectedMonth] =
-    useState("");
+  const [monthFilter, setMonthFilter] = useState("");
+  const [studentFilter, setStudentFilter] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
-  const [expandedMonth, setExpandedMonth] =
-    useState<string | null>(null);
-
-  const [showModal, setShowModal] =
-    useState(false);
-
-  const [editingFee, setEditingFee] =
-    useState<Fee | null>(null);
-
-  const [form, setForm] =
-    useState<FeeForm>(emptyForm);
+  const [openMonths, setOpenMonths] =
+    useState<Record<string, boolean>>({});
 
   const { show } = useToast();
 
   /*
-   * =========================================================
-   * LOAD DATA
-   * =========================================================
+   * -------------------------------------------------------
+   * LOAD ALL FEES
+   * -------------------------------------------------------
+   *
+   * Backend pagination can return only one page.
+   * So we request pages one by one until all records
+   * are loaded.
    */
+  async function loadAllFees() {
+    const allFees: FeeWithMonthly[] = [];
 
-  async function loadData() {
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await api.get("/fees", {
+        params: {
+          page,
+        },
+      });
+
+      const payload =
+        response.data?.data as PaginatedResponse<Fee>;
+
+      const pageData =
+        Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      allFees.push(
+        ...(pageData as FeeWithMonthly[])
+      );
+
+      const totalPages =
+        Number(payload?.totalPages || 0);
+
+      const total =
+        Number(payload?.total || 0);
+
+      const pageSize = Number(
+        payload?.limit ?? pageData.length
+      );
+
+      if (totalPages > 0) {
+        hasMore = page < totalPages;
+      } else if (total > 0 && pageSize > 0) {
+        hasMore = allFees.length < total;
+      } else {
+        hasMore = pageData.length > 0;
+      }
+
+      if (pageData.length === 0) {
+        hasMore = false;
+      }
+
+      page += 1;
+
+      /*
+       * Safety protection.
+       * Prevents an accidental infinite request loop.
+       */
+      if (page > 1000) {
+        hasMore = false;
+      }
+    }
+
+    return allFees;
+  }
+
+  /*
+   * -------------------------------------------------------
+   * LOAD FEES + SUMMARY
+   * -------------------------------------------------------
+   */
+  async function load() {
     setLoading(true);
 
     try {
-      const [
-        feesResponse,
-        studentsResponse,
-        coursesResponse,
-      ] = await Promise.all([
-        api.get("/fees"),
-        api.get("/students"),
-        api.get("/courses"),
-      ]);
+      const [allFees, summaryResponse] =
+        await Promise.all([
+          loadAllFees(),
+          api.get("/fees/summary"),
+        ]);
 
-      const feeData =
-        feesResponse.data.data;
+      setFees(allFees);
 
-      const studentData =
-        studentsResponse.data.data;
+      setSummary({
+        ...emptySummary,
+        ...(summaryResponse.data?.data || {}),
+      });
 
-      const courseData =
-        coursesResponse.data.data;
+      /*
+       * Open every existing month initially.
+       */
+      const monthState: Record<string, boolean> = {};
 
-      setFees(
-        Array.isArray(feeData)
-          ? feeData
-          : feeData?.data || []
-      );
+      allFees.forEach((fee) => {
+        const month =
+          fee.billingMonth || "UNASSIGNED";
 
-      setStudents(
-        Array.isArray(studentData)
-          ? studentData
-          : studentData?.data || []
-      );
+        monthState[month] = true;
+      });
 
-      setCourses(
-        Array.isArray(courseData)
-          ? courseData
-          : courseData?.data || []
-      );
-    } catch (error) {
-      show(
-        getErrorMessage(error),
-        "error"
-      );
+      setOpenMonths(monthState);
+    } catch (err) {
+      show(getErrorMessage(err), "error");
     } finally {
       setLoading(false);
     }
   }
 
+  /*
+   * -------------------------------------------------------
+   * LOAD STUDENTS + COURSES
+   * -------------------------------------------------------
+   */
   useEffect(() => {
-    loadData();
+    async function loadOptions() {
+      try {
+        const [studentsResponse, coursesResponse] =
+          await Promise.all([
+            api.get("/students", {
+              params: {
+                limit: 200,
+              },
+            }),
+
+            api.get("/courses", {
+              params: {
+                limit: 100,
+              },
+            }),
+          ]);
+
+        const studentsPayload =
+          studentsResponse.data?.data;
+
+        const coursesPayload =
+          coursesResponse.data?.data;
+
+        const studentList = Array.isArray(
+          studentsPayload?.data
+        )
+          ? studentsPayload.data
+          : Array.isArray(studentsPayload)
+          ? studentsPayload
+          : [];
+
+        const courseList = Array.isArray(
+          coursesPayload?.data
+        )
+          ? coursesPayload.data
+          : Array.isArray(coursesPayload)
+          ? coursesPayload
+          : [];
+
+        setStudents(studentList);
+        setCourses(courseList);
+      } catch (err) {
+        show(getErrorMessage(err), "error");
+      }
+    }
+
+    loadOptions();
+  }, []);
+
+  useEffect(() => {
+    load();
   }, []);
 
   /*
-   * =========================================================
-   * MONTHLY GROUPING
-   *
-   * Month
-   *   -> Student
-   *      -> Course
-   *         -> Fee
-   *         -> Paid
-   *         -> Due
-   * =========================================================
+   * -------------------------------------------------------
+   * FILTER
+   * -------------------------------------------------------
    */
+  const filteredFees = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
 
-  const monthlyGroups =
-    useMemo<MonthlyGroup[]>(() => {
-      const groups: Record<
-        string,
-        Fee[]
-      > = {};
+    return fees.filter((fee) => {
+      const studentName =
+        getStudentName(fee.student);
 
-      fees.forEach((fee) => {
-        const month =
-          fee.billingMonth ||
-          "UNASSIGNED";
+      const studentId =
+        getStudentId(fee.student);
 
-        if (!groups[month]) {
-          groups[month] = [];
-        }
+      const courseName =
+        getCourseName(fee.course);
 
-        groups[month].push(fee);
-      });
+      const billingMonth =
+        fee.billingMonth || "UNASSIGNED";
 
-      return Object.entries(groups)
-        .map(([month, records]) => {
-          const totalFee =
-            records.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.amount || 0
-                ),
-              0
-            );
-
-          const totalPaid =
-            records.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.amountPaid || 0
-                ),
-              0
-            );
-
-          return {
-            month,
-            records,
-            totalFee,
-            totalPaid,
-            totalDue: Math.max(
-              totalFee - totalPaid,
-              0
-            ),
-          };
-        })
-        .sort((a, b) => {
-          if (
-            a.month ===
-            "UNASSIGNED"
-          )
-            return 1;
-
-          if (
-            b.month ===
-            "UNASSIGNED"
-          )
-            return -1;
-
-          return b.month.localeCompare(
-            a.month
-          );
-        });
-    }, [fees]);
-
-  /*
-   * =========================================================
-   * SEARCH + MONTH FILTER
-   * =========================================================
-   */
-
-  const filteredGroups =
-    useMemo(() => {
-      const keyword =
-        search.trim().toLowerCase();
-
-      return monthlyGroups
-        .filter((group) => {
-          if (
-            selectedMonth &&
-            group.month !==
-              selectedMonth
-          ) {
-            return false;
-          }
-
-          return true;
-        })
-        .map((group) => {
-          if (!keyword) {
-            return group;
-          }
-
-          const records =
-            group.records.filter(
-              (fee) => {
-                const studentName =
-                  getStudentName(
-                    fee.student,
-                    students
-                  ).toLowerCase();
-
-                const studentId =
-                  getStudentId(
-                    fee.student,
-                    students
-                  ).toLowerCase();
-
-                const courseName =
-                  getCourseName(
-                    fee.course,
-                    courses
-                  ).toLowerCase();
-
-                return (
-                  studentName.includes(
-                    keyword
-                  ) ||
-                  studentId.includes(
-                    keyword
-                  ) ||
-                  courseName.includes(
-                    keyword
-                  )
-                );
-              }
-            );
-
-          return {
-            ...group,
-            records,
-            totalFee:
-              records.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.amount || 0
-                  ),
-                0
-              ),
-            totalPaid:
-              records.reduce(
-                (sum, fee) =>
-                  sum +
-                  Number(
-                    fee.amountPaid ||
-                      0
-                  ),
-                0
-              ),
-            totalDue:
-              records.reduce(
-                (sum, fee) =>
-                  sum +
-                  Math.max(
-                    Number(
-                      fee.amount || 0
-                    ) -
-                      Number(
-                        fee.amountPaid ||
-                          0
-                      ),
-                    0
-                  ),
-                0
-              ),
-          };
-        })
-        .filter(
-          (group) =>
-            group.records.length > 0
-        );
-    }, [
-      monthlyGroups,
-      search,
-      selectedMonth,
-      students,
-      courses,
-    ]);
-
-  /*
-   * =========================================================
-   * OVERALL TOTALS
-   * =========================================================
-   */
-
-  const overall = useMemo(() => {
-    const totalFee =
-      fees.reduce(
-        (sum, fee) =>
-          sum +
+      const status =
+        fee.status ||
+        getStatus(
           Number(fee.amount || 0),
-        0
-      );
+          Number(fee.amountPaid || 0)
+        );
 
-    const totalPaid =
-      fees.reduce(
-        (sum, fee) =>
-          sum +
-          Number(
-            fee.amountPaid || 0
-          ),
-        0
-      );
+      const matchesSearch =
+        !query ||
+        [
+          studentName,
+          studentId,
+          courseName,
+          billingMonth,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
 
-    const totalDue = Math.max(
-      totalFee - totalPaid,
-      0
+      const matchesMonth =
+        !monthFilter ||
+        billingMonth === monthFilter;
+
+      const matchesStudent =
+        !studentFilter ||
+        (typeof fee.student === "object" &&
+          fee.student?._id === studentFilter);
+
+      const matchesCourse =
+        !courseFilter ||
+        (typeof fee.course === "object" &&
+          fee.course?._id === courseFilter);
+
+      const matchesStatus =
+        !statusFilter ||
+        status === statusFilter;
+
+      return (
+        matchesSearch &&
+        matchesMonth &&
+        matchesStudent &&
+        matchesCourse &&
+        matchesStatus
+      );
+    });
+  }, [
+    fees,
+    search,
+    monthFilter,
+    studentFilter,
+    courseFilter,
+    statusFilter,
+  ]);
+
+  /*
+   * -------------------------------------------------------
+   * MONTH GROUPS
+   * -------------------------------------------------------
+   */
+  const monthGroups = useMemo(() => {
+    const groups: Record<
+      string,
+      FeeWithMonthly[]
+    > = {};
+
+    filteredFees.forEach((fee) => {
+      const month =
+        fee.billingMonth || "UNASSIGNED";
+
+      if (!groups[month]) {
+        groups[month] = [];
+      }
+
+      groups[month].push(fee);
+    });
+
+    return Object.entries(groups).sort(
+      ([a], [b]) => {
+        if (a === "UNASSIGNED") return 1;
+        if (b === "UNASSIGNED") return -1;
+
+        return b.localeCompare(a);
+      }
     );
-
-    const percentage =
-      totalFee > 0
-        ? Math.round(
-            (totalPaid / totalFee) *
-              100
-          )
-        : 0;
-
-    return {
-      totalFee,
-      totalPaid,
-      totalDue,
-      percentage,
-    };
-  }, [fees]);
+  }, [filteredFees]);
 
   /*
-   * =========================================================
-   * FORM HELPERS
-   * =========================================================
+   * -------------------------------------------------------
+   * FILTERED TOTALS
+   * -------------------------------------------------------
    */
+  const filteredTotals = useMemo(() => {
+    return filteredFees.reduce(
+      (acc, fee) => {
+        acc.fee += Number(fee.amount || 0);
+        acc.paid += Number(fee.amountPaid || 0);
 
-  function openCreateModal(
-    month = selectedMonth
-  ) {
-    setEditingFee(null);
+        return acc;
+      },
+      {
+        fee: 0,
+        paid: 0,
+      }
+    );
+  }, [filteredFees]);
 
-    setForm({
-      ...emptyForm,
-      billingMonth:
-        month &&
-        month !== "UNASSIGNED"
-          ? month
-          : "",
-    });
-
-    setShowModal(true);
-  }
-
-  function openEditModal(
-    fee: Fee
-  ) {
-    setEditingFee(fee);
-
-    setForm({
-      student:
-        typeof fee.student ===
-        "object"
-          ? fee.student._id
-          : fee.student,
-      course:
-        typeof fee.course ===
-        "object"
-          ? fee.course._id
-          : fee.course,
-      billingMonth:
-        fee.billingMonth || "",
-      amount: String(
-        fee.amount || 0
-      ),
-      amountPaid: String(
-        fee.amountPaid || 0
-      ),
-      dueDate: fee.dueDate
-        ? new Date(
-            fee.dueDate
-          )
-            .toISOString()
-            .slice(0, 10)
-        : "",
-      paymentDate:
-        fee.paymentDate
-          ? new Date(
-              fee.paymentDate
-            )
-              .toISOString()
-              .slice(0, 10)
-          : "",
-      paymentMethod:
-        fee.paymentMethod || "",
-      transactionId:
-        fee.transactionId || "",
-      note: fee.note || "",
-    });
-
-    setShowModal(true);
-  }
-
-  function closeModal() {
-    if (saving) return;
-
-    setShowModal(false);
-    setEditingFee(null);
-    setForm(emptyForm);
-  }
-
-  function updateForm(
-    key: keyof FeeForm,
-    value: string
-  ) {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
+  const filteredDue =
+    filteredTotals.fee -
+    filteredTotals.paid;
 
   /*
-   * =========================================================
-   * SUBMIT FEE
-   * =========================================================
+   * -------------------------------------------------------
+   * CREATE
+   * -------------------------------------------------------
    */
-
-  async function handleSubmit(
-    event: React.FormEvent
-  ) {
-    event.preventDefault();
-
-    if (!form.student) {
-      show(
-        "Please select a student.",
-        "error"
-      );
-      return;
-    }
-
-    if (!form.course) {
-      show(
-        "Please select a course.",
-        "error"
-      );
-      return;
-    }
-
-    if (!form.billingMonth) {
-      show(
-        "Please select a billing month.",
-        "error"
-      );
-      return;
-    }
-
+  async function handleCreate() {
     const amount =
-      Number(form.amount);
+      Number(createForm.amount || 0);
 
     const amountPaid =
-      Number(form.amountPaid);
+      Number(createForm.amountPaid || 0);
 
-    if (
-      !Number.isFinite(amount) ||
-      amount < 0
-    ) {
+    if (!createForm.student) {
       show(
-        "Please enter a valid fee amount.",
+        "Please select a student",
         "error"
       );
       return;
     }
 
-    if (
-      !Number.isFinite(amountPaid) ||
-      amountPaid < 0
-    ) {
+    if (!createForm.course) {
       show(
-        "Please enter a valid paid amount.",
+        "Please select a course",
+        "error"
+      );
+      return;
+    }
+
+    if (!createForm.billingMonth) {
+      show(
+        "Please select a billing month",
+        "error"
+      );
+      return;
+    }
+
+    if (amount <= 0) {
+      show(
+        "Fee amount must be greater than 0",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid < 0) {
+      show(
+        "Paid amount cannot be negative",
         "error"
       );
       return;
@@ -659,490 +589,590 @@ export default function AdminFees() {
 
     if (amountPaid > amount) {
       show(
-        "Paid amount cannot be greater than the fee amount.",
+        "Paid amount cannot be greater than fee",
         "error"
       );
       return;
     }
-
-    if (!form.dueDate) {
-      show(
-        "Please select a due date.",
-        "error"
-      );
-      return;
-    }
-
-    const status =
-      getStatus(
-        amount,
-        amountPaid
-      );
-
-    const payload = {
-      student: form.student,
-      course: form.course,
-      billingMonth:
-        form.billingMonth,
-      amount,
-      amountPaid,
-      dueDate:
-        form.dueDate,
-      status,
-      paymentDate:
-        form.paymentDate ||
-        undefined,
-      paymentMethod:
-        form.paymentMethod ||
-        undefined,
-      transactionId:
-        form.transactionId ||
-        undefined,
-      note:
-        form.note || undefined,
-    };
 
     setSaving(true);
 
     try {
-      if (editingFee) {
-        await api.put(
-          `/fees/${editingFee._id}`,
-          payload
-        );
+      await api.post("/fees", {
+        student: createForm.student,
+        course: createForm.course,
+        billingMonth:
+          createForm.billingMonth,
+        amount,
+        amountPaid,
+        dueDate: createForm.dueDate,
+        paymentDate:
+          createForm.paymentDate || undefined,
+        paymentMethod:
+          createForm.paymentMethod || undefined,
+        transactionId:
+          createForm.transactionId || undefined,
+        note:
+          createForm.note || undefined,
+      });
 
-        show(
-          "Monthly fee updated successfully.",
-          "success"
-        );
-      } else {
-        await api.post(
-          "/fees",
-          payload
-        );
-
-        show(
-          "Monthly fee added successfully.",
-          "success"
-        );
-      }
-
-      closeModal();
-      await loadData();
-    } catch (error) {
       show(
-        getErrorMessage(error),
-        "error"
+        "Monthly fee record created successfully",
+        "success"
       );
+
+      setCreateOpen(false);
+      setCreateForm(emptyCreate);
+
+      await load();
+    } catch (err) {
+      show(getErrorMessage(err), "error");
     } finally {
       setSaving(false);
     }
   }
 
   /*
-   * =========================================================
-   * FILTER MONTH OPTIONS
-   * =========================================================
+   * -------------------------------------------------------
+   * OPEN EDIT
+   * -------------------------------------------------------
    */
+  function openEdit(fee: FeeWithMonthly) {
+    setEditTarget(fee);
 
-  const monthOptions =
-    useMemo(() => {
-      return monthlyGroups.map(
-        (group) => group.month
-      );
-    }, [monthlyGroups]);
-
-  /*
-   * =========================================================
-   * LOADING
-   * =========================================================
-   */
-
-  if (loading) {
-    return (
-      <div className="card-premium p-10">
-        <Loader />
-      </div>
-    );
+    setUpdateForm({
+      billingMonth:
+        fee.billingMonth || "",
+      amount:
+        String(fee.amount || 0),
+      amountPaid:
+        String(fee.amountPaid || 0),
+      dueDate:
+        fee.dueDate
+          ? fee.dueDate.slice(0, 10)
+          : "",
+      paymentDate:
+        fee.paymentDate
+          ? fee.paymentDate.slice(0, 10)
+          : "",
+      paymentMethod:
+        fee.paymentMethod || "",
+      transactionId:
+        fee.transactionId || "",
+      note:
+        fee.note || "",
+    });
   }
 
+  /*
+   * -------------------------------------------------------
+   * UPDATE
+   * -------------------------------------------------------
+   */
+  async function handleUpdate() {
+    if (!editTarget) return;
+
+    const amount =
+      Number(updateForm.amount || 0);
+
+    const amountPaid =
+      Number(updateForm.amountPaid || 0);
+
+    if (amount <= 0) {
+      show(
+        "Fee amount must be greater than 0",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid < 0) {
+      show(
+        "Paid amount cannot be negative",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid > amount) {
+      show(
+        "Paid amount cannot be greater than fee",
+        "error"
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await api.put(
+        `/fees/${editTarget._id}`,
+        {
+          billingMonth:
+            updateForm.billingMonth ||
+            undefined,
+          amount,
+          amountPaid,
+          dueDate:
+            updateForm.dueDate ||
+            undefined,
+          paymentDate:
+            updateForm.paymentDate ||
+            undefined,
+          paymentMethod:
+            updateForm.paymentMethod ||
+            undefined,
+          transactionId:
+            updateForm.transactionId ||
+            undefined,
+          note:
+            updateForm.note ||
+            undefined,
+        }
+      );
+
+      show(
+        "Monthly fee record updated",
+        "success"
+      );
+
+      setEditTarget(null);
+
+      await load();
+    } catch (err) {
+      show(getErrorMessage(err), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleMonth(month: string) {
+    setOpenMonths((prev) => ({
+      ...prev,
+      [month]: !prev[month],
+    }));
+  }
+
+  const createDue =
+    Math.max(
+      0,
+      Number(createForm.amount || 0) -
+        Number(createForm.amountPaid || 0)
+    );
+
+  const updateDue =
+    Math.max(
+      0,
+      Number(updateForm.amount || 0) -
+        Number(updateForm.amountPaid || 0)
+    );
+
+  /*
+   * -------------------------------------------------------
+   * UI
+   * -------------------------------------------------------
+   */
   return (
-    <div className="space-y-8 pb-10">
-      {/* =======================================================
-          HEADER
-      ======================================================= */}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-brand-gold">
+            Finance Management
+          </p>
 
-      <section className="relative overflow-hidden rounded-3xl bg-brand-navyDark px-6 py-8 text-white shadow-sm sm:px-8 sm:py-10">
-        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full border border-brand-goldLight/10" />
+          <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+            Monthly Fees
+          </h1>
 
-        <div className="absolute -bottom-24 right-20 h-64 w-64 rounded-full border border-brand-goldLight/10" />
-
-        <div className="relative z-10">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-goldLight">
-            <Wallet className="h-3.5 w-3.5" />
-            Monthly Accounts
-          </div>
-
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                Fee Management
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">
-                Manage fees month by month —
-                Student → Course → Fee → Paid → Due.
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              onClick={() =>
-                openCreateModal()
-              }
-              className="w-full sm:w-auto"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Monthly Fee
-            </Button>
-          </div>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Manage every student fee month by month:
+            Student → Course → Fee → Paid → Due.
+          </p>
         </div>
-      </section>
 
-      {/* =======================================================
-          OVERALL SUMMARY
-      ======================================================= */}
+        <Button
+          onClick={() => {
+            setCreateForm(emptyCreate);
+            setCreateOpen(true);
+          }}
+          className="gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add Monthly Fee
+        </Button>
+      </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Main totals */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="card-premium p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                Total Fee
-              </p>
-
-              <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
-                {money(
-                  overall.totalFee
-                )}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-goldLight/15 text-brand-gold">
-              <CircleDollarSign className="h-5 w-5" />
-            </div>
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <FileText className="h-5 w-5" />
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Records
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+            {summary.totalRecords}
+          </p>
         </div>
 
         <div className="card-premium p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                Total Paid
-              </p>
-
-              <p className="mt-2 font-display text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-                {money(
-                  overall.totalPaid
-                )}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+            <CircleDollarSign className="h-5 w-5" />
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Fee
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+            {money(summary.totalFee)}
+          </p>
         </div>
 
         <div className="card-premium p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                Total Due
-              </p>
-
-              <p className="mt-2 font-display text-2xl font-semibold text-red-600 dark:text-red-400">
-                {money(
-                  overall.totalDue
-                )}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400">
-              <FileText className="h-5 w-5" />
-            </div>
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+            <Wallet className="h-5 w-5" />
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Paid
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+            {money(summary.totalPaid)}
+          </p>
         </div>
 
         <div className="card-premium p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="w-full">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                Collection
-              </p>
-
-              <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
-                {overall.percentage}%
-              </p>
-
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-brand-goldLight"
-                  style={{
-                    width: `${overall.percentage}%`,
-                  }}
-                />
-              </div>
-            </div>
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300">
+            <CalendarDays className="h-5 w-5" />
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Due
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-red-700 dark:text-red-300">
+            {money(summary.totalDue)}
+          </p>
         </div>
-      </section>
+      </div>
 
-      {/* =======================================================
-          FILTER BAR
-      ======================================================= */}
-
-      <section className="card-premium p-5">
-        <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto]">
+      {/* Filters */}
+      <div className="card-premium p-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
             <input
               value={search}
-              onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
+              onChange={(e) =>
+                setSearch(e.target.value)
               }
-              placeholder="Search student, student ID or course..."
+              placeholder="Search student, ID, course..."
               className="input-field pl-10"
             />
           </div>
 
+          <input
+            type="month"
+            value={monthFilter}
+            onChange={(e) =>
+              setMonthFilter(e.target.value)
+            }
+            className="input-field"
+          />
+
           <select
-            value={selectedMonth}
-            onChange={(event) =>
-              setSelectedMonth(
-                event.target.value
-              )
+            value={studentFilter}
+            onChange={(e) =>
+              setStudentFilter(e.target.value)
             }
             className="input-field"
           >
             <option value="">
-              All Months
+              All Students
             </option>
 
-            {monthOptions.map(
-              (month) => (
-                <option
-                  key={month}
-                  value={month}
-                >
-                  {formatMonth(month)}
-                </option>
-              )
-            )}
+            {students.map((student) => (
+              <option
+                key={student._id}
+                value={student._id}
+              >
+                {student.fullName} —{" "}
+                {student.studentId}
+              </option>
+            ))}
           </select>
 
-          <Button
-            type="button"
-            onClick={() =>
-              openCreateModal(
-                selectedMonth
-              )
+          <select
+            value={courseFilter}
+            onChange={(e) =>
+              setCourseFilter(e.target.value)
             }
-            className="w-full lg:w-auto"
+            className="input-field"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Fee
-          </Button>
+            <option value="">
+              All Courses
+            </option>
+
+            {courses.map((course) => (
+              <option
+                key={course._id}
+                value={course._id}
+              >
+                {course.title}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value)
+            }
+            className="input-field"
+          >
+            <option value="">
+              All Status
+            </option>
+
+            <option value="PAID">
+              Paid
+            </option>
+
+            <option value="PARTIAL">
+              Partial
+            </option>
+
+            <option value="PENDING">
+              Pending
+            </option>
+          </select>
         </div>
-      </section>
 
-      {/* =======================================================
-          MONTHLY LEDGER
-      ======================================================= */}
+        {(search ||
+          monthFilter ||
+          studentFilter ||
+          courseFilter ||
+          statusFilter) && (
+          <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-semibold text-slate-900 dark:text-white">
+                {filteredFees.length}
+              </span>{" "}
+              fee records
+            </p>
 
-      {filteredGroups.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setMonthFilter("");
+                setStudentFilter("");
+                setCourseFilter("");
+                setStatusFilter("");
+              }}
+              className="text-sm font-semibold text-brand-gold hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Filtered total */}
+      {(search ||
+        monthFilter ||
+        studentFilter ||
+        courseFilter ||
+        statusFilter) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs text-slate-500">
+              Filtered Fee
+            </p>
+            <p className="mt-1 font-display text-xl font-bold text-slate-950 dark:text-white">
+              {money(filteredTotals.fee)}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <p className="text-xs text-emerald-700 dark:text-emerald-300">
+              Filtered Paid
+            </p>
+            <p className="mt-1 font-display text-xl font-bold text-emerald-700 dark:text-emerald-300">
+              {money(filteredTotals.paid)}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-900/40 dark:bg-red-950/20">
+            <p className="text-xs text-red-700 dark:text-red-300">
+              Filtered Due
+            </p>
+            <p className="mt-1 font-display text-xl font-bold text-red-700 dark:text-red-300">
+              {money(filteredDue)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Fee history */}
+      {loading ? (
+        <div className="card-premium flex min-h-[300px] items-center justify-center">
+          <Loader />
+        </div>
+      ) : monthGroups.length === 0 ? (
         <div className="card-premium p-8">
-          <EmptyState message="No monthly fee records found." />
+          <EmptyState message="No fee records found. There are no fee records matching the current filters." />
         </div>
       ) : (
         <div className="space-y-5">
-          {filteredGroups.map(
-            (group) => {
+          {monthGroups.map(
+            ([month, monthFees]) => {
+              const monthFee =
+                monthFees.reduce(
+                  (sum, fee) =>
+                    sum +
+                    Number(
+                      fee.amount || 0
+                    ),
+                  0
+                );
+
+              const monthPaid =
+                monthFees.reduce(
+                  (sum, fee) =>
+                    sum +
+                    Number(
+                      fee.amountPaid || 0
+                    ),
+                  0
+                );
+
+              const monthDue =
+                monthFee - monthPaid;
+
               const isOpen =
-                expandedMonth ===
-                  group.month ||
-                expandedMonth ===
-                  null;
+                openMonths[month] !== false;
 
               return (
                 <section
-                  key={group.month}
-                  className="card-premium overflow-hidden"
+                  key={month}
+                  className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950"
                 >
                   {/* Month header */}
-
                   <button
                     type="button"
                     onClick={() =>
-                      setExpandedMonth(
-                        isOpen
-                          ? group.month
-                          : null
-                      )
+                      toggleMonth(month)
                     }
-                    className="flex w-full items-center justify-between gap-5 px-5 py-5 text-left transition hover:bg-slate-50/60 dark:hover:bg-slate-900/40 sm:px-6"
+                    className="w-full border-b border-slate-200 bg-slate-50/80 p-5 text-left transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-900"
                   >
-                    <div className="flex min-w-0 items-center gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-goldLight/15 text-brand-gold">
-                        <CalendarDays className="h-5 w-5" />
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+                          <CalendarDays className="h-5 w-5" />
+                        </div>
+
+                        <div>
+                          <p className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                            {monthLabel(month)}
+                          </p>
+
+                          <p className="mt-1 text-sm text-slate-500">
+                            {monthFees.length} fee{" "}
+                            {monthFees.length ===
+                            1
+                              ? "record"
+                              : "records"}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="font-display text-xl font-semibold text-slate-900 dark:text-white">
-                          {formatMonth(
-                            group.month
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 dark:border-slate-700 dark:bg-slate-950">
+                          <span className="text-xs text-slate-500">
+                            Fee
+                          </span>
+                          <p className="font-bold text-slate-950 dark:text-white">
+                            {money(monthFee)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                          <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                            Paid
+                          </span>
+                          <p className="font-bold text-emerald-700 dark:text-emerald-300">
+                            {money(monthPaid)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 dark:border-red-900/50 dark:bg-red-950/30">
+                          <span className="text-xs text-red-700 dark:text-red-300">
+                            Due
+                          </span>
+                          <p className="font-bold text-red-700 dark:text-red-300">
+                            {money(monthDue)}
+                          </p>
+                        </div>
+
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
+                          {isOpen ? (
+                            <ChevronUp className="h-5 w-5" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5" />
                           )}
-                        </p>
-
-                        <p className="mt-1 text-xs text-slate-400">
-                          {group.records.length}{" "}
-                          fee records
-                        </p>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-5">
-                      <div className="hidden text-right sm:block">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                          Fee / Paid / Due
-                        </p>
-
-                        <p className="mt-1 text-sm font-semibold">
-                          <span className="text-slate-700 dark:text-slate-200">
-                            {money(
-                              group.totalFee
-                            )}
-                          </span>
-
-                          <span className="mx-1 text-slate-300">
-                            /
-                          </span>
-
-                          <span className="text-emerald-600">
-                            {money(
-                              group.totalPaid
-                            )}
-                          </span>
-
-                          <span className="mx-1 text-slate-300">
-                            /
-                          </span>
-
-                          <span className="text-red-600">
-                            {money(
-                              group.totalDue
-                            )}
-                          </span>
-                        </p>
-                      </div>
-
-                      <ChevronDown
-                        className={`h-5 w-5 text-slate-400 transition-transform ${
-                          isOpen
-                            ? "rotate-180"
-                            : ""
-                        }`}
-                      />
                     </div>
                   </button>
 
-                  {/* Mobile monthly summary */}
-
-                  <div className="grid grid-cols-3 gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800 sm:hidden">
-                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900/50">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                        Fee
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
-                        {money(
-                          group.totalFee
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-600/70">
-                        Paid
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                        {money(
-                          group.totalPaid
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-red-50 p-3 dark:bg-red-500/10">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-red-500/70">
-                        Due
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
-                        {money(
-                          group.totalDue
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* =================================================
-                      MONTH RECORDS
-                  ================================================= */}
-
+                  {/* Desktop table */}
                   {isOpen && (
-                    <div className="border-t border-slate-100 dark:border-slate-800">
-                      {/* Desktop */}
-
-                      <div className="hidden overflow-x-auto md:block">
-                        <table className="w-full text-sm">
-                          <thead className="bg-slate-50/80 dark:bg-slate-900/40">
-                            <tr>
-                              <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    <>
+                      <div className="hidden overflow-x-auto lg:block">
+                        <table className="w-full min-w-[1000px]">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-left dark:border-slate-800">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
                                 Student
                               </th>
 
-                              <th className="px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
                                 Course
                               </th>
 
-                              <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
                                 Fee
                               </th>
 
-                              <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-emerald-600">
                                 Paid
                               </th>
 
-                              <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-red-600">
                                 Due
                               </th>
 
-                              <th className="px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
                                 Status
                               </th>
 
-                              <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
                                 Action
                               </th>
                             </tr>
                           </thead>
 
                           <tbody>
-                            {group.records.map(
+                            {monthFees.map(
                               (fee) => {
                                 const amount =
                                   Number(
@@ -1158,12 +1188,13 @@ export default function AdminFees() {
 
                                 const due =
                                   Math.max(
+                                    0,
                                     amount -
-                                      paid,
-                                    0
+                                      paid
                                   );
 
                                 const status =
+                                  fee.status ||
                                   getStatus(
                                     amount,
                                     paid
@@ -1174,95 +1205,83 @@ export default function AdminFees() {
                                     key={
                                       fee._id
                                     }
-                                    className="border-t border-slate-100 dark:border-slate-800"
+                                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 dark:border-slate-800/80 dark:hover:bg-slate-900/50"
                                   >
-                                    {/* Student */}
-
                                     <td className="px-6 py-5">
                                       <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-goldLight">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                           <UserRound className="h-4 w-4" />
                                         </div>
 
                                         <div>
-                                          <p className="font-semibold text-slate-800 dark:text-slate-200">
+                                          <p className="font-semibold text-slate-950 dark:text-white">
                                             {getStudentName(
-                                              fee.student,
-                                              students
+                                              fee.student
                                             )}
                                           </p>
 
-                                          <p className="mt-0.5 text-xs text-slate-400">
+                                          <p className="mt-0.5 text-xs text-slate-500">
+                                            ID:{" "}
                                             {getStudentId(
-                                              fee.student,
-                                              students
+                                              fee.student
                                             )}
                                           </p>
                                         </div>
                                       </div>
                                     </td>
 
-                                    {/* Course */}
-
-                                    <td className="px-4 py-5">
-                                      <p className="font-medium text-slate-700 dark:text-slate-300">
+                                    <td className="px-6 py-5">
+                                      <p className="font-medium text-slate-800 dark:text-slate-200">
                                         {getCourseName(
-                                          fee.course,
-                                          courses
+                                          fee.course
+                                        )}
+                                      </p>
+
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        {getCourseSubject(
+                                          fee.course
                                         )}
                                       </p>
                                     </td>
 
-                                    {/* Fee */}
-
-                                    <td className="px-4 py-5 text-right font-semibold text-slate-700 dark:text-slate-200">
+                                    <td className="px-6 py-5 font-semibold text-slate-950 dark:text-white">
                                       {money(
                                         amount
                                       )}
                                     </td>
 
-                                    {/* Paid */}
-
-                                    <td className="px-4 py-5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <td className="px-6 py-5 font-semibold text-emerald-700 dark:text-emerald-300">
                                       {money(
                                         paid
                                       )}
                                     </td>
 
-                                    {/* Due */}
-
-                                    <td className="px-4 py-5 text-right font-semibold text-red-600 dark:text-red-400">
+                                    <td className="px-6 py-5 font-semibold text-red-700 dark:text-red-300">
                                       {money(
                                         due
                                       )}
                                     </td>
 
-                                    {/* Status */}
-
-                                    <td className="px-4 py-5">
+                                    <td className="px-6 py-5">
                                       <Badge
-                                        color={statusColor(
+                                        color={getStatusColor(
                                           status
                                         )}
                                       >
-                                        {
-                                          status
-                                        }
+                                        {status}
                                       </Badge>
                                     </td>
-
-                                    {/* Action */}
 
                                     <td className="px-6 py-5 text-right">
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          openEditModal(
+                                          openEdit(
                                             fee
                                           )
                                         }
-                                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-brand-gold/30 hover:text-brand-gold dark:border-slate-700"
-                                        title="Edit monthly fee"
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                        title="Edit fee"
                                       >
                                         <Edit3 className="h-4 w-4" />
                                       </button>
@@ -1276,9 +1295,8 @@ export default function AdminFees() {
                       </div>
 
                       {/* Mobile */}
-
-                      <div className="space-y-3 p-5 md:hidden">
-                        {group.records.map(
+                      <div className="divide-y divide-slate-200 dark:divide-slate-800 lg:hidden">
+                        {monthFees.map(
                           (fee) => {
                             const amount =
                               Number(
@@ -1294,12 +1312,13 @@ export default function AdminFees() {
 
                             const due =
                               Math.max(
+                                0,
                                 amount -
-                                  paid,
-                                0
+                                  paid
                               );
 
                             const status =
+                              fee.status ||
                               getStatus(
                                 amount,
                                 paid
@@ -1310,26 +1329,24 @@ export default function AdminFees() {
                                 key={
                                   fee._id
                                 }
-                                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/50"
+                                className="p-5"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex min-w-0 items-center gap-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-goldLight">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                       <UserRound className="h-4 w-4" />
                                     </div>
 
                                     <div className="min-w-0">
-                                      <p className="truncate font-semibold text-slate-800 dark:text-slate-200">
+                                      <p className="truncate font-semibold text-slate-950 dark:text-white">
                                         {getStudentName(
-                                          fee.student,
-                                          students
+                                          fee.student
                                         )}
                                       </p>
 
-                                      <p className="mt-0.5 text-xs text-slate-400">
+                                      <p className="text-xs text-slate-500">
                                         {getStudentId(
-                                          fee.student,
-                                          students
+                                          fee.student
                                         )}
                                       </p>
                                     </div>
@@ -1338,60 +1355,58 @@ export default function AdminFees() {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      openEditModal(
+                                      openEdit(
                                         fee
                                       )
                                     }
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 dark:border-slate-700"
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700"
                                   >
                                     <Edit3 className="h-4 w-4" />
                                   </button>
                                 </div>
 
-                                <div className="mt-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
-                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                    Course
+                                <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
+                                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                                    {getCourseName(
+                                      fee.course
+                                    )}
                                   </p>
 
-                                  <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                    {getCourseName(
-                                      fee.course,
-                                      courses
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {getCourseSubject(
+                                      fee.course
                                     )}
                                   </p>
                                 </div>
 
-                                <div className="mt-3 grid grid-cols-3 gap-2">
-                                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
-                                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                <div className="mt-4 grid grid-cols-3 gap-2">
+                                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                                    <p className="text-[10px] font-semibold uppercase text-slate-500">
                                       Fee
                                     </p>
-
-                                    <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    <p className="mt-1 font-bold text-slate-950 dark:text-white">
                                       {money(
                                         amount
                                       )}
                                     </p>
                                   </div>
 
-                                  <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
-                                    <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-600/70">
+                                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                                    <p className="text-[10px] font-semibold uppercase text-emerald-600">
                                       Paid
                                     </p>
-
-                                    <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                    <p className="mt-1 font-bold text-emerald-700 dark:text-emerald-300">
                                       {money(
                                         paid
                                       )}
                                     </p>
                                   </div>
 
-                                  <div className="rounded-xl bg-red-50 p-3 dark:bg-red-500/10">
-                                    <p className="text-[9px] font-bold uppercase tracking-wide text-red-500/70">
+                                  <div className="rounded-xl border border-red-200 bg-red-50/50 p-3 dark:border-red-900/40 dark:bg-red-950/20">
+                                    <p className="text-[10px] font-semibold uppercase text-red-600">
                                       Due
                                     </p>
-
-                                    <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
+                                    <p className="mt-1 font-bold text-red-700 dark:text-red-300">
                                       {money(
                                         due
                                       )}
@@ -1399,30 +1414,28 @@ export default function AdminFees() {
                                   </div>
                                 </div>
 
-                                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-                                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <CalendarDays className="h-3.5 w-3.5" />
-                                    {formatDate(
-                                      fee.dueDate
-                                    )}
-                                  </div>
-
+                                <div className="mt-4 flex items-center justify-between">
                                   <Badge
-                                    color={statusColor(
+                                    color={getStatusColor(
                                       status
                                     )}
                                   >
-                                    {
-                                      status
-                                    }
+                                    {status}
                                   </Badge>
+
+                                  <p className="text-xs text-slate-500">
+                                    Due:{" "}
+                                    {formatDate(
+                                      fee.dueDate
+                                    )}
+                                  </p>
                                 </div>
                               </div>
                             );
                           }
                         )}
                       </div>
-                    </div>
+                    </>
                   )}
                 </section>
               );
@@ -1431,425 +1444,508 @@ export default function AdminFees() {
         </div>
       )}
 
-      {/* =======================================================
-          ADD / EDIT MODAL
-      ======================================================= */}
+      {/* Create Modal */}
+      <Modal
+        open={createOpen}
+        onClose={() => {
+          if (!saving) {
+            setCreateOpen(false);
+          }
+        }}
+        title="Add Monthly Fee"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              Monthly Accounting
+            </p>
 
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl dark:bg-slate-950">
-            {/* Modal header */}
+            <p className="mt-1 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
+              Each student + course + month is a
+              separate fee record.
+            </p>
+          </div>
 
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5 dark:border-slate-800 dark:bg-slate-950">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-gold">
-                  {editingFee
-                    ? "Edit Record"
-                    : "New Record"}
-                </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-field">
+                Billing Month
+              </label>
 
-                <h2 className="mt-1 font-display text-xl font-semibold text-slate-900 dark:text-white">
-                  {editingFee
-                    ? "Edit Monthly Fee"
-                    : "Add Monthly Fee"}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={closeModal}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 dark:border-slate-700 dark:hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <input
+                type="month"
+                value={
+                  createForm.billingMonth
+                }
+                onChange={(e) =>
+                  setCreateForm(
+                    (prev) => ({
+                      ...prev,
+                      billingMonth:
+                        e.target.value,
+                    })
+                  )
+                }
+                className="input-field"
+              />
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-6 p-6"
+            <div>
+              <label className="label-field">
+                Due Date
+              </label>
+
+              <input
+                type="date"
+                value={
+                  createForm.dueDate
+                }
+                onChange={(e) =>
+                  setCreateForm(
+                    (prev) => ({
+                      ...prev,
+                      dueDate:
+                        e.target.value,
+                    })
+                  )
+                }
+                className="input-field"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label-field">
+              Student
+            </label>
+
+            <select
+              value={createForm.student}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    student:
+                      e.target.value,
+                  })
+                )
+              }
+              className="input-field"
             >
-              {/* Month */}
+              <option value="">
+                Select student
+              </option>
 
-              <div className="rounded-2xl border border-brand-gold/20 bg-brand-goldLight/5 p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-brand-gold" />
-
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-gold">
-                    Billing Month
-                  </p>
-                </div>
-
-                <Input
-                  type="month"
-                  value={
-                    form.billingMonth
-                  }
-                  onChange={(event) =>
-                    updateForm(
-                      "billingMonth",
-                      event.target.value
-                    )
-                  }
-                  required
-                />
-              </div>
-
-              {/* Student + Course */}
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="label-field">
-                    Student
-                  </label>
-
-                  <select
-                    value={
-                      form.student
-                    }
-                    onChange={(event) =>
-                      updateForm(
-                        "student",
-                        event.target.value
-                      )
-                    }
-                    className="input-field"
-                    required
+              {students.map(
+                (student) => (
+                  <option
+                    key={student._id}
+                    value={student._id}
                   >
-                    <option value="">
-                      Select student
-                    </option>
+                    {student.fullName} —{" "}
+                    {student.studentId}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
 
-                    {students.map(
-                      (student) => (
-                        <option
-                          key={
-                            student._id
-                          }
-                          value={
-                            student._id
-                          }
-                        >
-                          {student.fullName} —{" "}
-                          {
-                            student.studentId
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
+          <div>
+            <label className="label-field">
+              Course
+            </label>
 
-                <div>
-                  <label className="label-field">
-                    Course
-                  </label>
+            <select
+              value={createForm.course}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    course:
+                      e.target.value,
+                  })
+                )
+              }
+              className="input-field"
+            >
+              <option value="">
+                Select course
+              </option>
 
-                  <select
-                    value={
-                      form.course
-                    }
-                    onChange={(event) =>
-                      updateForm(
-                        "course",
-                        event.target.value
-                      )
-                    }
-                    className="input-field"
-                    required
+              {courses.map(
+                (course) => (
+                  <option
+                    key={course._id}
+                    value={course._id}
                   >
-                    <option value="">
-                      Select course
-                    </option>
+                    {course.title}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
 
-                    {courses.map(
-                      (course) => (
-                        <option
-                          key={
-                            course._id
-                          }
-                          value={
-                            course._id
-                          }
-                        >
-                          {course.title}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Input
+                label="Monthly Fee"
+                type="number"
+                min="0"
+                value={createForm.amount}
+                onChange={(e) =>
+                  setCreateForm(
+                    (prev) => ({
+                      ...prev,
+                      amount:
+                        e.target.value,
+                    })
+                  )
+                }
+                placeholder="1000"
+              />
+            </div>
+
+            <div>
+              <Input
+                label="Paid Amount"
+                type="number"
+                min="0"
+                value={
+                  createForm.amountPaid
+                }
+                onChange={(e) =>
+                  setCreateForm(
+                    (prev) => ({
+                      ...prev,
+                      amountPaid:
+                        e.target.value,
+                    })
+                  )
+                }
+                placeholder="500"
+              />
+            </div>
+
+            <div>
+              <label className="label-field">
+                Due
+              </label>
+
+              <div className="input-field flex items-center bg-red-50 font-bold text-red-700 dark:bg-red-950/20 dark:text-red-300">
+                {money(createDue)}
               </div>
+            </div>
+          </div>
 
-              {/* Fee / Paid / Due */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Payment Date"
+              type="date"
+              value={
+                createForm.paymentDate
+              }
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentDate:
+                      e.target.value,
+                  })
+                )
+              }
+            />
 
-              <div className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
-                <div className="mb-4 flex items-center gap-2">
-                  <CircleDollarSign className="h-4 w-4 text-brand-gold" />
+            <Input
+              label="Payment Method"
+              value={
+                createForm.paymentMethod
+              }
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentMethod:
+                      e.target.value,
+                  })
+                )
+              }
+              placeholder="Cash / bKash / Bank"
+            />
+          </div>
 
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Monthly Calculation
-                  </p>
-                </div>
+          <Input
+            label="Transaction ID"
+            value={
+              createForm.transactionId
+            }
+            onChange={(e) =>
+              setCreateForm(
+                (prev) => ({
+                  ...prev,
+                  transactionId:
+                    e.target.value,
+                })
+              )
+            }
+            placeholder="Optional"
+          />
 
-                <div className="grid gap-5 md:grid-cols-3">
-                  <div>
-                    <label className="label-field">
-                      Monthly Fee
-                    </label>
+          <div>
+            <label className="label-field">
+              Note
+            </label>
 
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={
-                        form.amount
-                      }
-                      onChange={(event) =>
-                        updateForm(
-                          "amount",
-                          event.target.value
-                        )
-                      }
-                      placeholder="1000"
-                      required
-                    />
-                  </div>
+            <textarea
+              value={createForm.note}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    note: e.target.value,
+                  })
+                )
+              }
+              rows={3}
+              className="input-field resize-none"
+              placeholder="Optional note..."
+            />
+          </div>
 
-                  <div>
-                    <label className="label-field">
-                      Paid Amount
-                    </label>
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setCreateOpen(false)
+              }
+              disabled={saving}
+            >
+              Cancel
+            </Button>
 
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={
-                        form.amountPaid
-                      }
-                      onChange={(event) =>
-                        updateForm(
-                          "amountPaid",
-                          event.target.value
-                        )
-                      }
-                      placeholder="0"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label-field">
-                      Due Amount
-                    </label>
-
-                    <div className="flex h-11 items-center rounded-xl border border-red-100 bg-red-50 px-4 font-semibold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
-                      {money(
-                        Math.max(
-                          Number(
-                            form.amount ||
-                              0
-                          ) -
-                            Number(
-                              form.amountPaid ||
-                                0
-                            ),
-                          0
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <Badge
-                    color={statusColor(
-                      getStatus(
-                        Number(
-                          form.amount ||
-                            0
-                        ),
-                        Number(
-                          form.amountPaid ||
-                            0
-                        )
-                      )
-                    )}
-                  >
-                    {getStatus(
-                      Number(
-                        form.amount ||
-                          0
-                      ),
-                      Number(
-                        form.amountPaid ||
-                          0
-                      )
-                    )}
-                  </Badge>
-
-                  <span className="text-xs text-slate-400">
-                    Status is calculated automatically.
-                  </span>
-                </div>
-              </div>
-
-              {/* Dates */}
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="label-field">
-                    Due Date
-                  </label>
-
-                  <Input
-                    type="date"
-                    value={
-                      form.dueDate
-                    }
-                    onChange={(event) =>
-                      updateForm(
-                        "dueDate",
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="label-field">
-                    Payment Date
-                  </label>
-
-                  <Input
-                    type="date"
-                    value={
-                      form.paymentDate
-                    }
-                    onChange={(event) =>
-                      updateForm(
-                        "paymentDate",
-                        event.target.value
-                      )
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Payment information */}
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="label-field">
-                    Payment Method
-                  </label>
-
-                  <select
-                    value={
-                      form.paymentMethod
-                    }
-                    onChange={(event) =>
-                      updateForm(
-                        "paymentMethod",
-                        event.target.value
-                      )
-                    }
-                    className="input-field"
-                  >
-                    <option value="">
-                      Select method
-                    </option>
-
-                    <option value="CASH">
-                      Cash
-                    </option>
-
-                    <option value="BKASH">
-                      bKash
-                    </option>
-
-                    <option value="NAGAD">
-                      Nagad
-                    </option>
-
-                    <option value="BANK">
-                      Bank
-                    </option>
-
-                    <option value="OTHER">
-                      Other
-                    </option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label-field">
-                    Transaction ID
-                  </label>
-
-                  <Input
-                    value={
-                      form.transactionId
-                    }
-                    onChange={(event) =>
-                      updateForm(
-                        "transactionId",
-                        event.target.value
-                      )
-                    }
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-
-              {/* Note */}
-
-              <div>
-                <label className="label-field">
-                  Note
-                </label>
-
-                <textarea
-                  value={form.note}
-                  onChange={(event) =>
-                    updateForm(
-                      "note",
-                      event.target.value
-                    )
-                  }
-                  rows={3}
-                  placeholder="Optional note about this month's payment..."
-                  className="input-field resize-none"
-                />
-              </div>
-
-              {/* Actions */}
-
-              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={saving}
-                  variant="secondary"
-                >
-                  Cancel
-                </Button>
-
-                <Button
-                  type="submit"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Saving..."
-                    : editingFee
-                    ? "Update Monthly Fee"
-                    : "Save Monthly Fee"}
-                </Button>
-              </div>
-            </form>
+            <Button
+              onClick={handleCreate}
+              disabled={saving}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              {saving
+                ? "Saving..."
+                : "Create Fee"}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        open={!!editTarget}
+        onClose={() => {
+          if (!saving) {
+            setEditTarget(null);
+          }
+        }}
+        title="Edit Monthly Fee"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-slate-950 dark:text-white">
+              {editTarget
+                ? getStudentName(
+                    editTarget.student
+                  )
+                : ""}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {editTarget
+                ? getCourseName(
+                    editTarget.course
+                  )
+                : ""}
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-field">
+                Billing Month
+              </label>
+
+              <input
+                type="month"
+                value={
+                  updateForm.billingMonth
+                }
+                onChange={(e) =>
+                  setUpdateForm(
+                    (prev) => ({
+                      ...prev,
+                      billingMonth:
+                        e.target.value,
+                    })
+                  )
+                }
+                className="input-field"
+              />
+            </div>
+
+            <Input
+              label="Due Date"
+              type="date"
+              value={
+                updateForm.dueDate
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    dueDate:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Input
+              label="Fee"
+              type="number"
+              min="0"
+              value={updateForm.amount}
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    amount:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+
+            <Input
+              label="Paid"
+              type="number"
+              min="0"
+              value={
+                updateForm.amountPaid
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    amountPaid:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+
+            <div>
+              <label className="label-field">
+                Due
+              </label>
+
+              <div className="input-field flex items-center bg-red-50 font-bold text-red-700 dark:bg-red-950/20 dark:text-red-300">
+                {money(updateDue)}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Payment Date"
+              type="date"
+              value={
+                updateForm.paymentDate
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentDate:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+
+            <Input
+              label="Payment Method"
+              value={
+                updateForm.paymentMethod
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentMethod:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+          </div>
+
+          <Input
+            label="Transaction ID"
+            value={
+              updateForm.transactionId
+            }
+            onChange={(e) =>
+              setUpdateForm(
+                (prev) => ({
+                  ...prev,
+                  transactionId:
+                    e.target.value,
+                })
+              )
+            }
+          />
+
+          <div>
+            <label className="label-field">
+              Note
+            </label>
+
+            <textarea
+              value={updateForm.note}
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    note: e.target.value,
+                  })
+                )
+              }
+              rows={3}
+              className="input-field resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setEditTarget(null)
+              }
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleUpdate}
+              disabled={saving}
+            >
+              {saving
+                ? "Updating..."
+                : "Update Fee"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
