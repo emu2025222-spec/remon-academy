@@ -1,529 +1,941 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowUpRight,
-  BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
   CreditCard,
+  FileText,
   ReceiptText,
   Wallet,
   AlertCircle,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
-import { Fee, Course } from "../../types";
+import { Course, Fee, MyFeesResponse } from "../../types";
 import { Loader } from "../../components/Loader";
 import { EmptyState } from "../../components/EmptyState";
-import { Badge } from "../../components/Badge";
-import { useToast } from "../../components/Toast";
 
-export default function StudentFees() {
-  const [fees, setFees] = useState<Fee[]>([]);
-  const [pendingTotal, setPendingTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+interface FeeWithMonthly extends Fee {
+  billingMonth?: string;
+}
 
-  const { show } = useToast();
+interface MonthlyGroup {
+  month: string;
+  label: string;
+  records: FeeWithMonthly[];
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+}
 
-  useEffect(() => {
-    api
-      .get("/fees/my")
-      .then((r) => {
-        const data = r.data.data;
+function getCourse(course: Fee["course"]): Course | null {
+  if (!course || typeof course === "string") return null;
+  return course as Course;
+}
 
-        setFees(data.fees || []);
-        setPendingTotal(data.pendingTotal || 0);
-        setLoading(false);
-      })
-      .catch((err) => {
-        show(getErrorMessage(err), "error");
-        setLoading(false);
-      });
-  }, [show]);
+function formatCurrency(value: number) {
+  return `৳${Number(value || 0).toLocaleString("en-BD")}`;
+}
 
-  if (loading) {
-    return <Loader />;
+function formatMonth(month?: string) {
+  if (!month) return "Unassigned";
+
+  const [year, monthNumber] = month.split("-");
+
+  if (!year || !monthNumber) return month;
+
+  const date = new Date(Number(year), Number(monthNumber) - 1, 1);
+
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatDate(date?: string) {
+  if (!date) return "—";
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getStatusLabel(status?: Fee["status"]) {
+  if (status === "PAID") return "Paid";
+  if (status === "PARTIAL") return "Partial";
+  return "Pending";
+}
+
+function getStatusClass(status?: Fee["status"]) {
+  if (status === "PAID") {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
   }
 
-  const totalAmount = fees.reduce(
-    (sum, fee) => sum + Number(fee.amount || 0),
-    0
-  );
+  if (status === "PARTIAL") {
+    return "bg-amber-50 text-amber-700 border-amber-200";
+  }
 
-  const totalPaid = fees.reduce(
-    (sum, fee) => sum + Number(fee.amountPaid || 0),
-    0
-  );
+  return "bg-red-50 text-red-700 border-red-200";
+}
 
-  const totalDue = Math.max(
-    totalAmount - totalPaid,
-    0
-  );
+export default function StudentFees() {
+  const [fees, setFees] = useState<FeeWithMonthly[]>([]);
+  const [summary, setSummary] = useState<MyFeesResponse | null>(null);
 
-  const paymentPercentage =
-    totalAmount > 0
-      ? Math.min(
-          Math.round((totalPaid / totalAmount) * 100),
-          100
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [selectedMonth, setSelectedMonth] = useState("ALL");
+  const [selectedCourse, setSelectedCourse] = useState("ALL");
+
+  const [openMonths, setOpenMonths] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    loadFees();
+  }, []);
+
+  async function loadFees() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await api.get("/fees/my");
+
+      const payload = response.data?.data;
+
+      const feeList = Array.isArray(payload?.fees) ? payload.fees : [];
+
+      setFees(feeList as FeeWithMonthly[]);
+      setSummary(payload as MyFeesResponse);
+
+      const months = Array.from(
+        new Set(
+          feeList
+            .map((fee: FeeWithMonthly) => fee.billingMonth)
+            .filter(Boolean)
+        )
+      ) as string[];
+
+      const initialOpen: Record<string, boolean> = {};
+
+      months.forEach((month) => {
+        initialOpen[month] = true;
+      });
+
+      setOpenMonths(initialOpen);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const courseOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    fees.forEach((fee) => {
+      const course = getCourse(fee.course);
+
+      if (course?._id) {
+        map.set(
+          course._id,
+          course.title || course.subject || "Course"
+        );
+      }
+    });
+
+    return Array.from(map.entries()).map(([id, title]) => ({
+      id,
+      title,
+    }));
+  }, [fees]);
+
+  const monthOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        fees
+          .map((fee) => fee.billingMonth)
+          .filter(Boolean) as string[]
+      )
+    ).sort((a, b) => b.localeCompare(a));
+  }, [fees]);
+
+  const filteredFees = useMemo(() => {
+    return fees.filter((fee) => {
+      const monthMatch =
+        selectedMonth === "ALL" ||
+        (fee.billingMonth || "UNASSIGNED") === selectedMonth;
+
+      const course = getCourse(fee.course);
+
+      const courseMatch =
+        selectedCourse === "ALL" ||
+        course?._id === selectedCourse;
+
+      return monthMatch && courseMatch;
+    });
+  }, [fees, selectedMonth, selectedCourse]);
+
+  const monthlyGroups = useMemo<MonthlyGroup[]>(() => {
+    const grouped = new Map<string, FeeWithMonthly[]>();
+
+    filteredFees.forEach((fee) => {
+      const month = fee.billingMonth || "UNASSIGNED";
+
+      if (!grouped.has(month)) {
+        grouped.set(month, []);
+      }
+
+      grouped.get(month)!.push(fee);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([month, records]) => {
+        const totalFee = records.reduce(
+          (sum, fee) => sum + Number(fee.amount || 0),
+          0
+        );
+
+        const totalPaid = records.reduce(
+          (sum, fee) => sum + Number(fee.amountPaid || 0),
+          0
+        );
+
+        const totalDue = records.reduce(
+          (sum, fee) =>
+            sum +
+            Math.max(
+              Number(fee.amount || 0) -
+                Number(fee.amountPaid || 0),
+              0
+            ),
+          0
+        );
+
+        return {
+          month,
+          label:
+            month === "UNASSIGNED"
+              ? "Unassigned Fees"
+              : formatMonth(month),
+          records: records.sort((a, b) => {
+            const courseA = getCourse(a.course)?.title || "";
+            const courseB = getCourse(b.course)?.title || "";
+
+            return courseA.localeCompare(courseB);
+          }),
+          totalFee,
+          totalPaid,
+          totalDue,
+        };
+      })
+      .sort((a, b) => {
+        if (a.month === "UNASSIGNED") return 1;
+        if (b.month === "UNASSIGNED") return -1;
+
+        return b.month.localeCompare(a.month);
+      });
+  }, [filteredFees]);
+
+  const filteredTotals = useMemo(() => {
+    const totalFee = filteredFees.reduce(
+      (sum, fee) => sum + Number(fee.amount || 0),
+      0
+    );
+
+    const totalPaid = filteredFees.reduce(
+      (sum, fee) => sum + Number(fee.amountPaid || 0),
+      0
+    );
+
+    const totalDue = filteredFees.reduce(
+      (sum, fee) =>
+        sum +
+        Math.max(
+          Number(fee.amount || 0) -
+            Number(fee.amountPaid || 0),
+          0
+        ),
+      0
+    );
+
+    return {
+      totalFee,
+      totalPaid,
+      totalDue,
+    };
+  }, [filteredFees]);
+
+  const paidPercentage =
+    filteredTotals.totalFee > 0
+      ? Math.round(
+          (filteredTotals.totalPaid / filteredTotals.totalFee) * 100
         )
       : 0;
 
+  function toggleMonth(month: string) {
+    setOpenMonths((current) => ({
+      ...current,
+      [month]: !current[month],
+    }));
+  }
+
+  if (loading) {
+    return (
+      <div className="container-page py-16">
+        <Loader />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container-page py-16">
+        <div className="mx-auto max-w-xl rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-600" />
+
+          <h2 className="text-lg font-semibold text-red-900">
+            Unable to load fees
+          </h2>
+
+          <p className="mt-2 text-sm text-red-700">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={loadFees}
+            className="mt-5 rounded-xl bg-red-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!fees.length) {
+    return (
+      <div className="container-page py-16">
+        <EmptyState message="No fee records found" />
+        <p className="mt-3 text-center text-sm text-slate-500">
+          Your monthly fee records will appear here once the administration adds them.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 pb-10">
-      {/* =========================================================
-          HEADER
-      ========================================================= */}
-      <section className="relative overflow-hidden rounded-3xl bg-brand-navyDark px-6 py-8 text-white shadow-sm sm:px-8 sm:py-10">
-        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full border border-brand-goldLight/10" />
-        <div className="absolute -bottom-24 right-24 h-64 w-64 rounded-full border border-brand-goldLight/10" />
+    <div className="container-page space-y-8 py-8 sm:py-10">
+      {/* Header */}
+      <section className="relative overflow-hidden rounded-[2rem] bg-brand-navyDark px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:px-8 sm:py-10">
+        <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-gold/10 blur-3xl" />
 
-        <div className="relative z-10">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-goldLight">
-            <Wallet className="h-3.5 w-3.5" />
-            Finance
-          </div>
-
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                Fee Records
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">
-                Review your course fees, payments, outstanding
-                amounts and payment deadlines.
-              </p>
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-gold">
+              <ReceiptText className="h-4 w-4" />
+              Fee Statement
             </div>
 
-            <div className="w-fit rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-200/70">
-                Outstanding
+            <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              Monthly Fees
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
+              Track your tuition fee month by month with a clear
+              breakdown of fee, payment and remaining due amount.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <CalendarDays className="h-5 w-5 text-brand-gold" />
+
+            <div>
+              <p className="text-xs text-white/50">
+                Fee Records
               </p>
 
-              <p className="mt-1 font-display text-2xl font-semibold text-red-200">
-                ৳{pendingTotal}
+              <p className="font-semibold">
+                {fees.length} monthly record
+                {fees.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* =========================================================
-          SUMMARY
-      ========================================================= */}
-      {fees.length > 0 && (
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {/* Total */}
-          <div className="card-premium relative overflow-hidden p-5">
-            <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-brand-goldLight/10" />
-
-            <div className="relative flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  Total Fee
-                </p>
-
-                <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
-                  ৳{totalAmount}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  Total assigned amount
-                </p>
-              </div>
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-goldLight/15 text-brand-gold">
-                <ReceiptText className="h-5 w-5" />
-              </div>
+      {/* Overall cards */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-slate-100 p-3">
+              <Wallet className="h-5 w-5 text-slate-700" />
             </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Total Fee
+            </span>
           </div>
 
-          {/* Paid */}
-          <div className="card-premium relative overflow-hidden p-5">
-            <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-emerald-500/5" />
+          <p className="mt-5 text-2xl font-bold text-slate-950">
+            {formatCurrency(
+              selectedMonth === "ALL" && selectedCourse === "ALL"
+                ? Number(summary?.totalFee || 0)
+                : filteredTotals.totalFee
+            )}
+          </p>
 
-            <div className="relative flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  Total Paid
-                </p>
-
-                <p className="mt-2 font-display text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-                  ৳{totalPaid}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  Successfully paid
-                </p>
-              </div>
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-
-          {/* Due */}
-          <div className="card-premium relative overflow-hidden p-5">
-            <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[60px] bg-red-500/5" />
-
-            <div className="relative flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  Total Due
-                </p>
-
-                <p className="mt-2 font-display text-2xl font-semibold text-red-600 dark:text-red-400">
-                  ৳{totalDue}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  Remaining balance
-                </p>
-              </div>
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400">
-                <AlertCircle className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-
-          {/* Progress */}
-          <div className="card-premium relative overflow-hidden p-5">
-            <div className="relative">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    Payment Progress
-                  </p>
-
-                  <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
-                    {paymentPercentage}%
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-400">
-                    Overall payment completion
-                  </p>
-                </div>
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                  <CreditCard className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-brand-goldLight transition-all"
-                  style={{
-                    width: `${paymentPercentage}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* =========================================================
-          FEE RECORDS
-      ========================================================= */}
-      <section className="card-premium overflow-hidden">
-        <div className="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-gold">
-                <ReceiptText className="h-4 w-4" />
-                Payment History
-              </div>
-
-              <h2 className="font-display text-xl font-semibold text-slate-900 dark:text-white">
-                Fee Records
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Detailed payment records for your assigned courses.
-              </p>
-            </div>
-
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-              {fees.length}{" "}
-              {fees.length === 1 ? "record" : "records"}
-            </div>
-          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Across monthly records
+          </p>
         </div>
 
-        {fees.length === 0 ? (
-          <div className="p-6">
-            <EmptyState message="No fee records found." />
-          </div>
-        ) : (
-          <>
-            {/* =====================================================
-                DESKTOP TABLE
-            ===================================================== */}
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50/80 text-left dark:border-slate-800 dark:bg-slate-900/50">
-                  <tr>
-                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Course
-                    </th>
-
-                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Amount
-                    </th>
-
-                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Paid
-                    </th>
-
-                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Due
-                    </th>
-
-                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Due Date
-                    </th>
-
-                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {fees.map((fee) => {
-                    const course =
-                      typeof fee.course === "object" &&
-                      fee.course !== null
-                        ? (fee.course as Course)
-                        : null;
-
-                    const due = Math.max(
-                      Number(fee.amount || 0) -
-                        Number(fee.amountPaid || 0),
-                      0
-                    );
-
-                    return (
-                      <tr
-                        key={fee._id}
-                        className="border-b border-slate-100 transition hover:bg-slate-50/60 last:border-0 dark:border-slate-800 dark:hover:bg-slate-900/40"
-                      >
-                        {/* Course */}
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-goldLight/15 text-brand-gold">
-                              <BookOpen className="h-4 w-4" />
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="font-semibold text-slate-800 dark:text-slate-200">
-                                {course?.title || "Course"}
-                              </p>
-
-                              {course?.subject && (
-                                <p className="mt-0.5 text-xs text-slate-400">
-                                  {course.subject}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Amount */}
-                        <td className="px-4 py-5 font-medium text-slate-700 dark:text-slate-300">
-                          ৳{fee.amount}
-                        </td>
-
-                        {/* Paid */}
-                        <td className="px-4 py-5 font-semibold text-emerald-600 dark:text-emerald-400">
-                          ৳{fee.amountPaid}
-                        </td>
-
-                        {/* Due */}
-                        <td className="px-4 py-5 font-semibold text-red-600 dark:text-red-400">
-                          ৳{due}
-                        </td>
-
-                        {/* Due Date */}
-                        <td className="px-4 py-5">
-                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                            <CalendarDays className="h-3.5 w-3.5" />
-
-                            {new Date(
-                              fee.dueDate
-                            ).toLocaleDateString("en-BD", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-6 py-5">
-                          <Badge
-                            color={
-                              fee.status === "PAID"
-                                ? "green"
-                                : fee.status === "PARTIAL"
-                                ? "gold"
-                                : "red"
-                            }
-                          >
-                            {fee.status}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-emerald-50 p-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </div>
 
-            {/* =====================================================
-                MOBILE CARDS
-            ===================================================== */}
-            <div className="space-y-4 p-5 md:hidden">
-              {fees.map((fee) => {
-                const course =
-                  typeof fee.course === "object" &&
-                  fee.course !== null
-                    ? (fee.course as Course)
-                    : null;
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Paid
+            </span>
+          </div>
 
-                const due = Math.max(
-                  Number(fee.amount || 0) -
-                    Number(fee.amountPaid || 0),
-                  0
-                );
+          <p className="mt-5 text-2xl font-bold text-emerald-700">
+            {formatCurrency(
+              selectedMonth === "ALL" && selectedCourse === "ALL"
+                ? Number(summary?.totalPaid || 0)
+                : filteredTotals.totalPaid
+            )}
+          </p>
 
-                return (
-                  <div
-                    key={fee._id}
-                    className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40"
+          <p className="mt-1 text-sm text-slate-500">
+            {paidPercentage}% payment completed
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-red-50 p-3">
+              <Clock3 className="h-5 w-5 text-red-600" />
+            </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Due
+            </span>
+          </div>
+
+          <p className="mt-5 text-2xl font-bold text-red-700">
+            {formatCurrency(
+              selectedMonth === "ALL" && selectedCourse === "ALL"
+                ? Number(summary?.totalDue || 0)
+                : filteredTotals.totalDue
+            )}
+          </p>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Remaining payment
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-brand-gold/10 p-3">
+              <CreditCard className="h-5 w-5 text-brand-gold" />
+            </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Progress
+            </span>
+          </div>
+
+          <p className="mt-5 text-2xl font-bold text-slate-950">
+            {paidPercentage}%
+          </p>
+
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-brand-gold transition-all duration-500"
+              style={{
+                width: `${Math.min(paidPercentage, 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Filters */}
+      <section className="card-premium p-5 sm:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+            Filter Statement
+          </p>
+
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">
+            View by month or course
+          </h2>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="label-field">
+              Billing Month
+            </label>
+
+            <select
+              value={selectedMonth}
+              onChange={(event) =>
+                setSelectedMonth(event.target.value)
+              }
+              className="input-field"
+            >
+              <option value="ALL">All Months</option>
+
+              {monthOptions.map((month) => (
+                <option key={month} value={month}>
+                  {formatMonth(month)}
+                </option>
+              ))}
+
+              {fees.some((fee) => !fee.billingMonth) && (
+                <option value="UNASSIGNED">
+                  Unassigned Fees
+                </option>
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="label-field">
+              Course
+            </label>
+
+            <select
+              value={selectedCourse}
+              onChange={(event) =>
+                setSelectedCourse(event.target.value)
+              }
+              className="input-field"
+            >
+              <option value="ALL">All Courses</option>
+
+              {courseOptions.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* Monthly statement */}
+      <section>
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+              Monthly Statement
+            </p>
+
+            <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+              Month → Course → Fee → Paid → Due
+            </h2>
+          </div>
+
+          <p className="text-sm text-slate-500">
+            {filteredFees.length} record
+            {filteredFees.length !== 1 ? "s" : ""} shown
+          </p>
+        </div>
+
+        {!monthlyGroups.length ? (
+          <div className="card-premium p-10 text-center">
+            <FileText className="mx-auto h-10 w-10 text-slate-300" />
+
+            <h3 className="mt-4 text-lg font-semibold text-slate-900">
+              No records for this filter
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Try selecting another month or course.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {monthlyGroups.map((group) => {
+              const isOpen =
+                openMonths[group.month] !== false;
+
+              return (
+                <div
+                  key={group.month}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.05)]"
+                >
+                  {/* Month header */}
+                  <button
+                    type="button"
+                    onClick={() => toggleMonth(group.month)}
+                    className="flex w-full flex-col gap-5 p-5 text-left transition hover:bg-slate-50 sm:p-6"
                   >
-                    {/* Course header */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-goldLight/15 text-brand-gold">
-                          <BookOpen className="h-4 w-4" />
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-gold">
+                          <CalendarDays className="h-5 w-5" />
                         </div>
 
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-800 dark:text-slate-200">
-                            {course?.title || "Course"}
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Billing Month
                           </p>
 
-                          {course?.subject && (
-                            <p className="mt-0.5 text-xs text-slate-400">
-                              {course.subject}
-                            </p>
-                          )}
+                          <h3 className="mt-1 text-xl font-bold text-slate-950">
+                            {group.label}
+                          </h3>
                         </div>
                       </div>
 
-                      <Badge
-                        color={
-                          fee.status === "PAID"
-                            ? "green"
-                            : fee.status === "PARTIAL"
-                            ? "gold"
-                            : "red"
-                        }
-                      >
-                        {fee.status}
-                      </Badge>
+                      <div className="rounded-lg border border-slate-200 p-2 text-slate-500">
+                        {isOpen ? (
+                          <ChevronUp className="h-5 w-5" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5" />
+                        )}
+                      </div>
                     </div>
 
-                    {/* Amount grid */}
-                    <div className="mt-5 grid grid-cols-3 gap-2">
-                      <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                          Amount
+                    <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                          Fee
                         </p>
 
-                        <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
-                          ৳{fee.amount}
+                        <p className="mt-1 text-sm font-bold text-slate-950 sm:text-base">
+                          {formatCurrency(group.totalFee)}
                         </p>
                       </div>
 
-                      <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600/70 dark:text-emerald-400/70">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                           Paid
                         </p>
 
-                        <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                          ৳{fee.amountPaid}
+                        <p className="mt-1 text-sm font-bold text-emerald-700 sm:text-base">
+                          {formatCurrency(group.totalPaid)}
                         </p>
                       </div>
 
-                      <div className="rounded-xl bg-red-50 p-3 dark:bg-red-500/10">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-red-500/70 dark:text-red-400/70">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                           Due
                         </p>
 
-                        <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
-                          ৳{due}
+                        <p className="mt-1 text-sm font-bold text-red-700 sm:text-base">
+                          {formatCurrency(group.totalDue)}
                         </p>
                       </div>
                     </div>
+                  </button>
 
-                    {/* Due date */}
-                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-                      <span className="flex items-center gap-2 text-xs text-slate-400">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        Due date
-                      </span>
+                  {/* Month records */}
+                  {isOpen && (
+                    <div className="border-t border-slate-200">
+                      {/* Desktop */}
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full min-w-[760px]">
+                          <thead>
+                            <tr className="bg-slate-50 text-left">
+                              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Course
+                              </th>
 
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        {new Date(
-                          fee.dueDate
-                        ).toLocaleDateString("en-BD", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
+                              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Fee
+                              </th>
+
+                              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Paid
+                              </th>
+
+                              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Due
+                              </th>
+
+                              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Due Date
+                              </th>
+
+                              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Status
+                              </th>
+                            </tr>
+                          </thead>
+
+                          <tbody className="divide-y divide-slate-100">
+                            {group.records.map((fee) => {
+                              const course = getCourse(fee.course);
+
+                              const amount = Number(
+                                fee.amount || 0
+                              );
+
+                              const paid = Number(
+                                fee.amountPaid || 0
+                              );
+
+                              const due = Math.max(
+                                amount - paid,
+                                0
+                              );
+
+                              return (
+                                <tr
+                                  key={fee._id}
+                                  className="transition hover:bg-slate-50/70"
+                                >
+                                  <td className="px-6 py-5">
+                                    <div>
+                                      <p className="font-semibold text-slate-900">
+                                        {course?.title ||
+                                          "Course"}
+                                      </p>
+
+                                      {course?.subject && (
+                                        <p className="mt-1 text-xs text-slate-500">
+                                          {course.subject}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  <td className="px-6 py-5 font-semibold text-slate-900">
+                                    {formatCurrency(amount)}
+                                  </td>
+
+                                  <td className="px-6 py-5 font-semibold text-emerald-700">
+                                    {formatCurrency(paid)}
+                                  </td>
+
+                                  <td className="px-6 py-5 font-semibold text-red-700">
+                                    {formatCurrency(due)}
+                                  </td>
+
+                                  <td className="px-6 py-5 text-sm text-slate-600">
+                                    {formatDate(fee.dueDate)}
+                                  </td>
+
+                                  <td className="px-6 py-5">
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
+                                        fee.status
+                                      )}`}
+                                    >
+                                      {getStatusLabel(
+                                        fee.status
+                                      )}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile */}
+                      <div className="divide-y divide-slate-100 md:hidden">
+                        {group.records.map((fee) => {
+                          const course = getCourse(fee.course);
+
+                          const amount = Number(
+                            fee.amount || 0
+                          );
+
+                          const paid = Number(
+                            fee.amountPaid || 0
+                          );
+
+                          const due = Math.max(
+                            amount - paid,
+                            0
+                          );
+
+                          return (
+                            <div
+                              key={fee._id}
+                              className="p-5"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-slate-950">
+                                    {course?.title ||
+                                      "Course"}
+                                  </p>
+
+                                  {course?.subject && (
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {course.subject}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <span
+                                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusClass(
+                                    fee.status
+                                  )}`}
+                                >
+                                  {getStatusLabel(
+                                    fee.status
+                                  )}
+                                </span>
+                              </div>
+
+                              <div className="mt-5 grid grid-cols-3 gap-3">
+                                <div className="rounded-xl bg-slate-50 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Fee
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-950">
+                                    {formatCurrency(amount)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-emerald-50 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                                    Paid
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-emerald-700">
+                                    {formatCurrency(paid)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-red-50 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">
+                                    Due
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-red-700">
+                                    {formatCurrency(due)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500">
+                                <span>
+                                  Due date
+                                </span>
+
+                                <span className="font-medium text-slate-700">
+                                  {formatDate(fee.dueDate)}
+                                </span>
+                              </div>
+                            </div>
+                          );
                         })}
-                      </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
-      {/* =========================================================
-          INFO STRIP
-      ========================================================= */}
-      <section className="rounded-3xl border border-slate-200 bg-slate-50/70 px-6 py-6 dark:border-slate-800 dark:bg-slate-900/30">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-navyDark text-brand-goldLight">
-              <CreditCard className="h-5 w-5" />
-            </div>
-
-            <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                Keep your payments up to date.
+      {/* Course summary */}
+      {summary?.courseSummary &&
+        summary.courseSummary.length > 0 && (
+          <section>
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+                Course Breakdown
               </p>
 
-              <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">
-                If you have questions about a fee, payment or
-                due date, please contact the academy office.
-              </p>
+              <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+                Course-wise fee summary
+              </h2>
             </div>
-          </div>
 
-          <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <CheckCircle2 className="h-4 w-4 text-brand-gold" />
-            Payment records are managed by the academy
-          </div>
-        </div>
-      </section>
+            <div className="grid gap-4 md:grid-cols-2">
+              {summary.courseSummary.map((item, index) => (
+                <div
+                  key={
+                    item.courseId ||
+                    item.course?._id ||
+                    `course-${index}`
+                  }
+                  className="card-premium p-5"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Course
+                      </p>
+
+                      <h3 className="mt-1 font-semibold text-slate-950">
+                        {item.course?.title ||
+                          item.course?.subject ||
+                          "Course"}
+                      </h3>
+
+                      {item.course?.classLevel && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {item.course.classLevel}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl bg-brand-gold/10 p-3">
+                      <CreditCard className="h-5 w-5 text-brand-gold" />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Fee
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-slate-950">
+                        {formatCurrency(item.totalFee)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Paid
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-emerald-700">
+                        {formatCurrency(item.totalPaid)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Due
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-red-700">
+                        {formatCurrency(item.totalDue)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
     </div>
   );
 }
-
-
