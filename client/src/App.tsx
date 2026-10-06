@@ -7,6 +7,7 @@ import { studentLinks, adminLinks } from "./config/sidebarLinks";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
+import Founder from "./pages/Founder";
 import Courses from "./pages/Courses";
 import CourseDetails from "./pages/CourseDetails";
 import Teachers from "./pages/Teachers";
@@ -55,6 +56,7 @@ export default function App() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
+          <Route path="/founder" element={<Founder />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/courses/:id" element={<CourseDetails />} />
           <Route path="/teachers" element={<Teachers />} />
@@ -65,50 +67,136 @@ export default function App() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route
+            path="/forgot-password"
+            element={<ForgotPassword />}
+          />
+          <Route
+            path="/reset-password/:token"
+            element={<ResetPassword />}
+          />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 
         {/* Student dashboard */}
         <Route element={<ProtectedRoute role="STUDENT" />}>
-          <Route element={<DashboardLayout links={studentLinks} title="Student Dashboard" />}>
-            <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/student/profile" element={<StudentProfile />} />
-            <Route path="/student/courses" element={<StudentMyCourses />} />
-            <Route path="/student/schedule" element={<StudentSchedule />} />
-            <Route path="/student/attendance" element={<StudentAttendance />} />
-            <Route path="/student/results" element={<StudentResults />} />
-            <Route path="/student/notices" element={<StudentNotices />} />
-            <Route path="/student/assignments" element={<StudentAssignments />} />
-            <Route path="/student/fees" element={<StudentFees />} />
-            <Route path="/student/change-password" element={<StudentChangePassword />} />
+          <Route
+            element={
+              <DashboardLayout
+                links={studentLinks}
+                title="Student Dashboard"
+              />
+            }
+          >
+            <Route
+              path="/student/dashboard"
+              element={<StudentDashboard />}
+            />
+            <Route
+              path="/student/profile"
+              element={<StudentProfile />}
+            />
+            <Route
+              path="/student/courses"
+              element={<StudentMyCourses />}
+            />
+            <Route
+              path="/student/schedule"
+              element={<StudentSchedule />}
+            />
+            <Route
+              path="/student/attendance"
+              element={<StudentAttendance />}
+            />
+            <Route
+              path="/student/results"
+              element={<StudentResults />}
+            />
+            <Route
+              path="/student/notices"
+              element={<StudentNotices />}
+            />
+            <Route
+              path="/student/assignments"
+              element={<StudentAssignments />}
+            />
+            <Route
+              path="/student/fees"
+              element={<StudentFees />}
+            />
+            <Route
+              path="/student/change-password"
+              element={<StudentChangePassword />}
+            />
           </Route>
         </Route>
 
         {/* Admin dashboard */}
         <Route element={<ProtectedRoute role="ADMIN" />}>
-          <Route element={<DashboardLayout links={adminLinks} title="Admin Dashboard" />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/students" element={<AdminStudents />} />
-            <Route path="/admin/courses" element={<AdminCourses />} />
-            <Route path="/admin/teachers" element={<AdminTeachers />} />
-            <Route path="/admin/attendance" element={<AdminAttendance />} />
-            <Route path="/admin/results" element={<AdminResults />} />
-            <Route path="/admin/notices" element={<AdminNotices />} />
-            <Route path="/admin/assignments" element={<AdminAssignments />} />
-            <Route path="/admin/schedule" element={<AdminSchedule />} />
-            <Route path="/admin/fees" element={<AdminFees />} />
-            <Route path="/admin/gallery" element={<AdminGallery />} />
-            <Route path="/admin/messages" element={<AdminMessages />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route
+            element={
+              <DashboardLayout
+                links={adminLinks}
+                title="Admin Dashboard"
+              />
+            }
+          >
+            <Route
+              path="/admin/dashboard"
+              element={<AdminDashboard />}
+            />
+            <Route
+              path="/admin/students"
+              element={<AdminStudents />}
+            />
+            <Route
+              path="/admin/courses"
+              element={<AdminCourses />}
+            />
+            <Route
+              path="/admin/teachers"
+              element={<AdminTeachers />}
+            />
+            <Route
+              path="/admin/attendance"
+              element={<AdminAttendance />}
+            />
+            <Route
+              path="/admin/results"
+              element={<AdminResults />}
+            />
+            <Route
+              path="/admin/notices"
+              element={<AdminNotices />}
+            />
+            <Route
+              path="/admin/assignments"
+              element={<AdminAssignments />}
+            />
+            <Route
+              path="/admin/schedule"
+              element={<AdminSchedule />}
+            />
+            <Route
+              path="/admin/fees"
+              element={<AdminFees />}
+            />
+            <Route
+              path="/admin/gallery"
+              element={<AdminGallery />}
+            />
+            <Route
+              path="/admin/messages"
+              element={<AdminMessages />}
+            />
+            <Route
+              path="/admin/settings"
+              element={<AdminSettings />}
+            />
           </Route>
         </Route>
       </Routes>
     </AnimatePresence>
   );
 }
-
-
-

@@ -18,6 +18,7 @@ import { useTheme } from "../context/ThemeContext";
 const links = [
   { to: "/", label: "Home" },
   { to: "/about", label: "About" },
+  { to: "/founder", label: "Founder" },
   { to: "/courses", label: "Courses" },
   { to: "/teachers", label: "Teachers" },
   { to: "/results", label: "Results" },
@@ -79,7 +80,6 @@ export function Navbar() {
           onClick={closeMenu}
           className="group flex items-center gap-3"
         >
-          {/* REAL LOGO */}
           <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(15,23,42,0.10)] transition-transform duration-300 group-hover:-translate-y-0.5">
             <img
               src="/logo.png"
@@ -212,9 +212,8 @@ export function Navbar() {
               className="absolute left-0 right-0 top-full border-b border-slate-200 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.10)] dark:border-slate-800 dark:bg-slate-950 lg:hidden"
             >
               <div className="container-page py-4">
-                {/* Mobile brand heading */}
+                {/* MOBILE BRAND */}
                 <div className="mb-3 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-                  {/* REAL MOBILE LOGO */}
                   <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white">
                     <img
                       src="/logo.png"
@@ -234,7 +233,7 @@ export function Navbar() {
                   </div>
                 </div>
 
-                {/* Links */}
+                {/* MOBILE LINKS */}
                 <div className="space-y-1">
                   {links.map((link) => (
                     <NavLink
@@ -262,7 +261,7 @@ export function Navbar() {
                   ))}
                 </div>
 
-                {/* Mobile actions */}
+                {/* MOBILE ACTIONS */}
                 <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
                   <button
                     onClick={toggleTheme}
@@ -317,5 +316,3 @@ export function Navbar() {
     </header>
   );
 }
-
-
