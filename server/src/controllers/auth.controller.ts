@@ -82,6 +82,28 @@ async function createLoginSession(
   const sessionId = generateSessionId();
   const now = new Date();
 
+  /*
+   * For students, close older online sessions.
+   * This prevents the same student from appearing
+   * multiple times because of an old browser/tab session.
+   */
+  if (role === "STUDENT") {
+    await LoginSession.updateMany(
+      {
+        user: userId,
+        role: "STUDENT",
+        isOnline: true,
+      },
+      {
+        $set: {
+          isOnline: false,
+          logoutAt: now,
+          lastActiveAt: now,
+        },
+      }
+    );
+  }
+
   await LoginSession.create({
     user: userId,
     role,
@@ -331,13 +353,15 @@ export const adminLogin = asyncHandler(
 ========================================================= */
 
 /**
- * Frontend will call this endpoint periodically
- * while the user is logged in.
+ * Student frontend calls this every 20 seconds.
  *
- * Example:
- * every 20-30 seconds
+ * Normally the session cookie identifies the exact session.
  *
- * This keeps lastActiveAt updated.
+ * Production fallback:
+ * If the session cookie is unavailable because of
+ * cross-origin/browser cookie restrictions, we use the
+ * authenticated user ID and find the latest online
+ * student session.
  */
 export const heartbeat = asyncHandler(
   async (req: Request, res: Response) => {
@@ -348,21 +372,38 @@ export const heartbeat = asyncHandler(
       );
     }
 
+    const now = new Date();
+
     const sessionId =
       req.cookies?.[sessionCookieName];
 
-    if (!sessionId) {
-      throw new ApiError(
-        401,
-        "Active session not found"
-      );
+    let session = null;
+
+    /* -------------------------
+       1. Try exact session cookie
+    ------------------------- */
+
+    if (sessionId) {
+      session = await LoginSession.findOne({
+        sessionId,
+        user: req.auth.userId,
+        isOnline: true,
+      });
     }
 
-    const session = await LoginSession.findOne({
-      sessionId,
-      user: req.auth.userId,
-      isOnline: true,
-    });
+    /* -------------------------
+       2. Production fallback
+    ------------------------- */
+
+    if (!session) {
+      session = await LoginSession.findOne({
+        user: req.auth.userId,
+        role: req.auth.role,
+        isOnline: true,
+      }).sort({
+        loginAt: -1,
+      });
+    }
 
     if (!session) {
       throw new ApiError(
@@ -371,9 +412,9 @@ export const heartbeat = asyncHandler(
       );
     }
 
-    const now = new Date();
-
     session.lastActiveAt = now;
+    session.isOnline = true;
+    session.logoutAt = undefined;
 
     await session.save();
 
@@ -397,6 +438,8 @@ export const logout = asyncHandler(
     const sessionId =
       req.cookies?.[sessionCookieName];
 
+    const now = new Date();
+
     /* -------------------------
        Mark current session offline
     ------------------------- */
@@ -410,8 +453,8 @@ export const logout = asyncHandler(
         {
           $set: {
             isOnline: false,
-            logoutAt: new Date(),
-            lastActiveAt: new Date(),
+            logoutAt: now,
+            lastActiveAt: now,
           },
         }
       );
@@ -419,8 +462,7 @@ export const logout = asyncHandler(
 
     /* -------------------------
        Fallback:
-       If session cookie is missing,
-       mark user's online sessions offline.
+       Mark user's online sessions offline.
     ------------------------- */
 
     else if (req.auth?.userId) {
@@ -432,8 +474,8 @@ export const logout = asyncHandler(
         {
           $set: {
             isOnline: false,
-            logoutAt: new Date(),
-            lastActiveAt: new Date(),
+            logoutAt: now,
+            lastActiveAt: now,
           },
         }
       );
@@ -517,8 +559,6 @@ export const forgotPassword = asyncHandler(
       email: email.toLowerCase(),
     });
 
-    // Always respond the same way to avoid
-    // leaking which emails exist.
     if (!user) {
       return success(
         res,
