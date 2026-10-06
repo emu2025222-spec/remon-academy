@@ -1,35 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
-  Filter,
-  Pencil,
+  CheckCircle2,
+  ChevronDown,
+  CircleDollarSign,
+  Edit3,
+  FileText,
   Plus,
-  RefreshCw,
   Search,
-  WalletCards,
+  UserRound,
+  Wallet,
   X,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
 import {
+  Course,
   Fee,
   Student,
-  Course,
-  PaginatedResponse,
 } from "../../types";
 
 import { Loader } from "../../components/Loader";
 import { EmptyState } from "../../components/EmptyState";
-import { Pagination } from "../../components/Pagination";
-import { Modal } from "../../components/Modal";
-import { Input } from "../../components/Input";
-import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
+import { Button } from "../../components/Button";
+import { Input } from "../../components/Input";
 import { useToast } from "../../components/Toast";
 
-type FeeStatusValue = "PAID" | "PENDING" | "PARTIAL";
-
-interface CreateForm {
+interface FeeForm {
   student: string;
   course: string;
   billingMonth: string;
@@ -42,74 +40,17 @@ interface CreateForm {
   note: string;
 }
 
-interface UpdateForm {
-  billingMonth: string;
-  amount: string;
-  amountPaid: string;
-  dueDate: string;
-  paymentDate: string;
-  paymentMethod: string;
-  transactionId: string;
-  note: string;
-}
-
-interface MonthlySummary {
-  _id?: string;
-  month?: string;
+interface MonthlyGroup {
+  month: string;
+  records: Fee[];
   totalFee: number;
   totalPaid: number;
   totalDue: number;
-  totalRecords: number;
 }
 
-interface CourseSummary {
-  _id?: string;
-  courseId?: string;
-  totalFee: number;
-  totalPaid: number;
-  totalDue: number;
-  totalRecords: number;
-  course?: {
-    _id?: string;
-    title?: string;
-    subject?: string;
-    classLevel?: string;
-  };
-}
-
-interface FeeSummary {
-  totalRecords: number;
-  totalFee: number;
-  totalPaid: number;
-  totalDue: number;
-  paidPercentage: number;
-  duePercentage: number;
-  monthlySummary: MonthlySummary[];
-  courseSummary: CourseSummary[];
-}
-
-const getCurrentMonth = () => {
-  return new Date().toISOString().slice(0, 7);
-};
-
-const getToday = () => {
-  return new Date().toISOString().slice(0, 10);
-};
-
-const emptyCreate: CreateForm = {
+const emptyForm: FeeForm = {
   student: "",
   course: "",
-  billingMonth: getCurrentMonth(),
-  amount: "",
-  amountPaid: "0",
-  dueDate: getToday(),
-  paymentDate: "",
-  paymentMethod: "",
-  transactionId: "",
-  note: "",
-};
-
-const emptyUpdate: UpdateForm = {
   billingMonth: "",
   amount: "",
   amountPaid: "0",
@@ -120,21 +61,8 @@ const emptyUpdate: UpdateForm = {
   note: "",
 };
 
-const emptySummary: FeeSummary = {
-  totalRecords: 0,
-  totalFee: 0,
-  totalPaid: 0,
-  totalDue: 0,
-  paidPercentage: 0,
-  duePercentage: 0,
-  monthlySummary: [],
-  courseSummary: [],
-};
-
 function formatMonth(month?: string) {
-  if (!month || month === "UNASSIGNED") {
-    return "Unassigned";
-  }
+  if (!month) return "No Month";
 
   const [year, monthNumber] = month.split("-");
 
@@ -158,7 +86,7 @@ function formatMonth(month?: string) {
   });
 }
 
-function formatDate(value?: string | Date) {
+function formatDate(value?: string) {
   if (!value) return "-";
 
   const date = new Date(value);
@@ -167,415 +95,552 @@ function formatDate(value?: string | Date) {
     return "-";
   }
 
-  return date.toLocaleDateString("en-GB", {
+  return date.toLocaleDateString("en-BD", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 }
 
-function getFeeStatus(
-  amount: number,
-  amountPaid: number
-): FeeStatusValue {
-  if (amount > 0 && amountPaid >= amount) {
-    return "PAID";
+function money(value: number) {
+  return `৳${Number(value || 0).toLocaleString()}`;
+}
+
+function getStudentName(
+  student: Fee["student"],
+  students: Student[]
+) {
+  if (
+    typeof student === "object" &&
+    student !== null
+  ) {
+    return student.fullName;
   }
 
-  if (amountPaid > 0) {
-    return "PARTIAL";
+  const found = students.find(
+    (item) => item._id === student
+  );
+
+  return found?.fullName || "Unknown Student";
+}
+
+function getStudentId(
+  student: Fee["student"],
+  students: Student[]
+) {
+  if (
+    typeof student === "object" &&
+    student !== null
+  ) {
+    return student.studentId;
   }
 
+  const found = students.find(
+    (item) => item._id === student
+  );
+
+  return found?.studentId || "";
+}
+
+function getCourseName(
+  course: Fee["course"],
+  courses: Course[]
+) {
+  if (
+    typeof course === "object" &&
+    course !== null
+  ) {
+    return course.title;
+  }
+
+  const found = courses.find(
+    (item) => item._id === course
+  );
+
+  return found?.title || "Unknown Course";
+}
+
+function getStatus(amount: number, paid: number) {
+  if (amount <= 0) return "PENDING";
+  if (paid >= amount) return "PAID";
+  if (paid > 0) return "PARTIAL";
   return "PENDING";
 }
 
-function statusColor(status?: string) {
+function statusColor(status: string) {
   if (status === "PAID") return "green";
   if (status === "PARTIAL") return "gold";
   return "red";
 }
 
-function getStudentName(student: Fee["student"]) {
-  if (typeof student === "object" && student) {
-    return student.fullName || "-";
-  }
-
-  return "-";
-}
-
-function getStudentId(student: Fee["student"]) {
-  if (typeof student === "object" && student) {
-    return student.studentId || "";
-  }
-
-  return "";
-}
-
-function getCourseTitle(course: Fee["course"]) {
-  if (typeof course === "object" && course) {
-    return course.title || "-";
-  }
-
-  return "-";
-}
-
-function getCourseSubject(course: Fee["course"]) {
-  if (typeof course === "object" && course) {
-    return course.subject || "";
-  }
-
-  return "";
-}
-
 export default function AdminFees() {
-  const [data, setData] =
-    useState<PaginatedResponse<Fee> | null>(null);
+  const [fees, setFees] = useState<Fee[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
-  const [summary, setSummary] =
-    useState<FeeSummary>(emptySummary);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [students, setStudents] =
-    useState<Student[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedMonth, setSelectedMonth] =
+    useState("");
 
-  const [courses, setCourses] =
-    useState<Course[]>([]);
+  const [expandedMonth, setExpandedMonth] =
+    useState<string | null>(null);
 
-  const [page, setPage] = useState(1);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [saving, setSaving] =
+  const [showModal, setShowModal] =
     useState(false);
 
-  const [createOpen, setCreateOpen] =
-    useState(false);
-
-  const [editTarget, setEditTarget] =
+  const [editingFee, setEditingFee] =
     useState<Fee | null>(null);
 
-  const [createForm, setCreateForm] =
-    useState<CreateForm>(emptyCreate);
-
-  const [updateForm, setUpdateForm] =
-    useState<UpdateForm>(emptyUpdate);
-
-  const [search, setSearch] =
-    useState("");
-
-  const [courseFilter, setCourseFilter] =
-    useState("");
-
-  const [monthFilter, setMonthFilter] =
-    useState("");
-
-  const [statusFilter, setStatusFilter] =
-    useState("");
-
-  const [studentFilter, setStudentFilter] =
-    useState("");
+  const [form, setForm] =
+    useState<FeeForm>(emptyForm);
 
   const { show } = useToast();
 
-  async function load() {
+  /*
+   * =========================================================
+   * LOAD DATA
+   * =========================================================
+   */
+
+  async function loadData() {
     setLoading(true);
 
     try {
-      const params: Record<string, string | number> = {
-        page,
-      };
-
-      if (courseFilter) {
-        params.course = courseFilter;
-      }
-
-      if (monthFilter) {
-        params.billingMonth = monthFilter;
-      }
-
-      if (statusFilter) {
-        params.status = statusFilter;
-      }
-
-      if (studentFilter) {
-        params.student = studentFilter;
-      }
-
       const [
         feesResponse,
-        summaryResponse,
+        studentsResponse,
+        coursesResponse,
       ] = await Promise.all([
-        api.get("/fees", {
-          params,
-        }),
-
-        api.get("/fees/summary"),
+        api.get("/fees"),
+        api.get("/students"),
+        api.get("/courses"),
       ]);
 
-      setData(feesResponse.data.data);
+      const feeData =
+        feesResponse.data.data;
 
-      setSummary({
-        ...emptySummary,
-        ...(summaryResponse.data.data || {}),
-        monthlySummary:
-          summaryResponse.data.data?.monthlySummary ||
-          [],
-        courseSummary:
-          summaryResponse.data.data?.courseSummary ||
-          [],
-      });
-    } catch (err) {
-      show(getErrorMessage(err), "error");
+      const studentData =
+        studentsResponse.data.data;
+
+      const courseData =
+        coursesResponse.data.data;
+
+      setFees(
+        Array.isArray(feeData)
+          ? feeData
+          : feeData?.data || []
+      );
+
+      setStudents(
+        Array.isArray(studentData)
+          ? studentData
+          : studentData?.data || []
+      );
+
+      setCourses(
+        Array.isArray(courseData)
+          ? courseData
+          : courseData?.data || []
+      );
+    } catch (error) {
+      show(
+        getErrorMessage(error),
+        "error"
+      );
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
-  }, [
-    page,
-    courseFilter,
-    monthFilter,
-    statusFilter,
-    studentFilter,
-  ]);
-
-  useEffect(() => {
-    async function loadOptions() {
-      try {
-        const [
-          studentsResponse,
-          coursesResponse,
-        ] = await Promise.all([
-          api.get("/students", {
-            params: {
-              limit: 200,
-            },
-          }),
-
-          api.get("/courses", {
-            params: {
-              limit: 100,
-            },
-          }),
-        ]);
-
-        setStudents(
-          studentsResponse.data.data.data || []
-        );
-
-        setCourses(
-          coursesResponse.data.data.data || []
-        );
-      } catch (err) {
-        show(getErrorMessage(err), "error");
-      }
-    }
-
-    loadOptions();
+    loadData();
   }, []);
 
-  const visibleFees = useMemo(() => {
-    const records = data?.data || [];
+  /*
+   * =========================================================
+   * MONTHLY GROUPING
+   *
+   * Month
+   *   -> Student
+   *      -> Course
+   *         -> Fee
+   *         -> Paid
+   *         -> Due
+   * =========================================================
+   */
 
-    const query = search.trim().toLowerCase();
+  const monthlyGroups =
+    useMemo<MonthlyGroup[]>(() => {
+      const groups: Record<
+        string,
+        Fee[]
+      > = {};
 
-    if (!query) {
-      return records;
-    }
+      fees.forEach((fee) => {
+        const month =
+          fee.billingMonth ||
+          "UNASSIGNED";
 
-    return records.filter((fee) => {
-      const studentName =
-        getStudentName(fee.student);
+        if (!groups[month]) {
+          groups[month] = [];
+        }
 
-      const studentId =
-        getStudentId(fee.student);
+        groups[month].push(fee);
+      });
 
-      const courseTitle =
-        getCourseTitle(fee.course);
+      return Object.entries(groups)
+        .map(([month, records]) => {
+          const totalFee =
+            records.reduce(
+              (sum, fee) =>
+                sum +
+                Number(
+                  fee.amount || 0
+                ),
+              0
+            );
 
-      const courseSubject =
-        getCourseSubject(fee.course);
+          const totalPaid =
+            records.reduce(
+              (sum, fee) =>
+                sum +
+                Number(
+                  fee.amountPaid || 0
+                ),
+              0
+            );
 
-      const month =
-        fee.billingMonth || "";
+          return {
+            month,
+            records,
+            totalFee,
+            totalPaid,
+            totalDue: Math.max(
+              totalFee - totalPaid,
+              0
+            ),
+          };
+        })
+        .sort((a, b) => {
+          if (
+            a.month ===
+            "UNASSIGNED"
+          )
+            return 1;
 
-      return [
-        studentName,
-        studentId,
-        courseTitle,
-        courseSubject,
-        month,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(query);
+          if (
+            b.month ===
+            "UNASSIGNED"
+          )
+            return -1;
+
+          return b.month.localeCompare(
+            a.month
+          );
+        });
+    }, [fees]);
+
+  /*
+   * =========================================================
+   * SEARCH + MONTH FILTER
+   * =========================================================
+   */
+
+  const filteredGroups =
+    useMemo(() => {
+      const keyword =
+        search.trim().toLowerCase();
+
+      return monthlyGroups
+        .filter((group) => {
+          if (
+            selectedMonth &&
+            group.month !==
+              selectedMonth
+          ) {
+            return false;
+          }
+
+          return true;
+        })
+        .map((group) => {
+          if (!keyword) {
+            return group;
+          }
+
+          const records =
+            group.records.filter(
+              (fee) => {
+                const studentName =
+                  getStudentName(
+                    fee.student,
+                    students
+                  ).toLowerCase();
+
+                const studentId =
+                  getStudentId(
+                    fee.student,
+                    students
+                  ).toLowerCase();
+
+                const courseName =
+                  getCourseName(
+                    fee.course,
+                    courses
+                  ).toLowerCase();
+
+                return (
+                  studentName.includes(
+                    keyword
+                  ) ||
+                  studentId.includes(
+                    keyword
+                  ) ||
+                  courseName.includes(
+                    keyword
+                  )
+                );
+              }
+            );
+
+          return {
+            ...group,
+            records,
+            totalFee:
+              records.reduce(
+                (sum, fee) =>
+                  sum +
+                  Number(
+                    fee.amount || 0
+                  ),
+                0
+              ),
+            totalPaid:
+              records.reduce(
+                (sum, fee) =>
+                  sum +
+                  Number(
+                    fee.amountPaid ||
+                      0
+                  ),
+                0
+              ),
+            totalDue:
+              records.reduce(
+                (sum, fee) =>
+                  sum +
+                  Math.max(
+                    Number(
+                      fee.amount || 0
+                    ) -
+                      Number(
+                        fee.amountPaid ||
+                          0
+                      ),
+                    0
+                  ),
+                0
+              ),
+          };
+        })
+        .filter(
+          (group) =>
+            group.records.length > 0
+        );
+    }, [
+      monthlyGroups,
+      search,
+      selectedMonth,
+      students,
+      courses,
+    ]);
+
+  /*
+   * =========================================================
+   * OVERALL TOTALS
+   * =========================================================
+   */
+
+  const overall = useMemo(() => {
+    const totalFee =
+      fees.reduce(
+        (sum, fee) =>
+          sum +
+          Number(fee.amount || 0),
+        0
+      );
+
+    const totalPaid =
+      fees.reduce(
+        (sum, fee) =>
+          sum +
+          Number(
+            fee.amountPaid || 0
+          ),
+        0
+      );
+
+    const totalDue = Math.max(
+      totalFee - totalPaid,
+      0
+    );
+
+    const percentage =
+      totalFee > 0
+        ? Math.round(
+            (totalPaid / totalFee) *
+              100
+          )
+        : 0;
+
+    return {
+      totalFee,
+      totalPaid,
+      totalDue,
+      percentage,
+    };
+  }, [fees]);
+
+  /*
+   * =========================================================
+   * FORM HELPERS
+   * =========================================================
+   */
+
+  function openCreateModal(
+    month = selectedMonth
+  ) {
+    setEditingFee(null);
+
+    setForm({
+      ...emptyForm,
+      billingMonth:
+        month &&
+        month !== "UNASSIGNED"
+          ? month
+          : "",
     });
-  }, [data, search]);
 
-  async function handleCreate() {
-    if (!createForm.student) {
-      show("Please select a student", "error");
-      return;
-    }
-
-    if (!createForm.course) {
-      show("Please select a course", "error");
-      return;
-    }
-
-    if (!createForm.billingMonth) {
-      show(
-        "Please select a billing month",
-        "error"
-      );
-      return;
-    }
-
-    if (!createForm.amount) {
-      show(
-        "Please enter the fee amount",
-        "error"
-      );
-      return;
-    }
-
-    if (!createForm.dueDate) {
-      show(
-        "Please select the due date",
-        "error"
-      );
-      return;
-    }
-
-    const amount =
-      Number(createForm.amount);
-
-    const amountPaid =
-      Number(createForm.amountPaid || 0);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      show(
-        "Fee amount must be greater than 0",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      !Number.isFinite(amountPaid) ||
-      amountPaid < 0
-    ) {
-      show(
-        "Paid amount cannot be negative",
-        "error"
-      );
-      return;
-    }
-
-    if (amountPaid > amount) {
-      show(
-        "Paid amount cannot be greater than the fee amount",
-        "error"
-      );
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      await api.post("/fees", {
-        student: createForm.student,
-        course: createForm.course,
-        billingMonth:
-          createForm.billingMonth,
-        amount,
-        amountPaid,
-        dueDate: createForm.dueDate,
-        paymentDate:
-          createForm.paymentDate || undefined,
-        paymentMethod:
-          createForm.paymentMethod || undefined,
-        transactionId:
-          createForm.transactionId || undefined,
-        note:
-          createForm.note || undefined,
-      });
-
-      show(
-        "Monthly fee record created successfully",
-        "success"
-      );
-
-      setCreateOpen(false);
-
-      setCreateForm({
-        ...emptyCreate,
-        billingMonth: getCurrentMonth(),
-        dueDate: getToday(),
-      });
-
-      await load();
-    } catch (err) {
-      show(getErrorMessage(err), "error");
-    } finally {
-      setSaving(false);
-    }
+    setShowModal(true);
   }
 
-  function openEdit(fee: Fee) {
-    setEditTarget(fee);
+  function openEditModal(
+    fee: Fee
+  ) {
+    setEditingFee(fee);
 
-    setUpdateForm({
+    setForm({
+      student:
+        typeof fee.student ===
+        "object"
+          ? fee.student._id
+          : fee.student,
+      course:
+        typeof fee.course ===
+        "object"
+          ? fee.course._id
+          : fee.course,
       billingMonth:
         fee.billingMonth || "",
-
-      amount: String(fee.amount || 0),
-
+      amount: String(
+        fee.amount || 0
+      ),
       amountPaid: String(
         fee.amountPaid || 0
       ),
-
       dueDate: fee.dueDate
-        ? String(fee.dueDate).slice(0, 10)
+        ? new Date(
+            fee.dueDate
+          )
+            .toISOString()
+            .slice(0, 10)
         : "",
-
       paymentDate:
         fee.paymentDate
-          ? String(fee.paymentDate).slice(0, 10)
+          ? new Date(
+              fee.paymentDate
+            )
+              .toISOString()
+              .slice(0, 10)
           : "",
-
       paymentMethod:
         fee.paymentMethod || "",
-
       transactionId:
         fee.transactionId || "",
-
       note: fee.note || "",
     });
+
+    setShowModal(true);
   }
 
-  async function handleUpdate() {
-    if (!editTarget) return;
+  function closeModal() {
+    if (saving) return;
 
-    const amount =
-      Number(updateForm.amount);
+    setShowModal(false);
+    setEditingFee(null);
+    setForm(emptyForm);
+  }
 
-    const amountPaid =
-      Number(updateForm.amountPaid || 0);
+  function updateForm(
+    key: keyof FeeForm,
+    value: string
+  ) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
 
-    if (!updateForm.dueDate) {
+  /*
+   * =========================================================
+   * SUBMIT FEE
+   * =========================================================
+   */
+
+  async function handleSubmit(
+    event: React.FormEvent
+  ) {
+    event.preventDefault();
+
+    if (!form.student) {
       show(
-        "Please select the due date",
+        "Please select a student.",
         "error"
       );
       return;
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!form.course) {
       show(
-        "Fee amount must be greater than 0",
+        "Please select a course.",
+        "error"
+      );
+      return;
+    }
+
+    if (!form.billingMonth) {
+      show(
+        "Please select a billing month.",
+        "error"
+      );
+      return;
+    }
+
+    const amount =
+      Number(form.amount);
+
+    const amountPaid =
+      Number(form.amountPaid);
+
+    if (
+      !Number.isFinite(amount) ||
+      amount < 0
+    ) {
+      show(
+        "Please enter a valid fee amount.",
         "error"
       );
       return;
@@ -586,7 +651,7 @@ export default function AdminFees() {
       amountPaid < 0
     ) {
       show(
-        "Paid amount cannot be negative",
+        "Please enter a valid paid amount.",
         "error"
       );
       return;
@@ -594,1291 +659,1197 @@ export default function AdminFees() {
 
     if (amountPaid > amount) {
       show(
-        "Paid amount cannot be greater than the fee amount",
+        "Paid amount cannot be greater than the fee amount.",
         "error"
       );
       return;
     }
 
+    if (!form.dueDate) {
+      show(
+        "Please select a due date.",
+        "error"
+      );
+      return;
+    }
+
+    const status =
+      getStatus(
+        amount,
+        amountPaid
+      );
+
+    const payload = {
+      student: form.student,
+      course: form.course,
+      billingMonth:
+        form.billingMonth,
+      amount,
+      amountPaid,
+      dueDate:
+        form.dueDate,
+      status,
+      paymentDate:
+        form.paymentDate ||
+        undefined,
+      paymentMethod:
+        form.paymentMethod ||
+        undefined,
+      transactionId:
+        form.transactionId ||
+        undefined,
+      note:
+        form.note || undefined,
+    };
+
     setSaving(true);
 
     try {
-      await api.put(
-        `/fees/${editTarget._id}`,
-        {
-          billingMonth:
-            updateForm.billingMonth ||
-            undefined,
+      if (editingFee) {
+        await api.put(
+          `/fees/${editingFee._id}`,
+          payload
+        );
 
-          amount,
+        show(
+          "Monthly fee updated successfully.",
+          "success"
+        );
+      } else {
+        await api.post(
+          "/fees",
+          payload
+        );
 
-          amountPaid,
+        show(
+          "Monthly fee added successfully.",
+          "success"
+        );
+      }
 
-          dueDate:
-            updateForm.dueDate,
-
-          paymentDate:
-            updateForm.paymentDate ||
-            undefined,
-
-          paymentMethod:
-            updateForm.paymentMethod ||
-            undefined,
-
-          transactionId:
-            updateForm.transactionId ||
-            undefined,
-
-          note:
-            updateForm.note ||
-            undefined,
-        }
-      );
-
+      closeModal();
+      await loadData();
+    } catch (error) {
       show(
-        "Monthly fee record updated successfully",
-        "success"
+        getErrorMessage(error),
+        "error"
       );
-
-      setEditTarget(null);
-
-      await load();
-    } catch (err) {
-      show(getErrorMessage(err), "error");
     } finally {
       setSaving(false);
     }
   }
 
-  function clearFilters() {
-    setSearch("");
-    setCourseFilter("");
-    setMonthFilter("");
-    setStatusFilter("");
-    setStudentFilter("");
-    setPage(1);
+  /*
+   * =========================================================
+   * FILTER MONTH OPTIONS
+   * =========================================================
+   */
+
+  const monthOptions =
+    useMemo(() => {
+      return monthlyGroups.map(
+        (group) => group.month
+      );
+    }, [monthlyGroups]);
+
+  /*
+   * =========================================================
+   * LOADING
+   * =========================================================
+   */
+
+  if (loading) {
+    return (
+      <div className="card-premium p-10">
+        <Loader />
+      </div>
+    );
   }
 
-  const hasFilters = Boolean(
-    search ||
-      courseFilter ||
-      monthFilter ||
-      statusFilter ||
-      studentFilter
-  );
-
-  const currentEditStatus = getFeeStatus(
-    Number(updateForm.amount || 0),
-    Number(updateForm.amountPaid || 0)
-  );
-
-  const currentEditDue = Math.max(
-    Number(updateForm.amount || 0) -
-      Number(updateForm.amountPaid || 0),
-    0
-  );
-
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
+    <div className="space-y-8 pb-10">
+      {/* =======================================================
+          HEADER
+      ======================================================= */}
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gold/10 text-brand-gold">
-              <WalletCards className="h-4 w-4" />
-            </span>
+      <section className="relative overflow-hidden rounded-3xl bg-brand-navyDark px-6 py-8 text-white shadow-sm sm:px-8 sm:py-10">
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full border border-brand-goldLight/10" />
 
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Finance
-            </span>
+        <div className="absolute -bottom-24 right-20 h-64 w-64 rounded-full border border-brand-goldLight/10" />
+
+        <div className="relative z-10">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-goldLight">
+            <Wallet className="h-3.5 w-3.5" />
+            Monthly Accounts
           </div>
 
-          <h2 className="font-display text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Fees Management
-          </h2>
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div>
+              <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                Fee Management
+              </h1>
 
-          <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-            Manage monthly student fees, payments,
-            pending balances and course-wise
-            collections from one place.
-          </p>
-        </div>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">
+                Manage fees month by month —
+                Student → Course → Fee → Paid → Due.
+              </p>
+            </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={load}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${
-                loading ? "animate-spin" : ""
-              }`}
-            />
-
-            Refresh
-          </Button>
-
-          <Button
-            onClick={() => {
-              setCreateForm({
-                ...emptyCreate,
-                billingMonth: getCurrentMonth(),
-                dueDate: getToday(),
-              });
-
-              setCreateOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-
-            Add Monthly Fee
-          </Button>
-        </div>
-      </div>
-
-      {/* SUMMARY CARDS */}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card-premium p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-            Total Records
-          </p>
-
-          <p className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-            {Number(
-              summary.totalRecords || 0
-            ).toLocaleString()}
-          </p>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Monthly fee entries
-          </p>
-        </div>
-
-        <div className="card-premium p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-            Total Fees
-          </p>
-
-          <p className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-            ৳
-            {Number(
-              summary.totalFee || 0
-            ).toLocaleString()}
-          </p>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Overall billed amount
-          </p>
-        </div>
-
-        <div className="card-premium p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-            Total Paid
-          </p>
-
-          <p className="mt-3 text-2xl font-bold text-emerald-600">
-            ৳
-            {Number(
-              summary.totalPaid || 0
-            ).toLocaleString()}
-          </p>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Collected so far
-          </p>
-        </div>
-
-        <div className="card-premium p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-            Total Due
-          </p>
-
-          <p className="mt-3 text-2xl font-bold text-red-600">
-            ৳
-            {Number(
-              summary.totalDue || 0
-            ).toLocaleString()}
-          </p>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Remaining balance
-          </p>
-        </div>
-      </div>
-
-      {/* COLLECTION PROGRESS */}
-
-      <div className="card-premium p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-              Collection Progress
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Paid vs total billed amount
-            </p>
-          </div>
-
-          <div className="text-left sm:text-right">
-            <p className="text-2xl font-bold text-emerald-600">
-              {Math.min(
-                Math.max(
-                  Number(
-                    summary.paidPercentage || 0
-                  ),
-                  0
-                ),
-                100
-              )}
-              %
-            </p>
-
-            <p className="text-xs text-slate-400">
-              collected
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          <div
-            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-            style={{
-              width: `${Math.min(
-                Math.max(
-                  Number(
-                    summary.paidPercentage || 0
-                  ),
-                  0
-                ),
-                100
-              )}%`,
-            }}
-          />
-        </div>
-      </div>
-
-      {/* FILTERS */}
-
-      <div className="card-premium p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-brand-gold" />
-
-            <h3 className="font-semibold text-slate-900 dark:text-white">
-              Fee Filters
-            </h3>
-          </div>
-
-          {hasFilters && (
-            <button
+            <Button
               type="button"
-              onClick={clearFilters}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:hover:text-white"
+              onClick={() =>
+                openCreateModal()
+              }
+              className="w-full sm:w-auto"
             >
-              <X className="h-3.5 w-3.5" />
+              <Plus className="mr-2 h-4 w-4" />
+              Add Monthly Fee
+            </Button>
+          </div>
+        </div>
+      </section>
 
-              Clear filters
-            </button>
-          )}
+      {/* =======================================================
+          OVERALL SUMMARY
+      ======================================================= */}
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="card-premium p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                Total Fee
+              </p>
+
+              <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
+                {money(
+                  overall.totalFee
+                )}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-goldLight/15 text-brand-gold">
+              <CircleDollarSign className="h-5 w-5" />
+            </div>
+          </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="card-premium p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                Total Paid
+              </p>
+
+              <p className="mt-2 font-display text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+                {money(
+                  overall.totalPaid
+                )}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                Total Due
+              </p>
+
+              <p className="mt-2 font-display text-2xl font-semibold text-red-600 dark:text-red-400">
+                {money(
+                  overall.totalDue
+                )}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400">
+              <FileText className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="w-full">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                Collection
+              </p>
+
+              <p className="mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-white">
+                {overall.percentage}%
+              </p>
+
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-brand-goldLight"
+                  style={{
+                    width: `${overall.percentage}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =======================================================
+          FILTER BAR
+      ======================================================= */}
+
+      <section className="card-premium p-5">
+        <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto]">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
             <input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search student..."
-              className="input-field pl-9"
+              onChange={(event) =>
+                setSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Search student, student ID or course..."
+              className="input-field pl-10"
             />
           </div>
 
-          <div>
-            <select
-              value={studentFilter}
-              onChange={(e) => {
-                setStudentFilter(e.target.value);
-                setPage(1);
-              }}
-              className="input-field"
-            >
-              <option value="">
-                All Students
-              </option>
+          <select
+            value={selectedMonth}
+            onChange={(event) =>
+              setSelectedMonth(
+                event.target.value
+              )
+            }
+            className="input-field"
+          >
+            <option value="">
+              All Months
+            </option>
 
-              {students.map((student) => (
+            {monthOptions.map(
+              (month) => (
                 <option
-                  key={student._id}
-                  value={student._id}
+                  key={month}
+                  value={month}
                 >
-                  {student.fullName} (
-                  {student.studentId})
+                  {formatMonth(month)}
                 </option>
-              ))}
-            </select>
-          </div>
+              )
+            )}
+          </select>
 
-          <div>
-            <select
-              value={courseFilter}
-              onChange={(e) => {
-                setCourseFilter(e.target.value);
-                setPage(1);
-              }}
-              className="input-field"
-            >
-              <option value="">
-                All Courses
-              </option>
-
-              {courses.map((course) => (
-                <option
-                  key={course._id}
-                  value={course._id}
-                >
-                  {course.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="relative">
-            <CalendarDays className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-            <input
-              type="month"
-              value={monthFilter}
-              onChange={(e) => {
-                setMonthFilter(e.target.value);
-                setPage(1);
-              }}
-              className="input-field pl-9"
-            />
-          </div>
-
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="input-field"
-            >
-              <option value="">
-                All Status
-              </option>
-
-              <option value="PAID">
-                Paid
-              </option>
-
-              <option value="PARTIAL">
-                Partial
-              </option>
-
-              <option value="PENDING">
-                Pending
-              </option>
-            </select>
-          </div>
+          <Button
+            type="button"
+            onClick={() =>
+              openCreateModal(
+                selectedMonth
+              )
+            }
+            className="w-full lg:w-auto"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Fee
+          </Button>
         </div>
-      </div>
+      </section>
 
-      {/* MONTHLY + COURSE SUMMARY */}
+      {/* =======================================================
+          MONTHLY LEDGER
+      ======================================================= */}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="card-premium overflow-hidden">
-          <div className="border-b border-slate-100 p-5 dark:border-slate-800">
-            <h3 className="font-semibold text-slate-900 dark:text-white">
-              Monthly Collection
-            </h3>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Overall fee position by month
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-400 dark:bg-slate-800/50">
-                <tr>
-                  <th className="px-4 py-3">
-                    Month
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Records
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Fee
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Paid
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Due
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {summary.monthlySummary
-                  ?.slice(0, 8)
-                  .map((item, index) => {
-                    const month =
-                      item.month ||
-                      item._id;
-
-                    return (
-                      <tr
-                        key={
-                          month ||
-                          `month-${index}`
-                        }
-                        className="border-t border-slate-100 dark:border-slate-800"
-                      >
-                        <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
-                          {formatMonth(month)}
-                        </td>
-
-                        <td className="px-4 py-3 text-slate-500">
-                          {Number(
-                            item.totalRecords ||
-                              0
-                          ).toLocaleString()}
-                        </td>
-
-                        <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">
-                          ৳
-                          {Number(
-                            item.totalFee || 0
-                          ).toLocaleString()}
-                        </td>
-
-                        <td className="px-4 py-3 font-semibold text-emerald-600">
-                          ৳
-                          {Number(
-                            item.totalPaid || 0
-                          ).toLocaleString()}
-                        </td>
-
-                        <td className="px-4 py-3 font-semibold text-red-600">
-                          ৳
-                          {Number(
-                            item.totalDue || 0
-                          ).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                {!summary.monthlySummary?.length && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-8 text-center text-sm text-slate-400"
-                    >
-                      No monthly summary yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="card-premium overflow-hidden">
-          <div className="border-b border-slate-100 p-5 dark:border-slate-800">
-            <h3 className="font-semibold text-slate-900 dark:text-white">
-              Course-wise Collection
-            </h3>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Overall fee position by course
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-400 dark:bg-slate-800/50">
-                <tr>
-                  <th className="px-4 py-3">
-                    Course
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Records
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Fee
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Paid
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Due
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {summary.courseSummary
-                  ?.slice(0, 8)
-                  .map((item, index) => (
-                    <tr
-                      key={
-                        item._id ||
-                        item.courseId ||
-                        `course-${index}`
-                      }
-                      className="border-t border-slate-100 dark:border-slate-800"
-                    >
-                      <td className="max-w-[220px] px-4 py-3">
-                        <p className="truncate font-medium text-slate-700 dark:text-slate-200">
-                          {item.course?.title ||
-                            "Unknown course"}
-                        </p>
-
-                        {item.course
-                          ?.subject && (
-                          <p className="mt-0.5 text-xs text-slate-400">
-                            {item.course.subject}
-                          </p>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-500">
-                        {Number(
-                          item.totalRecords ||
-                            0
-                        ).toLocaleString()}
-                      </td>
-
-                      <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">
-                        ৳
-                        {Number(
-                          item.totalFee || 0
-                        ).toLocaleString()}
-                      </td>
-
-                      <td className="px-4 py-3 font-semibold text-emerald-600">
-                        ৳
-                        {Number(
-                          item.totalPaid || 0
-                        ).toLocaleString()}
-                      </td>
-
-                      <td className="px-4 py-3 font-semibold text-red-600">
-                        ৳
-                        {Number(
-                          item.totalDue || 0
-                        ).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-
-                {!summary.courseSummary?.length && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-8 text-center text-sm text-slate-400"
-                    >
-                      No course summary yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* FEE TABLE */}
-
-      {loading ? (
-        <div className="card-premium p-10">
-          <Loader />
-        </div>
-      ) : visibleFees.length === 0 ? (
-        <div className="card-premium p-4">
-          <EmptyState message="No fee records found for the selected filters." />
+      {filteredGroups.length === 0 ? (
+        <div className="card-premium p-8">
+          <EmptyState message="No monthly fee records found." />
         </div>
       ) : (
-        <div className="card-premium overflow-hidden p-0">
-          <div className="flex flex-col gap-2 border-b border-slate-100 p-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">
-                Monthly Fee Ledger
-              </h3>
+        <div className="space-y-5">
+          {filteredGroups.map(
+            (group) => {
+              const isOpen =
+                expandedMonth ===
+                  group.month ||
+                expandedMonth ===
+                  null;
 
-              <p className="mt-1 text-xs text-slate-500">
-                Each row represents one student's
-                fee for a specific month.
-              </p>
-            </div>
+              return (
+                <section
+                  key={group.month}
+                  className="card-premium overflow-hidden"
+                >
+                  {/* Month header */}
 
-            <span className="text-xs font-medium text-slate-400">
-              {visibleFees.length} visible record
-              {visibleFees.length !== 1
-                ? "s"
-                : ""}
-            </span>
-          </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedMonth(
+                        isOpen
+                          ? group.month
+                          : null
+                      )
+                    }
+                    className="flex w-full items-center justify-between gap-5 px-5 py-5 text-left transition hover:bg-slate-50/60 dark:hover:bg-slate-900/40 sm:px-6"
+                  >
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-goldLight/15 text-brand-gold">
+                        <CalendarDays className="h-5 w-5" />
+                      </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-400 dark:bg-slate-800/50">
-                <tr>
-                  <th className="px-4 py-3">
-                    Student
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Course
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Month
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Fee
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Paid
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Due
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Status
-                  </th>
-
-                  <th className="px-4 py-3">
-                    Due Date
-                  </th>
-
-                  <th className="px-4 py-3 text-right">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {visibleFees.map((fee) => {
-                  const amount =
-                    Number(fee.amount || 0);
-
-                  const paid =
-                    Number(
-                      fee.amountPaid || 0
-                    );
-
-                  const due = Math.max(
-                    amount - paid,
-                    0
-                  );
-
-                  return (
-                    <tr
-                      key={fee._id}
-                      className="border-t border-slate-100 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/30"
-                    >
-                      <td className="px-4 py-4">
-                        <div>
-                          <p className="font-semibold text-slate-800 dark:text-white">
-                            {getStudentName(
-                              fee.student
-                            )}
-                          </p>
-
-                          <p className="mt-0.5 text-xs text-slate-400">
-                            {getStudentId(
-                              fee.student
-                            )}
-                          </p>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <p className="max-w-[180px] truncate font-medium text-slate-700 dark:text-slate-200">
-                          {getCourseTitle(
-                            fee.course
+                      <div className="min-w-0">
+                        <p className="font-display text-xl font-semibold text-slate-900 dark:text-white">
+                          {formatMonth(
+                            group.month
                           )}
                         </p>
 
-                        {getCourseSubject(
-                          fee.course
-                        ) && (
-                          <p className="mt-0.5 text-xs text-slate-400">
-                            {getCourseSubject(
-                              fee.course
+                        <p className="mt-1 text-xs text-slate-400">
+                          {group.records.length}{" "}
+                          fee records
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-5">
+                      <div className="hidden text-right sm:block">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Fee / Paid / Due
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          <span className="text-slate-700 dark:text-slate-200">
+                            {money(
+                              group.totalFee
                             )}
-                          </p>
+                          </span>
+
+                          <span className="mx-1 text-slate-300">
+                            /
+                          </span>
+
+                          <span className="text-emerald-600">
+                            {money(
+                              group.totalPaid
+                            )}
+                          </span>
+
+                          <span className="mx-1 text-slate-300">
+                            /
+                          </span>
+
+                          <span className="text-red-600">
+                            {money(
+                              group.totalDue
+                            )}
+                          </span>
+                        </p>
+                      </div>
+
+                      <ChevronDown
+                        className={`h-5 w-5 text-slate-400 transition-transform ${
+                          isOpen
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </div>
+                  </button>
+
+                  {/* Mobile monthly summary */}
+
+                  <div className="grid grid-cols-3 gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800 sm:hidden">
+                    <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900/50">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                        Fee
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                        {money(
+                          group.totalFee
                         )}
-                      </td>
+                      </p>
+                    </div>
 
-                      <td className="px-4 py-4">
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                          <CalendarDays className="h-3.5 w-3.5 text-brand-gold" />
+                    <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-600/70">
+                        Paid
+                      </p>
 
-                          {formatMonth(
-                            fee.billingMonth
-                          )}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4 font-semibold text-slate-800 dark:text-white">
-                        ৳
-                        {amount.toLocaleString()}
-                      </td>
-
-                      <td className="px-4 py-4 font-semibold text-emerald-600">
-                        ৳
-                        {paid.toLocaleString()}
-                      </td>
-
-                      <td className="px-4 py-4 font-semibold text-red-600">
-                        ৳
-                        {due.toLocaleString()}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <Badge
-                          color={statusColor(
-                            fee.status
-                          )}
-                        >
-                          {fee.status}
-                        </Badge>
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-500 dark:text-slate-400">
-                        {formatDate(
-                          fee.dueDate
+                      <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {money(
+                          group.totalPaid
                         )}
-                      </td>
+                      </p>
+                    </div>
 
-                      <td className="px-4 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openEdit(fee)
+                    <div className="rounded-xl bg-red-50 p-3 dark:bg-red-500/10">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-red-500/70">
+                        Due
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
+                        {money(
+                          group.totalDue
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* =================================================
+                      MONTH RECORDS
+                  ================================================= */}
+
+                  {isOpen && (
+                    <div className="border-t border-slate-100 dark:border-slate-800">
+                      {/* Desktop */}
+
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50/80 dark:bg-slate-900/40">
+                            <tr>
+                              <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Student
+                              </th>
+
+                              <th className="px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Course
+                              </th>
+
+                              <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Fee
+                              </th>
+
+                              <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Paid
+                              </th>
+
+                              <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Due
+                              </th>
+
+                              <th className="px-4 py-4 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Status
+                              </th>
+
+                              <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {group.records.map(
+                              (fee) => {
+                                const amount =
+                                  Number(
+                                    fee.amount ||
+                                      0
+                                  );
+
+                                const paid =
+                                  Number(
+                                    fee.amountPaid ||
+                                      0
+                                  );
+
+                                const due =
+                                  Math.max(
+                                    amount -
+                                      paid,
+                                    0
+                                  );
+
+                                const status =
+                                  getStatus(
+                                    amount,
+                                    paid
+                                  );
+
+                                return (
+                                  <tr
+                                    key={
+                                      fee._id
+                                    }
+                                    className="border-t border-slate-100 dark:border-slate-800"
+                                  >
+                                    {/* Student */}
+
+                                    <td className="px-6 py-5">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-goldLight">
+                                          <UserRound className="h-4 w-4" />
+                                        </div>
+
+                                        <div>
+                                          <p className="font-semibold text-slate-800 dark:text-slate-200">
+                                            {getStudentName(
+                                              fee.student,
+                                              students
+                                            )}
+                                          </p>
+
+                                          <p className="mt-0.5 text-xs text-slate-400">
+                                            {getStudentId(
+                                              fee.student,
+                                              students
+                                            )}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </td>
+
+                                    {/* Course */}
+
+                                    <td className="px-4 py-5">
+                                      <p className="font-medium text-slate-700 dark:text-slate-300">
+                                        {getCourseName(
+                                          fee.course,
+                                          courses
+                                        )}
+                                      </p>
+                                    </td>
+
+                                    {/* Fee */}
+
+                                    <td className="px-4 py-5 text-right font-semibold text-slate-700 dark:text-slate-200">
+                                      {money(
+                                        amount
+                                      )}
+                                    </td>
+
+                                    {/* Paid */}
+
+                                    <td className="px-4 py-5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                      {money(
+                                        paid
+                                      )}
+                                    </td>
+
+                                    {/* Due */}
+
+                                    <td className="px-4 py-5 text-right font-semibold text-red-600 dark:text-red-400">
+                                      {money(
+                                        due
+                                      )}
+                                    </td>
+
+                                    {/* Status */}
+
+                                    <td className="px-4 py-5">
+                                      <Badge
+                                        color={statusColor(
+                                          status
+                                        )}
+                                      >
+                                        {
+                                          status
+                                        }
+                                      </Badge>
+                                    </td>
+
+                                    {/* Action */}
+
+                                    <td className="px-6 py-5 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openEditModal(
+                                            fee
+                                          )
+                                        }
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-brand-gold/30 hover:text-brand-gold dark:border-slate-700"
+                                        title="Edit monthly fee"
+                                      >
+                                        <Edit3 className="h-4 w-4" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile */}
+
+                      <div className="space-y-3 p-5 md:hidden">
+                        {group.records.map(
+                          (fee) => {
+                            const amount =
+                              Number(
+                                fee.amount ||
+                                  0
+                              );
+
+                            const paid =
+                              Number(
+                                fee.amountPaid ||
+                                  0
+                              );
+
+                            const due =
+                              Math.max(
+                                amount -
+                                  paid,
+                                0
+                              );
+
+                            const status =
+                              getStatus(
+                                amount,
+                                paid
+                              );
+
+                            return (
+                              <div
+                                key={
+                                  fee._id
+                                }
+                                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/50"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-goldLight">
+                                      <UserRound className="h-4 w-4" />
+                                    </div>
+
+                                    <div className="min-w-0">
+                                      <p className="truncate font-semibold text-slate-800 dark:text-slate-200">
+                                        {getStudentName(
+                                          fee.student,
+                                          students
+                                        )}
+                                      </p>
+
+                                      <p className="mt-0.5 text-xs text-slate-400">
+                                        {getStudentId(
+                                          fee.student,
+                                          students
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openEditModal(
+                                        fee
+                                      )
+                                    }
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 dark:border-slate-700"
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                <div className="mt-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    Course
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                    {getCourseName(
+                                      fee.course,
+                                      courses
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-3 gap-2">
+                                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Fee
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                      {money(
+                                        amount
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-500/10">
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-600/70">
+                                      Paid
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                      {money(
+                                        paid
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl bg-red-50 p-3 dark:bg-red-500/10">
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-red-500/70">
+                                      Due
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
+                                      {money(
+                                        due
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <CalendarDays className="h-3.5 w-3.5" />
+                                    {formatDate(
+                                      fee.dueDate
+                                    )}
+                                  </div>
+
+                                  <Badge
+                                    color={statusColor(
+                                      status
+                                    )}
+                                  >
+                                    {
+                                      status
+                                    }
+                                  </Badge>
+                                </div>
+                              </div>
+                            );
                           }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-brand-gold/30 hover:bg-brand-gold/10 hover:text-brand-gold dark:border-slate-700"
-                          title="Edit fee"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* PAGINATION */}
-
-      {data && data.totalPages > 1 && (
-        <Pagination
-          page={data.page}
-          totalPages={data.totalPages}
-          onChange={setPage}
-        />
-      )}
-
-      {/* CREATE MONTHLY FEE MODAL */}
-
-      <Modal
-        open={createOpen}
-        title="Add Monthly Fee"
-        onClose={() => {
-          if (!saving) {
-            setCreateOpen(false);
-          }
-        }}
-      >
-        <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
-          <div className="rounded-xl border border-brand-gold/20 bg-brand-gold/5 p-4">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-              Monthly fee entry
-            </p>
-
-            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-              Select the student, course and billing
-              month. This creates one separate fee
-              record for that month.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label-field">
-                Student
-              </label>
-
-              <select
-                className="input-field"
-                value={createForm.student}
-                onChange={(e) =>
-                  setCreateForm({
-                    ...createForm,
-                    student: e.target.value,
-                  })
-                }
-              >
-                <option value="">
-                  Select student
-                </option>
-
-                {students.map((student) => (
-                  <option
-                    key={student._id}
-                    value={student._id}
-                  >
-                    {student.fullName} (
-                    {student.studentId})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="label-field">
-                Course
-              </label>
-
-              <select
-                className="input-field"
-                value={createForm.course}
-                onChange={(e) =>
-                  setCreateForm({
-                    ...createForm,
-                    course: e.target.value,
-                  })
-                }
-              >
-                <option value="">
-                  Select course
-                </option>
-
-                {courses.map((course) => (
-                  <option
-                    key={course._id}
-                    value={course._id}
-                  >
-                    {course.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label-field">
-                Billing Month
-              </label>
-
-              <input
-                type="month"
-                className="input-field"
-                value={createForm.billingMonth}
-                onChange={(e) =>
-                  setCreateForm({
-                    ...createForm,
-                    billingMonth:
-                      e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <Input
-              label="Monthly Fee (৳)"
-              type="number"
-              min="0"
-              value={createForm.amount}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  amount: e.target.value,
-                })
-              }
-              placeholder="1000"
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Amount Paid (৳)"
-              type="number"
-              min="0"
-              value={createForm.amountPaid}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  amountPaid:
-                    e.target.value,
-                })
-              }
-              placeholder="0"
-            />
-
-            <Input
-              label="Due Date"
-              type="date"
-              value={createForm.dueDate}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  dueDate:
-                    e.target.value,
-                })
-              }
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Payment Date"
-              type="date"
-              value={createForm.paymentDate}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  paymentDate:
-                    e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Payment Method"
-              value={createForm.paymentMethod}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  paymentMethod:
-                    e.target.value,
-                })
-              }
-              placeholder="Cash / bKash / Bank"
-            />
-          </div>
-
-          <Input
-            label="Transaction ID"
-            value={createForm.transactionId}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                transactionId:
-                  e.target.value,
-              })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
             }
-            placeholder="Optional"
-          />
-
-          <div>
-            <label className="label-field">
-              Note
-            </label>
-
-            <textarea
-              className="input-field min-h-[90px] resize-none"
-              value={createForm.note}
-              onChange={(e) =>
-                setCreateForm({
-                  ...createForm,
-                  note: e.target.value,
-                })
-              }
-              placeholder="Optional note about this monthly fee..."
-            />
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">
-                Estimated due
-              </span>
-
-              <span className="font-bold text-red-600">
-                ৳
-                {Math.max(
-                  Number(
-                    createForm.amount || 0
-                  ) -
-                    Number(
-                      createForm.amountPaid ||
-                        0
-                    ),
-                  0
-                ).toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              onClick={() =>
-                setCreateOpen(false)
-              }
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              onClick={handleCreate}
-              loading={saving}
-            >
-              <Plus className="h-4 w-4" />
-
-              Create Monthly Fee
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* EDIT MONTHLY FEE MODAL */}
-
-      <Modal
-        open={!!editTarget}
-        title="Edit Monthly Fee"
-        onClose={() => {
-          if (!saving) {
-            setEditTarget(null);
-          }
-        }}
-      >
-        <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
-          {editTarget && (
-            <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                {getStudentName(
-                  editTarget.student
-                )}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                {getStudentId(
-                  editTarget.student
-                )}
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:bg-slate-900 dark:text-slate-300">
-                  {getCourseTitle(
-                    editTarget.course
-                  )}
-                </span>
-
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:bg-slate-900 dark:text-slate-300">
-                  <CalendarDays className="h-3.5 w-3.5 text-brand-gold" />
-
-                  {formatMonth(
-                    editTarget.billingMonth
-                  )}
-                </span>
-              </div>
-            </div>
           )}
+        </div>
+      )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label-field">
-                Billing Month
-              </label>
+      {/* =======================================================
+          ADD / EDIT MODAL
+      ======================================================= */}
 
-              <input
-                type="month"
-                className="input-field"
-                value={updateForm.billingMonth}
-                onChange={(e) =>
-                  setUpdateForm({
-                    ...updateForm,
-                    billingMonth:
-                      e.target.value,
-                  })
-                }
-              />
-            </div>
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl dark:bg-slate-950">
+            {/* Modal header */}
 
-            <Input
-              label="Monthly Fee (৳)"
-              type="number"
-              min="0"
-              value={updateForm.amount}
-              onChange={(e) =>
-                setUpdateForm({
-                  ...updateForm,
-                  amount: e.target.value,
-                })
-              }
-            />
-          </div>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5 dark:border-slate-800 dark:bg-slate-950">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-gold">
+                  {editingFee
+                    ? "Edit Record"
+                    : "New Record"}
+                </p>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Amount Paid (৳)"
-              type="number"
-              min="0"
-              value={updateForm.amountPaid}
-              onChange={(e) =>
-                setUpdateForm({
-                  ...updateForm,
-                  amountPaid:
-                    e.target.value,
-                })
-              }
-            />
+                <h2 className="mt-1 font-display text-xl font-semibold text-slate-900 dark:text-white">
+                  {editingFee
+                    ? "Edit Monthly Fee"
+                    : "Add Monthly Fee"}
+                </h2>
+              </div>
 
-            <Input
-              label="Due Date"
-              type="date"
-              value={updateForm.dueDate}
-              onChange={(e) =>
-                setUpdateForm({
-                  ...updateForm,
-                  dueDate:
-                    e.target.value,
-                })
-              }
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Payment Date"
-              type="date"
-              value={updateForm.paymentDate}
-              onChange={(e) =>
-                setUpdateForm({
-                  ...updateForm,
-                  paymentDate:
-                    e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Payment Method"
-              value={updateForm.paymentMethod}
-              onChange={(e) =>
-                setUpdateForm({
-                  ...updateForm,
-                  paymentMethod:
-                    e.target.value,
-                })
-              }
-              placeholder="Cash / bKash / Bank"
-            />
-          </div>
-
-          <Input
-            label="Transaction ID"
-            value={updateForm.transactionId}
-            onChange={(e) =>
-              setUpdateForm({
-                ...updateForm,
-                transactionId:
-                  e.target.value,
-              })
-            }
-            placeholder="Optional"
-          />
-
-          <div>
-            <label className="label-field">
-              Note
-            </label>
-
-            <textarea
-              className="input-field min-h-[90px] resize-none"
-              value={updateForm.note}
-              onChange={(e) =>
-                setUpdateForm({
-                  ...updateForm,
-                  note: e.target.value,
-                })
-              }
-              placeholder="Optional note..."
-            />
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-sm text-slate-500">
-                Current status
-              </span>
-
-              <Badge
-                color={statusColor(
-                  currentEditStatus
-                )}
+              <button
+                type="button"
+                onClick={closeModal}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 dark:border-slate-700 dark:hover:text-white"
               >
-                {currentEditStatus}
-              </Badge>
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 dark:border-slate-700">
-              <span className="text-sm text-slate-500">
-                Remaining due
-              </span>
-
-              <span className="font-bold text-red-600">
-                ৳
-                {currentEditDue.toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              onClick={() =>
-                setEditTarget(null)
-              }
-              disabled={saving}
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-6 p-6"
             >
-              Cancel
-            </Button>
+              {/* Month */}
 
-            <Button
-              onClick={handleUpdate}
-              loading={saving}
-            >
-              <Pencil className="h-4 w-4" />
+              <div className="rounded-2xl border border-brand-gold/20 bg-brand-goldLight/5 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-brand-gold" />
 
-              Save Changes
-            </Button>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-gold">
+                    Billing Month
+                  </p>
+                </div>
+
+                <Input
+                  type="month"
+                  value={
+                    form.billingMonth
+                  }
+                  onChange={(event) =>
+                    updateForm(
+                      "billingMonth",
+                      event.target.value
+                    )
+                  }
+                  required
+                />
+              </div>
+
+              {/* Student + Course */}
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="label-field">
+                    Student
+                  </label>
+
+                  <select
+                    value={
+                      form.student
+                    }
+                    onChange={(event) =>
+                      updateForm(
+                        "student",
+                        event.target.value
+                      )
+                    }
+                    className="input-field"
+                    required
+                  >
+                    <option value="">
+                      Select student
+                    </option>
+
+                    {students.map(
+                      (student) => (
+                        <option
+                          key={
+                            student._id
+                          }
+                          value={
+                            student._id
+                          }
+                        >
+                          {student.fullName} —{" "}
+                          {
+                            student.studentId
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label-field">
+                    Course
+                  </label>
+
+                  <select
+                    value={
+                      form.course
+                    }
+                    onChange={(event) =>
+                      updateForm(
+                        "course",
+                        event.target.value
+                      )
+                    }
+                    className="input-field"
+                    required
+                  >
+                    <option value="">
+                      Select course
+                    </option>
+
+                    {courses.map(
+                      (course) => (
+                        <option
+                          key={
+                            course._id
+                          }
+                          value={
+                            course._id
+                          }
+                        >
+                          {course.title}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Fee / Paid / Due */}
+
+              <div className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
+                <div className="mb-4 flex items-center gap-2">
+                  <CircleDollarSign className="h-4 w-4 text-brand-gold" />
+
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                    Monthly Calculation
+                  </p>
+                </div>
+
+                <div className="grid gap-5 md:grid-cols-3">
+                  <div>
+                    <label className="label-field">
+                      Monthly Fee
+                    </label>
+
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        form.amount
+                      }
+                      onChange={(event) =>
+                        updateForm(
+                          "amount",
+                          event.target.value
+                        )
+                      }
+                      placeholder="1000"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label-field">
+                      Paid Amount
+                    </label>
+
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        form.amountPaid
+                      }
+                      onChange={(event) =>
+                        updateForm(
+                          "amountPaid",
+                          event.target.value
+                        )
+                      }
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label-field">
+                      Due Amount
+                    </label>
+
+                    <div className="flex h-11 items-center rounded-xl border border-red-100 bg-red-50 px-4 font-semibold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+                      {money(
+                        Math.max(
+                          Number(
+                            form.amount ||
+                              0
+                          ) -
+                            Number(
+                              form.amountPaid ||
+                                0
+                            ),
+                          0
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Badge
+                    color={statusColor(
+                      getStatus(
+                        Number(
+                          form.amount ||
+                            0
+                        ),
+                        Number(
+                          form.amountPaid ||
+                            0
+                        )
+                      )
+                    )}
+                  >
+                    {getStatus(
+                      Number(
+                        form.amount ||
+                          0
+                      ),
+                      Number(
+                        form.amountPaid ||
+                          0
+                      )
+                    )}
+                  </Badge>
+
+                  <span className="text-xs text-slate-400">
+                    Status is calculated automatically.
+                  </span>
+                </div>
+              </div>
+
+              {/* Dates */}
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="label-field">
+                    Due Date
+                  </label>
+
+                  <Input
+                    type="date"
+                    value={
+                      form.dueDate
+                    }
+                    onChange={(event) =>
+                      updateForm(
+                        "dueDate",
+                        event.target.value
+                      )
+                    }
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="label-field">
+                    Payment Date
+                  </label>
+
+                  <Input
+                    type="date"
+                    value={
+                      form.paymentDate
+                    }
+                    onChange={(event) =>
+                      updateForm(
+                        "paymentDate",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Payment information */}
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="label-field">
+                    Payment Method
+                  </label>
+
+                  <select
+                    value={
+                      form.paymentMethod
+                    }
+                    onChange={(event) =>
+                      updateForm(
+                        "paymentMethod",
+                        event.target.value
+                      )
+                    }
+                    className="input-field"
+                  >
+                    <option value="">
+                      Select method
+                    </option>
+
+                    <option value="CASH">
+                      Cash
+                    </option>
+
+                    <option value="BKASH">
+                      bKash
+                    </option>
+
+                    <option value="NAGAD">
+                      Nagad
+                    </option>
+
+                    <option value="BANK">
+                      Bank
+                    </option>
+
+                    <option value="OTHER">
+                      Other
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label-field">
+                    Transaction ID
+                  </label>
+
+                  <Input
+                    value={
+                      form.transactionId
+                    }
+                    onChange={(event) =>
+                      updateForm(
+                        "transactionId",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+
+              {/* Note */}
+
+              <div>
+                <label className="label-field">
+                  Note
+                </label>
+
+                <textarea
+                  value={form.note}
+                  onChange={(event) =>
+                    updateForm(
+                      "note",
+                      event.target.value
+                    )
+                  }
+                  rows={3}
+                  placeholder="Optional note about this month's payment..."
+                  className="input-field resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={saving}
+                  variant="secondary"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={saving}
+                >
+                  {saving
+                    ? "Saving..."
+                    : editingFee
+                    ? "Update Monthly Fee"
+                    : "Save Monthly Fee"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 }
