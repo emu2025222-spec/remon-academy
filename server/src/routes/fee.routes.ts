@@ -14,7 +14,20 @@ import {
   summaryFees,
 } from "../controllers/fee.controller";
 
+import {
+  createPaymentRequest,
+  myPaymentRequests,
+  listPaymentRequests,
+  approvePaymentRequest,
+  rejectPaymentRequest,
+  paymentInfo,
+} from "../controllers/paymentRequest.controller";
+
 const router = Router();
+
+/* =========================================================
+   STUDENT FEE ROUTES
+========================================================= */
 
 router.get(
   "/my",
@@ -23,6 +36,64 @@ router.get(
   resolveOwnStudentId,
   myFees
 );
+
+/* =========================================================
+   STUDENT PAYMENT INFO
+========================================================= */
+
+router.get(
+  "/payment-info",
+  requireAuth,
+  requireRole("STUDENT"),
+  paymentInfo
+);
+
+/* =========================================================
+   STUDENT PAYMENT REQUEST ROUTES
+========================================================= */
+
+router.post(
+  "/payment-requests",
+  requireAuth,
+  requireRole("STUDENT"),
+  createPaymentRequest
+);
+
+router.get(
+  "/payment-requests/my",
+  requireAuth,
+  requireRole("STUDENT"),
+  myPaymentRequests
+);
+
+/* =========================================================
+   ADMIN PAYMENT REQUEST ROUTES
+========================================================= */
+
+router.get(
+  "/payment-requests",
+  requireAuth,
+  requireRole("ADMIN"),
+  listPaymentRequests
+);
+
+router.post(
+  "/payment-requests/:id/approve",
+  requireAuth,
+  requireRole("ADMIN"),
+  approvePaymentRequest
+);
+
+router.post(
+  "/payment-requests/:id/reject",
+  requireAuth,
+  requireRole("ADMIN"),
+  rejectPaymentRequest
+);
+
+/* =========================================================
+   ADMIN FEE ROUTES
+========================================================= */
 
 router.get(
   "/summary",

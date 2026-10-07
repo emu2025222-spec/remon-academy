@@ -20,4 +20,5 @@ export const env = {
   uploadDir: process.env.UPLOAD_DIR || "uploads",
   seedAdminEmail: process.env.SEED_ADMIN_EMAIL || "admin@remonacademy.com",
   seedAdminPassword: process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!",
+  bkashNumber: process.env.BKASH_NUMBER || "",
 };

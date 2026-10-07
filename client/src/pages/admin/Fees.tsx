@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronUp,
   CircleDollarSign,
   Edit3,
   FileText,
   Plus,
+  RefreshCw,
   Search,
   UserRound,
   Wallet,
+  X,
+  CreditCard,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
@@ -63,6 +67,46 @@ interface FeeSummary {
   totalDue: number;
   paidPercentage: number;
   duePercentage: number;
+}
+
+interface PaymentRequestStudent {
+  _id: string;
+  fullName?: string;
+  studentId?: string;
+  phone?: string;
+  class?: string;
+  group?: string;
+}
+
+interface PaymentRequestFee {
+  _id: string;
+  amount: number;
+  amountPaid: number;
+  billingMonth?: string;
+  dueDate?: string;
+  status?: string;
+}
+
+type PaymentRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
+
+interface PaymentRequest {
+  _id: string;
+  amount: number;
+  senderNumber: string;
+  transactionId: string;
+  status: PaymentRequestStatus;
+  rejectionReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  student?: PaymentRequestStudent;
+  fee?: PaymentRequestFee;
+  reviewedBy?: {
+    _id: string;
+    email?: string;
+  };
 }
 
 const emptySummary: FeeSummary = {
@@ -145,6 +189,24 @@ function formatDate(value?: string) {
   });
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function getStatus(amount: number, paid: number) {
   if (paid >= amount && amount > 0) {
     return "PAID";
@@ -165,7 +227,10 @@ function getStatusColor(status: string) {
 
 function getStudentName(student: Fee["student"]) {
   if (typeof student === "object" && student) {
-    return (student as Student).fullName || "Unknown Student";
+    return (
+      (student as Student).fullName ||
+      "Unknown Student"
+    );
   }
 
   return "Unknown Student";
@@ -173,7 +238,9 @@ function getStudentName(student: Fee["student"]) {
 
 function getStudentId(student: Fee["student"]) {
   if (typeof student === "object" && student) {
-    return (student as Student).studentId || "-";
+    return (
+      (student as Student).studentId || "-"
+    );
   }
 
   return "-";
@@ -181,7 +248,10 @@ function getStudentId(student: Fee["student"]) {
 
 function getCourseName(course: Fee["course"]) {
   if (typeof course === "object" && course) {
-    return (course as Course).title || "Unknown Course";
+    return (
+      (course as Course).title ||
+      "Unknown Course"
+    );
   }
 
   return "Unknown Course";
@@ -199,15 +269,6 @@ function getCourseSubject(course: Fee["course"]) {
   return "";
 }
 
-/**
- * Return a student's assigned course IDs.
- *
- * Supports both old:
- *   student.course
- *
- * and new:
- *   student.courses[]
- */
 function getAssignedCourseIds(
   student: Student
 ): string[] {
@@ -222,7 +283,10 @@ function getAssignedCourseIds(
         return;
       }
 
-      if (typeof course === "object" && course._id) {
+      if (
+        typeof course === "object" &&
+        course._id
+      ) {
         ids.add(course._id);
       }
     });
@@ -242,18 +306,66 @@ function getAssignedCourseIds(
   return Array.from(ids);
 }
 
+function getPaymentStatusColor(
+  status: PaymentRequestStatus
+) {
+  if (status === "APPROVED") return "green";
+  if (status === "REJECTED") return "red";
+  return "gold";
+}
+
 export default function AdminFees() {
-  const [fees, setFees] = useState<FeeWithMonthly[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [fees, setFees] = useState<
+    FeeWithMonthly[]
+  >([]);
+
+  const [students, setStudents] = useState<
+    Student[]
+  >([]);
+
+  const [courses, setCourses] = useState<
+    Course[]
+  >([]);
 
   const [summary, setSummary] =
     useState<FeeSummary>(emptySummary);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [paymentRequests, setPaymentRequests] =
+    useState<PaymentRequest[]>([]);
 
-  const [createOpen, setCreateOpen] = useState(false);
+  const [
+    paymentRequestLoading,
+    setPaymentRequestLoading,
+  ] = useState(true);
+
+  const [
+    paymentRequestStatus,
+    setPaymentRequestStatus,
+  ] = useState("");
+
+  const [
+    paymentActionId,
+    setPaymentActionId,
+  ] = useState<string | null>(null);
+
+  const [
+    rejectTarget,
+    setRejectTarget,
+  ] = useState<PaymentRequest | null>(null);
+
+  const [
+    rejectionReason,
+    setRejectionReason,
+  ] = useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [createOpen, setCreateOpen] =
+    useState(false);
 
   const [editTarget, setEditTarget] =
     useState<FeeWithMonthly | null>(null);
@@ -265,10 +377,14 @@ export default function AdminFees() {
     useState<UpdateForm>(emptyUpdate);
 
   const [search, setSearch] = useState("");
-  const [monthFilter, setMonthFilter] = useState("");
-  const [studentFilter, setStudentFilter] = useState("");
-  const [courseFilter, setCourseFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [monthFilter, setMonthFilter] =
+    useState("");
+  const [studentFilter, setStudentFilter] =
+    useState("");
+  const [courseFilter, setCourseFilter] =
+    useState("");
+  const [statusFilter, setStatusFilter] =
+    useState("");
 
   const [openMonths, setOpenMonths] =
     useState<Record<string, boolean>>({});
@@ -276,14 +392,9 @@ export default function AdminFees() {
   const { show } = useToast();
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * LOAD ALL FEES
-   * -------------------------------------------------------
-   *
-   * Try to load a large page once instead of requesting:
-   * page 1 -> page 2 -> page 3 -> page 4...
-   *
-   * This makes the admin page much faster.
+   * =======================================================
    */
   async function loadAllFees() {
     const response = await api.get("/fees", {
@@ -303,7 +414,9 @@ export default function AdminFees() {
       return payload as FeeWithMonthly[];
     }
 
-    const pageData = Array.isArray(payload?.data)
+    const pageData = Array.isArray(
+      payload?.data
+    )
       ? payload.data
       : [];
 
@@ -311,43 +424,70 @@ export default function AdminFees() {
   }
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
+   * LOAD PAYMENT REQUESTS
+   * =======================================================
+   */
+  async function loadPaymentRequests() {
+    setPaymentRequestLoading(true);
+
+    try {
+      const response = await api.get(
+        "/fees/payment-requests",
+        {
+          params: paymentRequestStatus
+            ? {
+                status:
+                  paymentRequestStatus,
+              }
+            : undefined,
+        }
+      );
+
+      const payload =
+        response.data?.data;
+
+      const list = Array.isArray(
+        payload
+      )
+        ? payload
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+      setPaymentRequests(list);
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setPaymentRequestLoading(false);
+    }
+  }
+
+  /*
+   * =======================================================
    * LOAD FEES + SUMMARY
-   * -------------------------------------------------------
+   * =======================================================
    */
   async function load() {
     setLoading(true);
 
     try {
-      const [allFees, summaryResponse] =
-        await Promise.all([
-          loadAllFees(),
-          api.get("/fees/summary"),
-        ]);
+      const [
+        allFees,
+        summaryResponse,
+      ] = await Promise.all([
+        loadAllFees(),
+        api.get("/fees/summary"),
+      ]);
 
       setFees(allFees);
 
-      /*
-       * Backend summary structure:
-       *
-       * {
-       *   totals: {
-       *     amount,
-       *     paid,
-       *     due,
-       *     count
-       *   }
-       * }
-       *
-       * Frontend structure:
-       *
-       * totalFee,
-       * totalPaid,
-       * totalDue,
-       * totalRecords
-       */
       const backendTotals =
-        summaryResponse.data?.data?.totals || {};
+        summaryResponse.data?.data
+          ?.totals || {};
 
       const totalAmount = Number(
         backendTotals.amount || 0
@@ -372,38 +512,46 @@ export default function AdminFees() {
         totalDue,
         paidPercentage:
           totalAmount > 0
-            ? (totalPaid / totalAmount) * 100
+            ? (totalPaid /
+                totalAmount) *
+              100
             : 0,
         duePercentage:
           totalAmount > 0
-            ? (totalDue / totalAmount) * 100
+            ? (totalDue /
+                totalAmount) *
+              100
             : 0,
       });
 
-      /*
-       * Open every month initially.
-       */
-      const monthState: Record<string, boolean> = {};
+      const monthState: Record<
+        string,
+        boolean
+      > = {};
 
       allFees.forEach((fee) => {
         const month =
-          fee.billingMonth || "UNASSIGNED";
+          fee.billingMonth ||
+          "UNASSIGNED";
 
         monthState[month] = true;
       });
 
       setOpenMonths(monthState);
     } catch (err) {
-      show(getErrorMessage(err), "error");
+      show(
+        getErrorMessage(err),
+        "error"
+      );
     } finally {
       setLoading(false);
     }
   }
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * LOAD STUDENTS + COURSES
-   * -------------------------------------------------------
+   * =======================================================
    */
   useEffect(() => {
     async function loadOptions() {
@@ -431,26 +579,35 @@ export default function AdminFees() {
         const coursesPayload =
           coursesResponse.data?.data;
 
-        const studentList = Array.isArray(
-          studentsPayload?.data
-        )
-          ? studentsPayload.data
-          : Array.isArray(studentsPayload)
-          ? studentsPayload
-          : [];
+        const studentList =
+          Array.isArray(
+            studentsPayload?.data
+          )
+            ? studentsPayload.data
+            : Array.isArray(
+                studentsPayload
+              )
+            ? studentsPayload
+            : [];
 
-        const courseList = Array.isArray(
-          coursesPayload?.data
-        )
-          ? coursesPayload.data
-          : Array.isArray(coursesPayload)
-          ? coursesPayload
-          : [];
+        const courseList =
+          Array.isArray(
+            coursesPayload?.data
+          )
+            ? coursesPayload.data
+            : Array.isArray(
+                coursesPayload
+              )
+            ? coursesPayload
+            : [];
 
         setStudents(studentList);
         setCourses(courseList);
       } catch (err) {
-        show(getErrorMessage(err), "error");
+        show(
+          getErrorMessage(err),
+          "error"
+        );
       }
     }
 
@@ -459,60 +616,148 @@ export default function AdminFees() {
 
   useEffect(() => {
     load();
+    loadPaymentRequests();
   }, []);
 
-  /*
-   * -------------------------------------------------------
-   * SELECTED STUDENT
-   * -------------------------------------------------------
-   */
-  const selectedCreateStudent = useMemo(() => {
-    if (!createForm.student) {
-      return null;
-    }
-
-    return (
-      students.find(
-        (student) =>
-          student._id === createForm.student
-      ) || null
-    );
-  }, [students, createForm.student]);
+  useEffect(() => {
+    loadPaymentRequests();
+  }, [paymentRequestStatus]);
 
   /*
-   * -------------------------------------------------------
-   * COURSES AVAILABLE FOR SELECTED STUDENT
-   * -------------------------------------------------------
-   *
-   * IMPORTANT:
-   * Admin will no longer see every course after selecting
-   * a student.
-   *
-   * Only assigned courses are displayed.
+   * =======================================================
+   * PAYMENT REQUEST ACTIONS
+   * =======================================================
    */
-  const createAvailableCourses = useMemo(() => {
-    if (!selectedCreateStudent) {
-      return [];
-    }
-
-    const assignedIds = new Set(
-      getAssignedCourseIds(
-        selectedCreateStudent
+  async function handleApprovePayment(
+    request: PaymentRequest
+  ) {
+    if (
+      !window.confirm(
+        `Approve ${money(
+          Number(request.amount || 0)
+        )} payment from ${
+          request.student?.fullName ||
+          "this student"
+        }?`
       )
+    ) {
+      return;
+    }
+
+    setPaymentActionId(request._id);
+
+    try {
+      await api.post(
+        `/fees/payment-requests/${request._id}/approve`
+      );
+
+      show(
+        "Payment approved and fee updated successfully.",
+        "success"
+      );
+
+      await Promise.all([
+        load(),
+        loadPaymentRequests(),
+      ]);
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setPaymentActionId(null);
+    }
+  }
+
+  async function handleRejectPayment() {
+    if (!rejectTarget) return;
+
+    setPaymentActionId(
+      rejectTarget._id
     );
 
-    return courses.filter((course) =>
-      assignedIds.has(course._id)
-    );
-  }, [
-    selectedCreateStudent,
-    courses,
-  ]);
+    try {
+      await api.post(
+        `/fees/payment-requests/${rejectTarget._id}/reject`,
+        {
+          reason:
+            rejectionReason.trim() ||
+            undefined,
+        }
+      );
+
+      show(
+        "Payment request rejected.",
+        "success"
+      );
+
+      setRejectTarget(null);
+      setRejectionReason("");
+
+      await loadPaymentRequests();
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setPaymentActionId(null);
+    }
+  }
 
   /*
-   * -------------------------------------------------------
-   * FILTER
-   * -------------------------------------------------------
+   * =======================================================
+   * SELECTED STUDENT
+   * =======================================================
+   */
+  const selectedCreateStudent =
+    useMemo(() => {
+      if (!createForm.student) {
+        return null;
+      }
+
+      return (
+        students.find(
+          (student) =>
+            student._id ===
+            createForm.student
+        ) || null
+      );
+    }, [
+      students,
+      createForm.student,
+    ]);
+
+  /*
+   * =======================================================
+   * AVAILABLE COURSES
+   * =======================================================
+   */
+  const createAvailableCourses =
+    useMemo(() => {
+      if (!selectedCreateStudent) {
+        return [];
+      }
+
+      const assignedIds = new Set(
+        getAssignedCourseIds(
+          selectedCreateStudent
+        )
+      );
+
+      return courses.filter((course) =>
+        assignedIds.has(course._id)
+      );
+    }, [
+      selectedCreateStudent,
+      courses,
+    ]);
+
+  /*
+   * =======================================================
+   * FILTER FEES
+   * =======================================================
    */
   const filteredFees = useMemo(() => {
     const query =
@@ -529,13 +774,16 @@ export default function AdminFees() {
         getCourseName(fee.course);
 
       const billingMonth =
-        fee.billingMonth || "UNASSIGNED";
+        fee.billingMonth ||
+        "UNASSIGNED";
 
       const status =
         fee.status ||
         getStatus(
           Number(fee.amount || 0),
-          Number(fee.amountPaid || 0)
+          Number(
+            fee.amountPaid || 0
+          )
         );
 
       const matchesSearch =
@@ -556,13 +804,17 @@ export default function AdminFees() {
 
       const matchesStudent =
         !studentFilter ||
-        (typeof fee.student === "object" &&
-          fee.student?._id === studentFilter);
+        (typeof fee.student ===
+          "object" &&
+          fee.student?._id ===
+            studentFilter);
 
       const matchesCourse =
         !courseFilter ||
-        (typeof fee.course === "object" &&
-          fee.course?._id === courseFilter);
+        (typeof fee.course ===
+          "object" &&
+          fee.course?._id ===
+            courseFilter);
 
       const matchesStatus =
         !statusFilter ||
@@ -586,9 +838,9 @@ export default function AdminFees() {
   ]);
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * MONTH GROUPS
-   * -------------------------------------------------------
+   * =======================================================
    */
   const monthGroups = useMemo(() => {
     const groups: Record<
@@ -598,7 +850,8 @@ export default function AdminFees() {
 
     filteredFees.forEach((fee) => {
       const month =
-        fee.billingMonth || "UNASSIGNED";
+        fee.billingMonth ||
+        "UNASSIGNED";
 
       if (!groups[month]) {
         groups[month] = [];
@@ -609,8 +862,11 @@ export default function AdminFees() {
 
     return Object.entries(groups).sort(
       ([a], [b]) => {
-        if (a === "UNASSIGNED") return 1;
-        if (b === "UNASSIGNED") return -1;
+        if (a === "UNASSIGNED")
+          return 1;
+
+        if (b === "UNASSIGNED")
+          return -1;
 
         return b.localeCompare(a);
       }
@@ -618,9 +874,9 @@ export default function AdminFees() {
   }, [filteredFees]);
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * FILTERED TOTALS
-   * -------------------------------------------------------
+   * =======================================================
    */
   const filteredTotals = useMemo(() => {
     return filteredFees.reduce(
@@ -649,16 +905,18 @@ export default function AdminFees() {
   );
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * CREATE
-   * -------------------------------------------------------
+   * =======================================================
    */
   async function handleCreate() {
-    const amount =
-      Number(createForm.amount || 0);
+    const amount = Number(
+      createForm.amount || 0
+    );
 
-    const amountPaid =
-      Number(createForm.amountPaid || 0);
+    const amountPaid = Number(
+      createForm.amountPaid || 0
+    );
 
     if (!createForm.student) {
       show(
@@ -708,13 +966,7 @@ export default function AdminFees() {
       return;
     }
 
-    /*
-     * Extra frontend protection:
-     * make sure selected course belongs to selected student.
-     */
-    if (
-      selectedCreateStudent
-    ) {
+    if (selectedCreateStudent) {
       const assignedIds =
         getAssignedCourseIds(
           selectedCreateStudent
@@ -796,9 +1048,9 @@ export default function AdminFees() {
   }
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * OPEN EDIT
-   * -------------------------------------------------------
+   * =======================================================
    */
   function openEdit(
     fee: FeeWithMonthly
@@ -837,18 +1089,20 @@ export default function AdminFees() {
   }
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * UPDATE
-   * -------------------------------------------------------
+   * =======================================================
    */
   async function handleUpdate() {
     if (!editTarget) return;
 
-    const amount =
-      Number(updateForm.amount || 0);
+    const amount = Number(
+      updateForm.amount || 0
+    );
 
-    const amountPaid =
-      Number(updateForm.amountPaid || 0);
+    const amountPaid = Number(
+      updateForm.amountPaid || 0
+    );
 
     if (amount <= 0) {
       show(
@@ -929,9 +1183,9 @@ export default function AdminFees() {
   }
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
    * MONTH TOGGLE
-   * -------------------------------------------------------
+   * =======================================================
    */
   function toggleMonth(
     month: string
@@ -942,32 +1196,43 @@ export default function AdminFees() {
     }));
   }
 
-  const createDue =
-    Math.max(
-      0,
-      Number(createForm.amount || 0) -
-        Number(
-          createForm.amountPaid || 0
-        )
-    );
+  const createDue = Math.max(
+    0,
+    Number(createForm.amount || 0) -
+      Number(
+        createForm.amountPaid || 0
+      )
+  );
 
-  const updateDue =
-    Math.max(
-      0,
-      Number(updateForm.amount || 0) -
-        Number(
-          updateForm.amountPaid || 0
-        )
-    );
+  const updateDue = Math.max(
+    0,
+    Number(updateForm.amount || 0) -
+      Number(
+        updateForm.amountPaid || 0
+      )
+  );
 
   /*
-   * -------------------------------------------------------
+   * =======================================================
+   * PENDING COUNT
+   * =======================================================
+   */
+  const pendingPaymentCount =
+    paymentRequests.filter(
+      (request) =>
+        request.status === "PENDING"
+    ).length;
+
+  /*
+   * =======================================================
    * UI
-   * -------------------------------------------------------
+   * =======================================================
    */
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ===================================================
+          HEADER
+      =================================================== */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-brand-gold">
@@ -1002,7 +1267,9 @@ export default function AdminFees() {
         </Button>
       </div>
 
-      {/* Main totals */}
+      {/* ===================================================
+          MAIN TOTALS
+      =================================================== */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="card-premium p-5">
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -1061,7 +1328,472 @@ export default function AdminFees() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ===================================================
+          BKASH PAYMENT VERIFICATION
+      =================================================== */}
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e2136e]/10 text-[#e2136e]">
+                <CreditCard className="h-5 w-5" />
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                    bKash Payment Verification
+                  </h2>
+
+                  {pendingPaymentCount > 0 && (
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      {pendingPaymentCount} Pending
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Verify student-submitted bKash payments before adding them to the fee record.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadPaymentRequests}
+              disabled={paymentRequestLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  paymentRequestLoading
+                    ? "animate-spin"
+                    : ""
+                }`}
+              />
+              Refresh
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {[
+              {
+                value: "",
+                label: "All",
+              },
+              {
+                value: "PENDING",
+                label: "Pending",
+              },
+              {
+                value: "APPROVED",
+                label: "Approved",
+              },
+              {
+                value: "REJECTED",
+                label: "Rejected",
+              },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() =>
+                  setPaymentRequestStatus(
+                    item.value
+                  )
+                }
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  paymentRequestStatus ===
+                  item.value
+                    ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {paymentRequestLoading ? (
+          <div className="flex min-h-[180px] items-center justify-center">
+            <Loader />
+          </div>
+        ) : paymentRequests.length === 0 ? (
+          <div className="p-8">
+            <EmptyState message="No bKash payment requests found." />
+          </div>
+        ) : (
+          <>
+            {/* Desktop payment requests */}
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[1100px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left dark:border-slate-800">
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Student
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Fee
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Payment
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Submitted
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Status
+                    </th>
+
+                    <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {paymentRequests.map(
+                    (request) => (
+                      <tr
+                        key={request._id}
+                        className="border-b border-slate-100 last:border-0 dark:border-slate-800/80"
+                      >
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              <UserRound className="h-4 w-4" />
+                            </div>
+
+                            <div>
+                              <p className="font-semibold text-slate-950 dark:text-white">
+                                {request.student
+                                  ?.fullName ||
+                                  "Unknown Student"}
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                ID:{" "}
+                                {request.student
+                                  ?.studentId ||
+                                  "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <p className="font-semibold text-slate-950 dark:text-white">
+                            {request.fee
+                              ?.billingMonth
+                              ? monthLabel(
+                                  request.fee
+                                    .billingMonth
+                                )
+                              : "Fee"}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            Fee:{" "}
+                            {money(
+                              Number(
+                                request.fee
+                                  ?.amount ||
+                                  0
+                              )
+                            )}
+                            {" • "}
+                            Due:{" "}
+                            {money(
+                              Math.max(
+                                0,
+                                Number(
+                                  request
+                                    .fee
+                                    ?.amount ||
+                                    0
+                                ) -
+                                  Number(
+                                    request
+                                      .fee
+                                      ?.amountPaid ||
+                                      0
+                                  )
+                              )
+                            )}
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <p className="font-bold text-[#e2136e]">
+                            {money(
+                              Number(
+                                request.amount ||
+                                  0
+                              )
+                            )}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            bKash:{" "}
+                            {request.senderNumber}
+                          </p>
+
+                          <p className="mt-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            TrxID:{" "}
+                            {request.transactionId}
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-5 text-sm text-slate-500">
+                          {formatDateTime(
+                            request.createdAt
+                          )}
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <Badge
+                            color={getPaymentStatusColor(
+                              request.status
+                            )}
+                          >
+                            {request.status}
+                          </Badge>
+
+                          {request.rejectionReason && (
+                            <p className="mt-2 max-w-[180px] text-xs text-red-600 dark:text-red-400">
+                              {request.rejectionReason}
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-5 text-right">
+                          {request.status ===
+                          "PENDING" ? (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                disabled={
+                                  paymentActionId ===
+                                  request._id
+                                }
+                                onClick={() =>
+                                  handleApprovePayment(
+                                    request
+                                  )
+                                }
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Check className="h-4 w-4" />
+
+                                {paymentActionId ===
+                                request._id
+                                  ? "..."
+                                  : "Approve"}
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  paymentActionId ===
+                                  request._id
+                                }
+                                onClick={() => {
+                                  setRejectTarget(
+                                    request
+                                  );
+                                  setRejectionReason(
+                                    ""
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <X className="h-4 w-4" />
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">
+                              Reviewed
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile payment requests */}
+            <div className="divide-y divide-slate-200 dark:divide-slate-800 lg:hidden">
+              {paymentRequests.map(
+                (request) => (
+                  <div
+                    key={request._id}
+                    className="p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          <UserRound className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-950 dark:text-white">
+                            {request.student
+                              ?.fullName ||
+                              "Unknown Student"}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            {request.student
+                              ?.studentId ||
+                              "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Badge
+                        color={getPaymentStatusColor(
+                          request.status
+                        )}
+                      >
+                        {request.status}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            Requested Amount
+                          </p>
+
+                          <p className="mt-1 text-xl font-bold text-[#e2136e]">
+                            {money(
+                              Number(
+                                request.amount ||
+                                  0
+                              )
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">
+                            Billing Month
+                          </p>
+
+                          <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            {monthLabel(
+                              request.fee
+                                ?.billingMonth
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            Sender bKash
+                          </p>
+
+                          <p className="mt-1 font-semibold text-slate-900 dark:text-white">
+                            {request.senderNumber}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            Transaction ID
+                          </p>
+
+                          <p className="mt-1 break-all font-semibold text-slate-900 dark:text-white">
+                            {request.transactionId}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+                        <p className="text-xs text-slate-500">
+                          Submitted
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+                          {formatDateTime(
+                            request.createdAt
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {request.rejectionReason && (
+                      <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                        <strong>
+                          Rejection reason:
+                        </strong>{" "}
+                        {request.rejectionReason}
+                      </div>
+                    )}
+
+                    {request.status ===
+                      "PENDING" && (
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            paymentActionId ===
+                            request._id
+                          }
+                          onClick={() =>
+                            handleApprovePayment(
+                              request
+                            )
+                          }
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            paymentActionId ===
+                            request._id
+                          }
+                          onClick={() => {
+                            setRejectTarget(
+                              request
+                            );
+                            setRejectionReason(
+                              ""
+                            );
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* ===================================================
+          FEE FILTERS
+      =================================================== */}
       <div className="card-premium p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="relative">
@@ -1197,7 +1929,9 @@ export default function AdminFees() {
         )}
       </div>
 
-      {/* Filtered totals */}
+      {/* ===================================================
+          FILTERED TOTALS
+      =================================================== */}
       {(search ||
         monthFilter ||
         studentFilter ||
@@ -1234,15 +1968,15 @@ export default function AdminFees() {
             </p>
 
             <p className="mt-1 font-display text-xl font-bold text-red-700 dark:text-red-300">
-              {money(
-                filteredDue
-              )}
+              {money(filteredDue)}
             </p>
           </div>
         </div>
       )}
 
-      {/* Fee history */}
+      {/* ===================================================
+          FEE HISTORY
+      =================================================== */}
       {loading ? (
         <div className="card-premium flex min-h-[300px] items-center justify-center">
           <Loader />
@@ -1270,7 +2004,8 @@ export default function AdminFees() {
                   (sum, fee) =>
                     sum +
                     Number(
-                      fee.amountPaid || 0
+                      fee.amountPaid ||
+                        0
                     ),
                   0
                 );
@@ -1283,20 +2018,18 @@ export default function AdminFees() {
                 );
 
               const isOpen =
-                openMonths[month] !== false;
+                openMonths[month] !==
+                false;
 
               return (
                 <section
                   key={month}
                   className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950"
                 >
-                  {/* Month header */}
                   <button
                     type="button"
                     onClick={() =>
-                      toggleMonth(
-                        month
-                      )
+                      toggleMonth(month)
                     }
                     className="w-full border-b border-slate-200 bg-slate-50/80 p-5 text-left transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-900"
                   >
@@ -1308,9 +2041,7 @@ export default function AdminFees() {
 
                         <div>
                           <p className="font-display text-xl font-bold text-slate-950 dark:text-white">
-                            {monthLabel(
-                              month
-                            )}
+                            {monthLabel(month)}
                           </p>
 
                           <p className="mt-1 text-sm text-slate-500">
@@ -1330,9 +2061,7 @@ export default function AdminFees() {
                           </span>
 
                           <p className="font-bold text-slate-950 dark:text-white">
-                            {money(
-                              monthFee
-                            )}
+                            {money(monthFee)}
                           </p>
                         </div>
 
@@ -1342,9 +2071,7 @@ export default function AdminFees() {
                           </span>
 
                           <p className="font-bold text-emerald-700 dark:text-emerald-300">
-                            {money(
-                              monthPaid
-                            )}
+                            {money(monthPaid)}
                           </p>
                         </div>
 
@@ -1354,9 +2081,7 @@ export default function AdminFees() {
                           </span>
 
                           <p className="font-bold text-red-700 dark:text-red-300">
-                            {money(
-                              monthDue
-                            )}
+                            {money(monthDue)}
                           </p>
                         </div>
 
@@ -1482,21 +2207,15 @@ export default function AdminFees() {
                                     </td>
 
                                     <td className="px-6 py-5 font-semibold text-slate-950 dark:text-white">
-                                      {money(
-                                        amount
-                                      )}
+                                      {money(amount)}
                                     </td>
 
                                     <td className="px-6 py-5 font-semibold text-emerald-700 dark:text-emerald-300">
-                                      {money(
-                                        paid
-                                      )}
+                                      {money(paid)}
                                     </td>
 
                                     <td className="px-6 py-5 font-semibold text-red-700 dark:text-red-300">
-                                      {money(
-                                        due
-                                      )}
+                                      {money(due)}
                                     </td>
 
                                     <td className="px-6 py-5">
@@ -1623,9 +2342,7 @@ export default function AdminFees() {
                                     </p>
 
                                     <p className="mt-1 font-bold text-slate-950 dark:text-white">
-                                      {money(
-                                        amount
-                                      )}
+                                      {money(amount)}
                                     </p>
                                   </div>
 
@@ -1635,9 +2352,7 @@ export default function AdminFees() {
                                     </p>
 
                                     <p className="mt-1 font-bold text-emerald-700 dark:text-emerald-300">
-                                      {money(
-                                        paid
-                                      )}
+                                      {money(paid)}
                                     </p>
                                   </div>
 
@@ -1647,9 +2362,7 @@ export default function AdminFees() {
                                     </p>
 
                                     <p className="mt-1 font-bold text-red-700 dark:text-red-300">
-                                      {money(
-                                        due
-                                      )}
+                                      {money(due)}
                                     </p>
                                   </div>
                                 </div>
@@ -1684,7 +2397,9 @@ export default function AdminFees() {
         </div>
       )}
 
-      {/* Create Modal */}
+      {/* ===================================================
+          CREATE MODAL
+      =================================================== */}
       <Modal
         open={createOpen}
         onClose={() => {
@@ -1754,7 +2469,6 @@ export default function AdminFees() {
             </div>
           </div>
 
-          {/* Student */}
           <div>
             <label className="label-field">
               Student
@@ -1795,7 +2509,6 @@ export default function AdminFees() {
             </select>
           </div>
 
-          {/* Course */}
           <div>
             <label className="label-field">
               Course
@@ -2008,7 +2721,9 @@ export default function AdminFees() {
         </div>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* ===================================================
+          EDIT MODAL
+      =================================================== */}
       <Modal
         open={!!editTarget}
         onClose={() => {
@@ -2216,6 +2931,105 @@ export default function AdminFees() {
               {saving
                 ? "Updating..."
                 : "Update Fee"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ===================================================
+          REJECT PAYMENT MODAL
+      =================================================== */}
+      <Modal
+        open={!!rejectTarget}
+        onClose={() => {
+          if (!paymentActionId) {
+            setRejectTarget(null);
+            setRejectionReason("");
+          }
+        }}
+        title="Reject bKash Payment"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900/40 dark:bg-red-950/20">
+            <p className="text-sm font-semibold text-red-900 dark:text-red-200">
+              Reject this payment request?
+            </p>
+
+            {rejectTarget && (
+              <div className="mt-3 space-y-1 text-xs text-red-800/80 dark:text-red-300/80">
+                <p>
+                  Student:{" "}
+                  <strong>
+                    {rejectTarget.student
+                      ?.fullName ||
+                      "-"}
+                  </strong>
+                </p>
+
+                <p>
+                  Amount:{" "}
+                  <strong>
+                    {money(
+                      Number(
+                        rejectTarget.amount ||
+                          0
+                      )
+                    )}
+                  </strong>
+                </p>
+
+                <p>
+                  TrxID:{" "}
+                  <strong>
+                    {
+                      rejectTarget.transactionId
+                    }
+                  </strong>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="label-field">
+              Rejection Reason
+            </label>
+
+            <textarea
+              value={rejectionReason}
+              onChange={(e) =>
+                setRejectionReason(
+                  e.target.value
+                )
+              }
+              rows={4}
+              className="input-field resize-none"
+              placeholder="Optional reason, e.g. Transaction could not be verified."
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRejectTarget(null);
+                setRejectionReason("");
+              }}
+              disabled={!!paymentActionId}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleRejectPayment}
+              disabled={!!paymentActionId}
+              className="gap-2 bg-red-600 hover:bg-red-700"
+            >
+              <X className="h-4 w-4" />
+
+              {paymentActionId
+                ? "Rejecting..."
+                : "Reject Payment"}
             </Button>
           </div>
         </div>
