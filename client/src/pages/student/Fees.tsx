@@ -43,15 +43,21 @@ interface MyFeesResponse {
   };
 }
 
-type PaymentRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+type PaymentRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
 
-interface PaymentRequestFee {
-  _id: string;
-  amount?: number;
-  amountPaid?: number;
-  billingMonth?: string;
-  dueDate?: string;
-  status?: string;
+interface PaymentAllocation {
+  fee?: {
+    _id: string;
+    amount?: number;
+    amountPaid?: number;
+    billingMonth?: string;
+    dueDate?: string;
+    status?: string;
+  };
+  amount: number;
 }
 
 interface PaymentRequestItem {
@@ -63,7 +69,7 @@ interface PaymentRequestItem {
   createdAt: string;
   reviewedAt?: string;
   rejectionReason?: string;
-  fee?: PaymentRequestFee;
+  allocations?: PaymentAllocation[];
 }
 
 interface PaymentInfo {
@@ -88,7 +94,10 @@ function getCourse(course?: CourseLike) {
   }
 
   if (typeof course === "object" && "_id" in course) {
-    const courseData = course as { _id?: string; name?: string };
+    const courseData = course as {
+      _id?: string;
+      name?: string;
+    };
 
     return {
       _id: courseData._id ?? "",
@@ -107,9 +116,14 @@ function getCourseName(course?: CourseLike) {
   }
 
   if (typeof course === "object") {
-    const courseData = course as { name?: string };
+    const courseData = course as {
+      name?: string;
+    };
 
-    if (typeof courseData.name === "string" && courseData.name.trim()) {
+    if (
+      typeof courseData.name === "string" &&
+      courseData.name.trim()
+    ) {
       return courseData.name;
     }
   }
@@ -118,13 +132,17 @@ function getCourseName(course?: CourseLike) {
 }
 
 function formatCurrency(value: number) {
-  return `৳${Number(value || 0).toLocaleString("en-BD")}`;
+  return `৳${Number(value || 0).toLocaleString(
+    "en-BD"
+  )}`;
 }
 
 function formatMonth(value?: string) {
   if (!value) return "Unknown Month";
 
-  const date = new Date(`${value}-01T00:00:00`);
+  const date = new Date(
+    `${value}-01T00:00:00`
+  );
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -132,22 +150,6 @@ function formatMonth(value?: string) {
 
   return date.toLocaleDateString("en-US", {
     month: "long",
-    year: "numeric",
-  });
-}
-
-function formatDate(value?: string) {
-  if (!value) return "—";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
     year: "numeric",
   });
 }
@@ -187,32 +189,42 @@ function getStatusClass(status?: string) {
   switch (status) {
     case "PAID":
       return "bg-emerald-50 text-emerald-700 border-emerald-200";
+
     case "PARTIAL":
       return "bg-amber-50 text-amber-700 border-amber-200";
+
     case "PENDING":
     default:
       return "bg-rose-50 text-rose-700 border-rose-200";
   }
 }
 
-function getPaymentStatusLabel(status: PaymentRequestStatus) {
+function getPaymentStatusLabel(
+  status: PaymentRequestStatus
+) {
   switch (status) {
     case "APPROVED":
       return "Approved";
+
     case "REJECTED":
       return "Rejected";
+
     case "PENDING":
     default:
       return "Verification Pending";
   }
 }
 
-function getPaymentStatusClass(status: PaymentRequestStatus) {
+function getPaymentStatusClass(
+  status: PaymentRequestStatus
+) {
   switch (status) {
     case "APPROVED":
       return "bg-emerald-50 text-emerald-700 border-emerald-200";
+
     case "REJECTED":
       return "bg-rose-50 text-rose-700 border-rose-200";
+
     case "PENDING":
     default:
       return "bg-amber-50 text-amber-700 border-amber-200";
@@ -220,7 +232,10 @@ function getPaymentStatusClass(status: PaymentRequestStatus) {
 }
 
 export default function Fees() {
-  const [fees, setFees] = useState<FeeWithMonthly[]>([]);
+  const [fees, setFees] = useState<
+    FeeWithMonthly[]
+  >([]);
+
   const [summary, setSummary] = useState<
     MyFeesResponse["summary"] | null
   >(null);
@@ -228,32 +243,47 @@ export default function Fees() {
   const [paymentInfo, setPaymentInfo] =
     useState<PaymentInfo | null>(null);
 
-  const [paymentRequests, setPaymentRequests] = useState<
-    PaymentRequestItem[]
-  >([]);
+  const [paymentRequests, setPaymentRequests] =
+    useState<PaymentRequestItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
+  const [error, setError] =
+    useState("");
 
-  const [selectedMonth, setSelectedMonth] = useState("ALL");
-  const [selectedCourse, setSelectedCourse] = useState("ALL");
+  const [paymentLoading, setPaymentLoading] =
+    useState(false);
 
-  const [openMonths, setOpenMonths] = useState<
-    Record<string, boolean>
-  >({});
+  const [paymentError, setPaymentError] =
+    useState("");
 
-  const [selectedFee, setSelectedFee] =
-    useState<FeeWithMonthly | null>(null);
+  const [selectedMonth, setSelectedMonth] =
+    useState("ALL");
 
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [senderNumber, setSenderNumber] = useState("");
-  const [transactionId, setTransactionId] = useState("");
+  const [selectedCourse, setSelectedCourse] =
+    useState("ALL");
 
-  const [submittingPayment, setSubmittingPayment] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [openMonths, setOpenMonths] =
+    useState<Record<string, boolean>>({});
+
+  const [paymentAmount, setPaymentAmount] =
+    useState("");
+
+  const [senderNumber, setSenderNumber] =
+    useState("");
+
+  const [transactionId, setTransactionId] =
+    useState("");
+
+  const [showPaymentModal, setShowPaymentModal] =
+    useState(false);
+
+  const [submittingPayment, setSubmittingPayment] =
+    useState(false);
+
+  const [copied, setCopied] =
+    useState(false);
 
   useEffect(() => {
     loadFees();
@@ -266,34 +296,50 @@ export default function Fees() {
       setLoading(true);
       setError("");
 
-      const response = await api.get("/fees/my");
+      const response =
+        await api.get("/fees/my");
 
-      const payload = response.data?.data ?? response.data;
+      const payload =
+        response.data?.data ??
+        response.data;
 
-      const nextFees = Array.isArray(payload?.fees)
-        ? payload.fees
-        : [];
+      const nextFees =
+        Array.isArray(payload?.fees)
+          ? payload.fees
+          : [];
 
       setFees(nextFees);
-      setSummary(payload?.summary ?? null);
+      setSummary(
+        payload?.summary ?? null
+      );
 
       const months = Array.from(
         new Set(
           nextFees
-            .map((fee: FeeWithMonthly) => fee.billingMonth)
+            .map(
+              (fee: FeeWithMonthly) =>
+                fee.billingMonth
+            )
             .filter(Boolean)
         )
       ) as string[];
 
-      const initialOpenState: Record<string, boolean> = {};
+      const initialOpenState: Record<
+        string,
+        boolean
+      > = {};
 
       months.forEach((month) => {
         initialOpenState[month] = true;
       });
 
-      setOpenMonths(initialOpenState);
+      setOpenMonths(
+        initialOpenState
+      );
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(
+        getErrorMessage(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -301,11 +347,18 @@ export default function Fees() {
 
   async function loadPaymentInfo() {
     try {
-      const response = await api.get("/fees/payment-info");
+      const response =
+        await api.get(
+          "/fees/payment-info"
+        );
 
-      const payload = response.data?.data ?? response.data;
+      const payload =
+        response.data?.data ??
+        response.data;
 
-      setPaymentInfo(payload ?? null);
+      setPaymentInfo(
+        payload ?? null
+      );
     } catch {
       setPaymentInfo(null);
     }
@@ -316,28 +369,46 @@ export default function Fees() {
       setPaymentLoading(true);
       setPaymentError("");
 
-      const response = await api.get("/fees/payment-requests/my");
+      const response =
+        await api.get(
+          "/fees/payment-requests/my"
+        );
 
-      const payload = response.data?.data ?? response.data;
+      const payload =
+        response.data?.data ??
+        response.data;
 
-      const requests = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload?.paymentRequests)
-        ? payload.paymentRequests
-        : [];
+      const requests =
+        Array.isArray(payload)
+          ? payload
+          : Array.isArray(
+              payload?.data
+            )
+          ? payload.data
+          : Array.isArray(
+              payload?.paymentRequests
+            )
+          ? payload.paymentRequests
+          : [];
 
-      setPaymentRequests(requests);
+      setPaymentRequests(
+        requests
+      );
     } catch (err) {
-      setPaymentError(getErrorMessage(err));
+      setPaymentError(
+        getErrorMessage(err)
+      );
     } finally {
       setPaymentLoading(false);
     }
   }
 
   async function copyBkashNumber() {
-    if (!paymentInfo?.bkashNumber) return;
+    if (
+      !paymentInfo?.bkashNumber
+    ) {
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(
@@ -354,22 +425,46 @@ export default function Fees() {
     }
   }
 
-  function openPaymentModal(fee: FeeWithMonthly) {
-    const amount = Number(fee.amount || 0);
-    const paid = Number(fee.amountPaid || 0);
-    const due = Math.max(amount - paid, 0);
+  function openPaymentModal() {
+    const due =
+      overallTotals.totalDue;
 
-    setSelectedFee(fee);
-    setPaymentAmount(due > 0 ? String(due) : "");
+    if (due <= 0) {
+      setPaymentError(
+        "You do not have any outstanding fee."
+      );
+      return;
+    }
+
+    const hasPendingRequest =
+      paymentRequests.some(
+        (request) =>
+          request.status === "PENDING"
+      );
+
+    if (hasPendingRequest) {
+      setPaymentError(
+        "You already have a payment request waiting for admin verification."
+      );
+      return;
+    }
+
+    setPaymentAmount(
+      String(due)
+    );
+
     setSenderNumber("");
     setTransactionId("");
     setPaymentError("");
+    setShowPaymentModal(true);
   }
 
   function closePaymentModal() {
-    if (submittingPayment) return;
+    if (submittingPayment) {
+      return;
+    }
 
-    setSelectedFee(null);
+    setShowPaymentModal(false);
     setPaymentAmount("");
     setSenderNumber("");
     setTransactionId("");
@@ -377,44 +472,53 @@ export default function Fees() {
   }
 
   async function handleSubmitPayment() {
-    if (!selectedFee) return;
+    const amount =
+      Number(paymentAmount);
 
-    const amount = Number(paymentAmount);
-    const feeAmount = Number(selectedFee.amount || 0);
-    const paidAmount = Number(selectedFee.amountPaid || 0);
-    const dueAmount = Math.max(feeAmount - paidAmount, 0);
+    const totalDue =
+      overallTotals.totalDue;
 
     if (!amount || amount <= 0) {
-      setPaymentError("Please enter a valid payment amount.");
+      setPaymentError(
+        "Please enter a valid payment amount."
+      );
       return;
     }
 
-    if (amount > dueAmount) {
+    if (amount > totalDue) {
       setPaymentError(
-        `Payment amount cannot exceed the due amount of ${formatCurrency(
-          dueAmount
+        `Payment amount cannot exceed your total outstanding fee of ${formatCurrency(
+          totalDue
         )}.`
       );
       return;
     }
 
-    const normalizedSenderNumber = senderNumber
-      .trim()
-      .replace(/\s+/g, "");
+    const normalizedSenderNumber =
+      senderNumber
+        .trim()
+        .replace(/\s+/g, "");
 
-    if (!/^01[3-9]\d{8}$/.test(normalizedSenderNumber)) {
+    if (
+      !/^01[3-9]\d{8}$/.test(
+        normalizedSenderNumber
+      )
+    ) {
       setPaymentError(
         "Please enter a valid Bangladeshi bKash number."
       );
       return;
     }
 
-    const normalizedTransactionId = transactionId
-      .trim()
-      .toUpperCase();
+    const normalizedTransactionId =
+      transactionId
+        .trim()
+        .toUpperCase();
 
     if (!normalizedTransactionId) {
-      setPaymentError("Please enter your bKash Transaction ID.");
+      setPaymentError(
+        "Please enter your bKash Transaction ID."
+      );
       return;
     }
 
@@ -422,169 +526,303 @@ export default function Fees() {
       setSubmittingPayment(true);
       setPaymentError("");
 
-      await api.post("/fees/payment-requests", {
-        feeId: selectedFee._id,
-        amount,
-        senderNumber: normalizedSenderNumber,
-        transactionId: normalizedTransactionId,
-      });
+      await api.post(
+        "/fees/payment-requests",
+        {
+          amount,
+          senderNumber:
+            normalizedSenderNumber,
+          transactionId:
+            normalizedTransactionId,
+        }
+      );
 
-      closePaymentModal();
+      setShowPaymentModal(false);
+      setPaymentAmount("");
+      setSenderNumber("");
+      setTransactionId("");
 
-      await loadPaymentRequests();
-      await loadFees();
+      await Promise.all([
+        loadPaymentRequests(),
+        loadFees(),
+      ]);
     } catch (err) {
-      setPaymentError(getErrorMessage(err));
+      setPaymentError(
+        getErrorMessage(err)
+      );
     } finally {
       setSubmittingPayment(false);
     }
   }
 
-  function getPendingRequestForFee(feeId: string) {
-    return paymentRequests.find(
-      (request) =>
-        request.fee?._id === feeId &&
-        request.status === "PENDING"
-    );
-  }
+  const courseOptions =
+    useMemo(() => {
+      const map = new Map<
+        string,
+        string
+      >();
 
-  const courseOptions = useMemo(() => {
-    const map = new Map<string, string>();
-
-    fees.forEach((fee) => {
-      const course = getCourse(fee.course);
-
-      if (course?._id) {
-        map.set(course._id, getCourseName(course));
-      }
-    });
-
-    return Array.from(map.entries()).map(
-      ([_id, name]) => ({
-        _id,
-        name,
-      })
-    );
-  }, [fees]);
-
-  const monthOptions = useMemo(() => {
-    return Array.from(
-      new Set(
-        fees
-          .map((fee) => fee.billingMonth)
-          .filter(Boolean)
-      )
-    ).sort((a, b) =>
-      String(b).localeCompare(String(a))
-    ) as string[];
-  }, [fees]);
-
-  const overallTotals = useMemo(() => {
-    const totalFee = fees.reduce(
-      (sum, fee) => sum + Number(fee.amount || 0),
-      0
-    );
-
-    const totalPaid = fees.reduce(
-      (sum, fee) => sum + Number(fee.amountPaid || 0),
-      0
-    );
-
-    const totalDue = Math.max(totalFee - totalPaid, 0);
-
-    return {
-      totalFee:
-        Number(summary?.totalFee ?? totalFee) || 0,
-      totalPaid:
-        Number(summary?.totalPaid ?? totalPaid) || 0,
-      totalDue:
-        Number(summary?.totalDue ?? totalDue) || 0,
-    };
-  }, [fees, summary]);
-
-  const filteredFees = useMemo(() => {
-    return fees.filter((fee) => {
-      const monthMatch =
-        selectedMonth === "ALL" ||
-        fee.billingMonth === selectedMonth;
-
-      const course = getCourse(fee.course);
-
-      const courseMatch =
-        selectedCourse === "ALL" ||
-        course?._id === selectedCourse;
-
-      return monthMatch && courseMatch;
-    });
-  }, [fees, selectedMonth, selectedCourse]);
-
-  const monthlyGroups = useMemo<MonthlyGroup[]>(() => {
-    const map = new Map<string, FeeWithMonthly[]>();
-
-    filteredFees.forEach((fee) => {
-      const month = fee.billingMonth || "UNKNOWN";
-
-      if (!map.has(month)) {
-        map.set(month, []);
-      }
-
-      map.get(month)!.push(fee);
-    });
-
-    return Array.from(map.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([month, records]) => {
-        const totalFee = records.reduce(
-          (sum, fee) => sum + Number(fee.amount || 0),
-          0
+      fees.forEach((fee) => {
+        const course = getCourse(
+          fee.course
         );
 
-        const totalPaid = records.reduce(
-          (sum, fee) => sum + Number(fee.amountPaid || 0),
-          0
-        );
-
-        return {
-          month,
-          label:
-            month === "UNKNOWN"
-              ? "Unknown Month"
-              : formatMonth(month),
-          records,
-          totalFee,
-          totalPaid,
-          totalDue: Math.max(totalFee - totalPaid, 0),
-        };
+        if (course?._id) {
+          map.set(
+            course._id,
+            getCourseName(course)
+          );
+        }
       });
-  }, [filteredFees]);
 
-  const filteredTotals = useMemo(() => {
-    const totalFee = filteredFees.reduce(
-      (sum, fee) => sum + Number(fee.amount || 0),
-      0
+      return Array.from(
+        map.entries()
+      ).map(
+        ([_id, name]) => ({
+          _id,
+          name,
+        })
+      );
+    }, [fees]);
+
+  const monthOptions =
+    useMemo(() => {
+      return Array.from(
+        new Set(
+          fees
+            .map(
+              (fee) =>
+                fee.billingMonth
+            )
+            .filter(Boolean)
+        )
+      ).sort((a, b) =>
+        String(b).localeCompare(
+          String(a)
+        )
+      ) as string[];
+    }, [fees]);
+
+  const overallTotals =
+    useMemo(() => {
+      const totalFee =
+        fees.reduce(
+          (sum, fee) =>
+            sum +
+            Number(
+              fee.amount || 0
+            ),
+          0
+        );
+
+      const totalPaid =
+        fees.reduce(
+          (sum, fee) =>
+            sum +
+            Number(
+              fee.amountPaid || 0
+            ),
+          0
+        );
+
+      const totalDue =
+        Math.max(
+          totalFee -
+            totalPaid,
+          0
+        );
+
+      return {
+        totalFee:
+          Number(
+            summary?.totalFee ??
+              totalFee
+          ) || 0,
+
+        totalPaid:
+          Number(
+            summary?.totalPaid ??
+              totalPaid
+          ) || 0,
+
+        totalDue:
+          Number(
+            summary?.totalDue ??
+              totalDue
+          ) || 0,
+      };
+    }, [fees, summary]);
+
+  const filteredFees =
+    useMemo(() => {
+      return fees.filter(
+        (fee) => {
+          const monthMatch =
+            selectedMonth ===
+              "ALL" ||
+            fee.billingMonth ===
+              selectedMonth;
+
+          const course =
+            getCourse(
+              fee.course
+            );
+
+          const courseMatch =
+            selectedCourse ===
+              "ALL" ||
+            course?._id ===
+              selectedCourse;
+
+          return (
+            monthMatch &&
+            courseMatch
+          );
+        }
+      );
+    }, [
+      fees,
+      selectedMonth,
+      selectedCourse,
+    ]);
+
+  const monthlyGroups =
+    useMemo<MonthlyGroup[]>(
+      () => {
+        const map = new Map<
+          string,
+          FeeWithMonthly[]
+        >();
+
+        filteredFees.forEach(
+          (fee) => {
+            const month =
+              fee.billingMonth ||
+              "UNKNOWN";
+
+            if (!map.has(month)) {
+              map.set(
+                month,
+                []
+              );
+            }
+
+            map
+              .get(month)!
+              .push(fee);
+          }
+        );
+
+        return Array.from(
+          map.entries()
+        )
+          .sort(
+            ([a], [b]) =>
+              b.localeCompare(a)
+          )
+          .map(
+            ([
+              month,
+              records,
+            ]) => {
+              const totalFee =
+                records.reduce(
+                  (
+                    sum,
+                    fee
+                  ) =>
+                    sum +
+                    Number(
+                      fee.amount ||
+                        0
+                    ),
+                  0
+                );
+
+              const totalPaid =
+                records.reduce(
+                  (
+                    sum,
+                    fee
+                  ) =>
+                    sum +
+                    Number(
+                      fee.amountPaid ||
+                        0
+                    ),
+                  0
+                );
+
+              return {
+                month,
+                label:
+                  month ===
+                  "UNKNOWN"
+                    ? "Unknown Month"
+                    : formatMonth(
+                        month
+                      ),
+                records,
+                totalFee,
+                totalPaid,
+                totalDue:
+                  Math.max(
+                    totalFee -
+                      totalPaid,
+                    0
+                  ),
+              };
+            }
+          );
+      },
+      [filteredFees]
     );
 
-    const totalPaid = filteredFees.reduce(
-      (sum, fee) => sum + Number(fee.amountPaid || 0),
-      0
-    );
+  const filteredTotals =
+    useMemo(() => {
+      const totalFee =
+        filteredFees.reduce(
+          (sum, fee) =>
+            sum +
+            Number(
+              fee.amount || 0
+            ),
+          0
+        );
 
-    const totalDue = Math.max(totalFee - totalPaid, 0);
+      const totalPaid =
+        filteredFees.reduce(
+          (sum, fee) =>
+            sum +
+            Number(
+              fee.amountPaid || 0
+            ),
+          0
+        );
 
-    return {
-      totalFee,
-      totalPaid,
-      totalDue,
-    };
-  }, [filteredFees]);
+      const totalDue =
+        Math.max(
+          totalFee -
+            totalPaid,
+          0
+        );
+
+      return {
+        totalFee,
+        totalPaid,
+        totalDue,
+      };
+    }, [filteredFees]);
 
   const displayedTotals =
-    selectedMonth === "ALL" && selectedCourse === "ALL"
+    selectedMonth === "ALL" &&
+    selectedCourse === "ALL"
       ? overallTotals
       : filteredTotals;
 
   const paidPercentage =
-    displayedTotals.totalFee > 0
+    displayedTotals.totalFee >
+    0
       ? Math.min(
           100,
           Math.round(
@@ -595,9 +833,15 @@ export default function Fees() {
         )
       : 0;
 
-  const pendingPaymentCount = paymentRequests.filter(
-    (request) => request.status === "PENDING"
-  ).length;
+  const pendingPaymentCount =
+    paymentRequests.filter(
+      (request) =>
+        request.status ===
+        "PENDING"
+    ).length;
+
+  const hasPendingPayment =
+    pendingPaymentCount > 0;
 
   if (loading) {
     return (
@@ -618,7 +862,9 @@ export default function Fees() {
               Unable to load fee statement
             </p>
 
-            <p className="mt-1 text-sm">{error}</p>
+            <p className="mt-1 text-sm">
+              {error}
+            </p>
 
             <button
               type="button"
@@ -649,8 +895,10 @@ export default function Fees() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-              View your monthly fees, payment history,
-              outstanding balance, and payment status in
+              View your fees, overall
+              outstanding balance,
+              payment history, and
+              bKash payment status in
               one place.
             </p>
           </div>
@@ -671,7 +919,9 @@ export default function Fees() {
               </p>
 
               <p className="mt-2 text-2xl font-bold text-slate-900">
-                {formatCurrency(displayedTotals.totalFee)}
+                {formatCurrency(
+                  displayedTotals.totalFee
+                )}
               </p>
             </div>
 
@@ -689,7 +939,9 @@ export default function Fees() {
               </p>
 
               <p className="mt-2 text-2xl font-bold text-emerald-700">
-                {formatCurrency(displayedTotals.totalPaid)}
+                {formatCurrency(
+                  displayedTotals.totalPaid
+                )}
               </p>
             </div>
 
@@ -707,7 +959,9 @@ export default function Fees() {
               </p>
 
               <p className="mt-2 text-2xl font-bold text-rose-700">
-                {formatCurrency(displayedTotals.totalDue)}
+                {formatCurrency(
+                  displayedTotals.totalDue
+                )}
               </p>
             </div>
 
@@ -747,16 +1001,15 @@ export default function Fees() {
 
       {/* Filters */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Fee Filters
-            </h2>
+        <div className="mb-5">
+          <h2 className="text-lg font-bold text-slate-900">
+            Fee Filters
+          </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Filter your fee statement by month or course.
-            </p>
-          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Filter your fee statement by
+            month or course.
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -768,17 +1021,28 @@ export default function Fees() {
             <select
               value={selectedMonth}
               onChange={(event) =>
-                setSelectedMonth(event.target.value)
+                setSelectedMonth(
+                  event.target.value
+                )
               }
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
             >
-              <option value="ALL">All Months</option>
+              <option value="ALL">
+                All Months
+              </option>
 
-              {monthOptions.map((month) => (
-                <option key={month} value={month}>
-                  {formatMonth(month)}
-                </option>
-              ))}
+              {monthOptions.map(
+                (month) => (
+                  <option
+                    key={month}
+                    value={month}
+                  >
+                    {formatMonth(
+                      month
+                    )}
+                  </option>
+                )
+              )}
             </select>
           </label>
 
@@ -790,20 +1054,26 @@ export default function Fees() {
             <select
               value={selectedCourse}
               onChange={(event) =>
-                setSelectedCourse(event.target.value)
+                setSelectedCourse(
+                  event.target.value
+                )
               }
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
             >
-              <option value="ALL">All Courses</option>
+              <option value="ALL">
+                All Courses
+              </option>
 
-              {courseOptions.map((course) => (
-                <option
-                  key={course._id}
-                  value={course._id}
-                >
-                  {course.name}
-                </option>
-              ))}
+              {courseOptions.map(
+                (course) => (
+                  <option
+                    key={course._id}
+                    value={course._id}
+                  >
+                    {course.name}
+                  </option>
+                )
+              )}
             </select>
           </label>
         </div>
@@ -819,13 +1089,15 @@ export default function Fees() {
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">
-                Detailed fee records grouped by billing month.
+                Detailed fee records grouped
+                by billing month.
               </p>
             </div>
 
             <div className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
               {monthlyGroups.length}{" "}
-              {monthlyGroups.length === 1
+              {monthlyGroups.length ===
+              1
                 ? "month"
                 : "months"}
             </div>
@@ -833,7 +1105,8 @@ export default function Fees() {
         </div>
 
         <div className="p-4 sm:p-6">
-          {monthlyGroups.length === 0 ? (
+          {monthlyGroups.length ===
+          0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <div className="rounded-full bg-slate-100 p-3 text-slate-500">
                 <FileText className="h-7 w-7" />
@@ -845,161 +1118,250 @@ export default function Fees() {
                 </p>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  There are no fee records matching your selected filters.
+                  There are no fee records
+                  matching your selected
+                  filters.
                 </p>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              {monthlyGroups.map((group) => {
-                const isOpen =
-                  openMonths[group.month] ?? true;
+              {monthlyGroups.map(
+                (group) => {
+                  const isOpen =
+                    openMonths[
+                      group.month
+                    ] ?? true;
 
-                return (
-                  <div
-                    key={group.month}
-                    className="overflow-hidden rounded-2xl border border-slate-200"
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenMonths((current) => ({
-                          ...current,
-                          [group.month]: !isOpen,
-                        }))
-                      }
-                      className="flex w-full items-center justify-between gap-4 bg-slate-50 px-4 py-4 text-left transition hover:bg-slate-100 sm:px-5"
+                  return (
+                    <div
+                      key={group.month}
+                      className="overflow-hidden rounded-2xl border border-slate-200"
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="rounded-xl bg-white p-2.5 text-slate-700 shadow-sm">
-                          <CalendarDays className="h-5 w-5" />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenMonths(
+                            (current) => ({
+                              ...current,
+                              [group.month]:
+                                !isOpen,
+                            })
+                          )
+                        }
+                        className="flex w-full items-center justify-between gap-4 bg-slate-50 px-4 py-4 text-left transition hover:bg-slate-100 sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="rounded-xl bg-white p-2.5 text-slate-700 shadow-sm">
+                            <CalendarDays className="h-5 w-5" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-slate-900">
+                              {group.label}
+                            </p>
+
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {
+                                group.records
+                                  .length
+                              }{" "}
+                              {group.records
+                                .length ===
+                              1
+                                ? "fee record"
+                                : "fee records"}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="min-w-0">
-                          <p className="truncate font-bold text-slate-900">
-                            {group.label}
-                          </p>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <div className="hidden text-right sm:block">
+                            <p className="text-xs text-slate-500">
+                              Due
+                            </p>
 
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {group.records.length}{" "}
-                            {group.records.length === 1
-                              ? "fee record"
-                              : "fee records"}
-                          </p>
+                            <p className="font-bold text-rose-700">
+                              {formatCurrency(
+                                group.totalDue
+                              )}
+                            </p>
+                          </div>
+
+                          {isOpen ? (
+                            <ChevronUp className="h-5 w-5 text-slate-500" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5 text-slate-500" />
+                          )}
                         </div>
-                      </div>
+                      </button>
 
-                      <div className="flex shrink-0 items-center gap-3">
-                        <div className="hidden text-right sm:block">
-                          <p className="text-xs text-slate-500">
-                            Due
-                          </p>
+                      {isOpen && (
+                        <div className="border-t border-slate-200">
+                          {/* Desktop */}
+                          <div className="hidden overflow-x-auto md:block">
+                            <table className="min-w-full">
+                              <thead>
+                                <tr className="border-b border-slate-200 bg-white text-left">
+                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Course
+                                  </th>
 
-                          <p className="font-bold text-rose-700">
-                            {formatCurrency(group.totalDue)}
-                          </p>
-                        </div>
+                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Billing Month
+                                  </th>
 
-                        {isOpen ? (
-                          <ChevronUp className="h-5 w-5 text-slate-500" />
-                        ) : (
-                          <ChevronDown className="h-5 w-5 text-slate-500" />
-                        )}
-                      </div>
-                    </button>
+                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Amount
+                                  </th>
 
-                    {isOpen && (
-                      <div className="border-t border-slate-200">
-                        {/* Desktop Table */}
-                        <div className="hidden overflow-x-auto md:block">
-                          <table className="min-w-full">
-                            <thead>
-                              <tr className="border-b border-slate-200 bg-white text-left">
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Course
-                                </th>
+                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Paid
+                                  </th>
 
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Billing Month
-                                </th>
+                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Due
+                                  </th>
 
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Amount
-                                </th>
+                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Status
+                                  </th>
+                                </tr>
+                              </thead>
 
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Paid
-                                </th>
+                              <tbody>
+                                {group.records.map(
+                                  (fee) => {
+                                    const course =
+                                      getCourse(
+                                        fee.course
+                                      );
 
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Due
-                                </th>
+                                    const amount =
+                                      Number(
+                                        fee.amount ||
+                                          0
+                                      );
 
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Status
-                                </th>
+                                    const paid =
+                                      Number(
+                                        fee.amountPaid ||
+                                          0
+                                      );
 
-                                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                  Payment
-                                </th>
-                              </tr>
-                            </thead>
+                                    const due =
+                                      Math.max(
+                                        amount -
+                                          paid,
+                                        0
+                                      );
 
-                            <tbody>
-                              {group.records.map((fee) => {
-                                const course = getCourse(
-                                  fee.course
-                                );
+                                    return (
+                                      <tr
+                                        key={
+                                          fee._id
+                                        }
+                                        className="border-b border-slate-100 last:border-0"
+                                      >
+                                        <td className="px-5 py-4">
+                                          <div className="font-semibold text-slate-900">
+                                            {course?.name ||
+                                              "Course"}
+                                          </div>
+                                        </td>
 
-                                const amount = Number(
-                                  fee.amount || 0
-                                );
+                                        <td className="px-5 py-4 text-sm text-slate-600">
+                                          {formatMonth(
+                                            fee.billingMonth
+                                          )}
+                                        </td>
 
-                                const paid = Number(
-                                  fee.amountPaid || 0
-                                );
+                                        <td className="px-5 py-4 text-sm font-semibold text-slate-900">
+                                          {formatCurrency(
+                                            amount
+                                          )}
+                                        </td>
 
-                                const due = Math.max(
-                                  amount - paid,
-                                  0
-                                );
+                                        <td className="px-5 py-4 text-sm font-semibold text-emerald-700">
+                                          {formatCurrency(
+                                            paid
+                                          )}
+                                        </td>
 
-                                const pendingRequest =
-                                  getPendingRequestForFee(
-                                    fee._id
+                                        <td className="px-5 py-4 text-sm font-semibold text-rose-700">
+                                          {formatCurrency(
+                                            due
+                                          )}
+                                        </td>
+
+                                        <td className="px-5 py-4">
+                                          <span
+                                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
+                                              fee.status
+                                            )}`}
+                                          >
+                                            {getStatusLabel(
+                                              fee.status
+                                            )}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Mobile */}
+                          <div className="divide-y divide-slate-100 md:hidden">
+                            {group.records.map(
+                              (fee) => {
+                                const course =
+                                  getCourse(
+                                    fee.course
+                                  );
+
+                                const amount =
+                                  Number(
+                                    fee.amount ||
+                                      0
+                                  );
+
+                                const paid =
+                                  Number(
+                                    fee.amountPaid ||
+                                      0
+                                  );
+
+                                const due =
+                                  Math.max(
+                                    amount -
+                                      paid,
+                                    0
                                   );
 
                                 return (
-                                  <tr
-                                    key={fee._id}
-                                    className="border-b border-slate-100 last:border-0"
+                                  <div
+                                    key={
+                                      fee._id
+                                    }
+                                    className="space-y-4 p-4"
                                   >
-                                    <td className="px-5 py-4">
-                                      <div className="font-semibold text-slate-900">
-                                        {course?.name ||
-                                          "Course"}
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="font-bold text-slate-900">
+                                          {course?.name ||
+                                            "Course"}
+                                        </p>
+
+                                        <p className="mt-1 text-xs text-slate-500">
+                                          {formatMonth(
+                                            fee.billingMonth
+                                          )}
+                                        </p>
                                       </div>
-                                    </td>
 
-                                    <td className="px-5 py-4 text-sm text-slate-600">
-                                      {formatMonth(
-                                        fee.billingMonth
-                                      )}
-                                    </td>
-
-                                    <td className="px-5 py-4 text-sm font-semibold text-slate-900">
-                                      {formatCurrency(amount)}
-                                    </td>
-
-                                    <td className="px-5 py-4 text-sm font-semibold text-emerald-700">
-                                      {formatCurrency(paid)}
-                                    </td>
-
-                                    <td className="px-5 py-4 text-sm font-semibold text-rose-700">
-                                      {formatCurrency(due)}
-                                    </td>
-
-                                    <td className="px-5 py-4">
                                       <span
                                         className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
                                           fee.status
@@ -1009,203 +1371,107 @@ export default function Fees() {
                                           fee.status
                                         )}
                                       </span>
-                                    </td>
+                                    </div>
 
-                                    <td className="px-5 py-4">
-                                      {due <= 0 ? (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-                                          <Check className="h-4 w-4" />
-                                          Fully Paid
-                                        </span>
-                                      ) : pendingRequest ? (
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
-                                          <Clock3 className="h-4 w-4" />
-                                          Verification Pending
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            openPaymentModal(
-                                              fee
-                                            )
-                                          }
-                                          className="rounded-lg bg-[#111827] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#263449]"
-                                        >
-                                          Pay via bKash
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div className="rounded-xl bg-slate-50 p-3">
+                                        <p className="text-[11px] font-medium text-slate-500">
+                                          Amount
+                                        </p>
 
-                        {/* Mobile Cards */}
-                        <div className="divide-y divide-slate-100 md:hidden">
-                          {group.records.map((fee) => {
-                            const course = getCourse(
-                              fee.course
-                            );
+                                        <p className="mt-1 text-sm font-bold text-slate-900">
+                                          {formatCurrency(
+                                            amount
+                                          )}
+                                        </p>
+                                      </div>
 
-                            const amount = Number(
-                              fee.amount || 0
-                            );
+                                      <div className="rounded-xl bg-emerald-50 p-3">
+                                        <p className="text-[11px] font-medium text-emerald-600">
+                                          Paid
+                                        </p>
 
-                            const paid = Number(
-                              fee.amountPaid || 0
-                            );
+                                        <p className="mt-1 text-sm font-bold text-emerald-700">
+                                          {formatCurrency(
+                                            paid
+                                          )}
+                                        </p>
+                                      </div>
 
-                            const due = Math.max(
-                              amount - paid,
-                              0
-                            );
+                                      <div className="rounded-xl bg-rose-50 p-3">
+                                        <p className="text-[11px] font-medium text-rose-600">
+                                          Due
+                                        </p>
 
-                            const pendingRequest =
-                              getPendingRequestForFee(
-                                fee._id
-                              );
+                                        <p className="mt-1 text-sm font-bold text-rose-700">
+                                          {formatCurrency(
+                                            due
+                                          )}
+                                        </p>
+                                      </div>
+                                    </div>
 
-                            return (
-                              <div
-                                key={fee._id}
-                                className="space-y-4 p-4"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="font-bold text-slate-900">
-                                      {course?.name ||
-                                        "Course"}
-                                    </p>
-
-                                    <p className="mt-1 text-xs text-slate-500">
-                                      {formatMonth(
-                                        fee.billingMonth
-                                      )}
-                                    </p>
-                                  </div>
-
-                                  <span
-                                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
-                                      fee.status
-                                    )}`}
-                                  >
-                                    {getStatusLabel(
-                                      fee.status
+                                    {due <=
+                                    0 ? (
+                                      <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Fully Paid
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+                                        <Wallet className="h-4 w-4" />
+                                        Included in overall
+                                        bKash payment
+                                      </div>
                                     )}
-                                  </span>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                  <div className="rounded-xl bg-slate-50 p-3">
-                                    <p className="text-[11px] font-medium text-slate-500">
-                                      Amount
-                                    </p>
-
-                                    <p className="mt-1 text-sm font-bold text-slate-900">
-                                      {formatCurrency(
-                                        amount
-                                      )}
-                                    </p>
                                   </div>
-
-                                  <div className="rounded-xl bg-emerald-50 p-3">
-                                    <p className="text-[11px] font-medium text-emerald-600">
-                                      Paid
-                                    </p>
-
-                                    <p className="mt-1 text-sm font-bold text-emerald-700">
-                                      {formatCurrency(
-                                        paid
-                                      )}
-                                    </p>
-                                  </div>
-
-                                  <div className="rounded-xl bg-rose-50 p-3">
-                                    <p className="text-[11px] font-medium text-rose-600">
-                                      Due
-                                    </p>
-
-                                    <p className="mt-1 text-sm font-bold text-rose-700">
-                                      {formatCurrency(
-                                        due
-                                      )}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {due <= 0 ? (
-                                  <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    Fully Paid
-                                  </div>
-                                ) : pendingRequest ? (
-                                  <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                                    <Clock3 className="h-4 w-4" />
-                                    Payment verification is
-                                    pending
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openPaymentModal(
-                                        fee
-                                      )
-                                    }
-                                    className="w-full rounded-xl bg-[#111827] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#263449]"
-                                  >
-                                    Pay via bKash
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                          <div className="text-slate-600">
-                            Total:{" "}
-                            <span className="font-bold text-slate-900">
-                              {formatCurrency(
-                                group.totalFee
-                              )}
-                            </span>
+                                );
+                              }
+                            )}
                           </div>
 
-                          <div className="flex gap-4">
-                            <span className="text-emerald-700">
-                              Paid:{" "}
-                              <strong>
+                          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                            <div className="text-slate-600">
+                              Total:{" "}
+                              <span className="font-bold text-slate-900">
                                 {formatCurrency(
-                                  group.totalPaid
+                                  group.totalFee
                                 )}
-                              </strong>
-                            </span>
+                              </span>
+                            </div>
 
-                            <span className="text-rose-700">
-                              Due:{" "}
-                              <strong>
-                                {formatCurrency(
-                                  group.totalDue
-                                )}
-                              </strong>
-                            </span>
+                            <div className="flex gap-4">
+                              <span className="text-emerald-700">
+                                Paid:{" "}
+                                <strong>
+                                  {formatCurrency(
+                                    group.totalPaid
+                                  )}
+                                </strong>
+                              </span>
+
+                              <span className="text-rose-700">
+                                Due:{" "}
+                                <strong>
+                                  {formatCurrency(
+                                    group.totalDue
+                                  )}
+                                </strong>
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      )}
+                    </div>
+                  );
+                }
+              )}
             </div>
           )}
         </div>
       </section>
 
-      {/* Course-wise Fee Summary */}
+      {/* Course-wise Summary */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-5">
           <h2 className="text-xl font-bold text-slate-900">
@@ -1213,106 +1479,144 @@ export default function Fees() {
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Your fee totals grouped by enrolled course.
+            Your fee totals grouped by enrolled
+            course. bKash payments are handled
+            across all courses together.
           </p>
         </div>
 
-        {courseOptions.length === 0 ? (
-          <EmptyState
-            message="No course fee records. Course-wise fee information is not available yet."
-          />
+        {courseOptions.length ===
+        0 ? (
+          <EmptyState message="No course fee records. Course-wise fee information is not available yet." />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {courseOptions.map((course) => {
-              const courseFees = fees.filter((fee) => {
-                const feeCourse = getCourse(fee.course);
+            {courseOptions.map(
+              (course) => {
+                const courseFees =
+                  fees.filter(
+                    (fee) => {
+                      const feeCourse =
+                        getCourse(
+                          fee.course
+                        );
 
-                return feeCourse?._id === course._id;
-              });
+                      return (
+                        feeCourse?._id ===
+                        course._id
+                      );
+                    }
+                  );
 
-              const totalFee = courseFees.reduce(
-                (sum, fee) =>
-                  sum + Number(fee.amount || 0),
-                0
-              );
+                const totalFee =
+                  courseFees.reduce(
+                    (
+                      sum,
+                      fee
+                    ) =>
+                      sum +
+                      Number(
+                        fee.amount ||
+                          0
+                      ),
+                    0
+                  );
 
-              const totalPaid = courseFees.reduce(
-                (sum, fee) =>
-                  sum + Number(fee.amountPaid || 0),
-                0
-              );
+                const totalPaid =
+                  courseFees.reduce(
+                    (
+                      sum,
+                      fee
+                    ) =>
+                      sum +
+                      Number(
+                        fee.amountPaid ||
+                          0
+                      ),
+                    0
+                  );
 
-              const totalDue = Math.max(
-                totalFee - totalPaid,
-                0
-              );
+                const totalDue =
+                  Math.max(
+                    totalFee -
+                      totalPaid,
+                    0
+                  );
 
-              return (
-                <div
-                  key={course._id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-xl bg-white p-3 text-slate-700 shadow-sm">
-                      <Wallet className="h-5 w-5" />
+                return (
+                  <div
+                    key={
+                      course._id
+                    }
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-white p-3 text-slate-700 shadow-sm">
+                        <Wallet className="h-5 w-5" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <h3 className="truncate font-bold text-slate-900">
+                          {course.name}
+                        </h3>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          {
+                            courseFees.length
+                          }{" "}
+                          {courseFees.length ===
+                          1
+                            ? "record"
+                            : "records"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="min-w-0">
-                      <h3 className="truncate font-bold text-slate-900">
-                        {course.name}
-                      </h3>
+                    <div className="mt-5 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl bg-white p-3">
+                        <p className="text-[11px] text-slate-500">
+                          Total
+                        </p>
 
-                      <p className="mt-1 text-xs text-slate-500">
-                        {courseFees.length}{" "}
-                        {courseFees.length === 1
-                          ? "record"
-                          : "records"}
-                      </p>
+                        <p className="mt-1 text-sm font-bold text-slate-900">
+                          {formatCurrency(
+                            totalFee
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-emerald-50 p-3">
+                        <p className="text-[11px] text-emerald-600">
+                          Paid
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-emerald-700">
+                          {formatCurrency(
+                            totalPaid
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-rose-50 p-3">
+                        <p className="text-[11px] text-rose-600">
+                          Due
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-rose-700">
+                          {formatCurrency(
+                            totalDue
+                          )}
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="mt-5 grid grid-cols-3 gap-2">
-                    <div className="rounded-xl bg-white p-3">
-                      <p className="text-[11px] text-slate-500">
-                        Total
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-slate-900">
-                        {formatCurrency(totalFee)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-emerald-50 p-3">
-                      <p className="text-[11px] text-emerald-600">
-                        Paid
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-emerald-700">
-                        {formatCurrency(totalPaid)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-rose-50 p-3">
-                      <p className="text-[11px] text-rose-600">
-                        Due
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-rose-700">
-                        {formatCurrency(totalDue)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              }
+            )}
           </div>
         )}
       </section>
 
-      {/* =========================================================
-          PAYMENT HISTORY
-          Moved to the END as requested
-      ========================================================= */}
+      {/* Payment History */}
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-5 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1328,8 +1632,8 @@ export default function Fees() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Track your bKash payment verification
-                    requests.
+                    Track your overall bKash payment
+                    verification requests.
                   </p>
                 </div>
               </div>
@@ -1337,13 +1641,19 @@ export default function Fees() {
 
             <button
               type="button"
-              onClick={loadPaymentRequests}
-              disabled={paymentLoading}
+              onClick={
+                loadPaymentRequests
+              }
+              disabled={
+                paymentLoading
+              }
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Clock3
                 className={`h-4 w-4 ${
-                  paymentLoading ? "animate-spin" : ""
+                  paymentLoading
+                    ? "animate-spin"
+                    : ""
                 }`}
               />
 
@@ -1357,7 +1667,8 @@ export default function Fees() {
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
               {paymentError}
             </div>
-          ) : paymentRequests.length === 0 ? (
+          ) : paymentRequests.length ===
+            0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
               <ReceiptText className="mx-auto h-8 w-8 text-slate-400" />
 
@@ -1366,134 +1677,175 @@ export default function Fees() {
               </p>
 
               <p className="mt-1 text-sm text-slate-500">
-                Your submitted bKash payment requests will
+                Your submitted bKash
+                payment requests will
                 appear here.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {paymentRequests.map((request) => (
-                <div
-                  key={request._id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
-                >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getPaymentStatusClass(
-                            request.status
-                          )}`}
-                        >
-                          {getPaymentStatusLabel(
-                            request.status
+              {paymentRequests.map(
+                (request) => (
+                  <div
+                    key={
+                      request._id
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getPaymentStatusClass(
+                              request.status
+                            )}`}
+                          >
+                            {getPaymentStatusLabel(
+                              request.status
+                            )}
+                          </span>
+
+                          <span className="text-xs text-slate-500">
+                            {formatDateTime(
+                              request.createdAt
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Payment Amount
+                            </p>
+
+                            <p className="mt-1 font-bold text-slate-900">
+                              {formatCurrency(
+                                request.amount
+                              )}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Sender Number
+                            </p>
+
+                            <p className="mt-1 font-semibold text-slate-800">
+                              {
+                                request.senderNumber
+                              }
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Transaction ID
+                            </p>
+
+                            <p className="mt-1 break-all font-semibold text-slate-800">
+                              {
+                                request.transactionId
+                              }
+                            </p>
+                          </div>
+                        </div>
+
+                        {request.status ===
+                          "APPROVED" &&
+                          request.allocations &&
+                          request.allocations.length >
+                            0 && (
+                            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                                Payment Allocated
+                              </p>
+
+                              <div className="mt-3 space-y-2">
+                                {request.allocations.map(
+                                  (
+                                    allocation,
+                                    index
+                                  ) => (
+                                    <div
+                                      key={`${request._id}-${index}`}
+                                      className="flex items-center justify-between gap-4 text-sm"
+                                    >
+                                      <span className="text-emerald-800">
+                                        {allocation.fee
+                                          ?.billingMonth
+                                          ? formatMonth(
+                                              allocation
+                                                .fee
+                                                .billingMonth
+                                            )
+                                          : `Fee ${index + 1}`}
+                                      </span>
+
+                                      <span className="font-bold text-emerald-700">
+                                        {formatCurrency(
+                                          allocation.amount
+                                        )}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
                           )}
-                        </span>
 
-                        <span className="text-xs text-slate-500">
-                          {formatDateTime(
-                            request.createdAt
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Amount
-                          </p>
-
-                          <p className="mt-1 font-bold text-slate-900">
-                            {formatCurrency(
-                              request.amount
+                        {request.reviewedAt && (
+                          <p className="mt-3 text-xs text-slate-500">
+                            Reviewed:{" "}
+                            {formatDateTime(
+                              request.reviewedAt
                             )}
                           </p>
-                        </div>
+                        )}
 
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Sender Number
-                          </p>
-
-                          <p className="mt-1 font-semibold text-slate-800">
-                            {request.senderNumber}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Transaction ID
-                          </p>
-
-                          <p className="mt-1 break-all font-semibold text-slate-800">
-                            {request.transactionId}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Fee Month
-                          </p>
-
-                          <p className="mt-1 font-semibold text-slate-800">
-                            {formatMonth(
-                              request.fee?.billingMonth
-                            )}
-                          </p>
-                        </div>
+                        {request.status ===
+                          "REJECTED" &&
+                          request.rejectionReason && (
+                            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                              <span className="font-semibold">
+                                Rejection reason:
+                              </span>{" "}
+                              {
+                                request.rejectionReason
+                              }
+                            </div>
+                          )}
                       </div>
 
-                      {request.reviewedAt && (
-                        <p className="mt-3 text-xs text-slate-500">
-                          Reviewed:{" "}
-                          {formatDateTime(
-                            request.reviewedAt
-                          )}
-                        </p>
-                      )}
-
-                      {request.status === "REJECTED" &&
-                        request.rejectionReason && (
-                          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-                            <span className="font-semibold">
-                              Rejection reason:
-                            </span>{" "}
-                            {request.rejectionReason}
+                      <div className="shrink-0">
+                        {request.status ===
+                        "PENDING" ? (
+                          <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                            <Clock3 className="h-4 w-4" />
+                            Waiting for verification
+                          </div>
+                        ) : request.status ===
+                          "APPROVED" ? (
+                          <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Payment approved
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                            <XCircle className="h-4 w-4" />
+                            Payment rejected
                           </div>
                         )}
-                    </div>
-
-                    <div className="shrink-0">
-                      {request.status === "PENDING" ? (
-                        <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                          <Clock3 className="h-4 w-4" />
-                          Waiting for verification
-                        </div>
-                      ) : request.status ===
-                        "APPROVED" ? (
-                        <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Payment approved
-                        </div>
-                      ) : (
-                        <div className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-                          <XCircle className="h-4 w-4" />
-                          Payment rejected
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           )}
         </div>
       </section>
 
-      {/* =========================================================
-          PAY VIA BKASH
-          Moved to the END as requested
-      ========================================================= */}
+      {/* Pay Via bKash */}
       <section className="overflow-hidden rounded-3xl border border-[#e6c8d3] bg-gradient-to-br from-[#fff8fb] via-white to-[#fff1f5] shadow-sm">
         <div className="p-5 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -1508,19 +1860,17 @@ export default function Fees() {
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
-                Send your fee manually through bKash and
-                submit the transaction details for
-                verification.
+                Your bKash payment is handled
+                across all enrolled courses.
+                You can pay the full outstanding
+                balance or any partial amount.
               </p>
             </div>
 
-            {pendingPaymentCount > 0 && (
+            {hasPendingPayment && (
               <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
                 <Clock3 className="h-4 w-4" />
-                {pendingPaymentCount} pending{" "}
-                {pendingPaymentCount === 1
-                  ? "request"
-                  : "requests"}
+                Payment verification pending
               </div>
             )}
           </div>
@@ -1541,8 +1891,12 @@ export default function Fees() {
 
                 <button
                   type="button"
-                  onClick={copyBkashNumber}
-                  disabled={!paymentInfo?.bkashNumber}
+                  onClick={
+                    copyBkashNumber
+                  }
+                  disabled={
+                    !paymentInfo?.bkashNumber
+                  }
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#111827] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#263449] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {copied ? (
@@ -1566,9 +1920,10 @@ export default function Fees() {
                   </span>
 
                   <p className="text-sm leading-6 text-slate-600">
-                    Send the exact amount or your desired
-                    partial amount to the academy bKash
-                    number.
+                    Send your desired payment
+                    amount to the academy bKash
+                    number. You can pay the full
+                    due or make a partial payment.
                   </p>
                 </div>
 
@@ -1578,8 +1933,8 @@ export default function Fees() {
                   </span>
 
                   <p className="text-sm leading-6 text-slate-600">
-                    Keep your bKash Transaction ID and
-                    sender number safely.
+                    Keep your bKash Transaction ID
+                    and sender number safely.
                   </p>
                 </div>
 
@@ -1589,9 +1944,11 @@ export default function Fees() {
                   </span>
 
                   <p className="text-sm leading-6 text-slate-600">
-                    Select the fee record below and submit
-                    your payment details for admin
-                    verification.
+                    Submit the payment details
+                    below. After admin approval,
+                    the payment will automatically
+                    be distributed across your
+                    outstanding fee records.
                   </p>
                 </div>
               </div>
@@ -1605,7 +1962,7 @@ export default function Fees() {
 
                 <div>
                   <p className="text-sm font-semibold text-slate-500">
-                    Current Outstanding Balance
+                    Total Outstanding Balance
                   </p>
 
                   <p className="mt-1 text-3xl font-bold text-rose-700">
@@ -1653,13 +2010,38 @@ export default function Fees() {
                   </span>
                 </div>
               </div>
+
+              <div className="mt-5">
+                {hasPendingPayment ? (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
+                    <Clock3 className="h-4 w-4" />
+                    Payment verification is pending
+                  </div>
+                ) : overallTotals.totalDue <=
+                  0 ? (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    All fees are fully paid
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={
+                      openPaymentModal
+                    }
+                    className="w-full rounded-xl bg-[#111827] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#263449]"
+                  >
+                    Pay via bKash
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Payment Modal */}
-      {selectedFee && (
+      {showPaymentModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
@@ -1669,14 +2051,18 @@ export default function Fees() {
                 </h3>
 
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Payment verification request
+                  Overall student payment
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={closePaymentModal}
-                disabled={submittingPayment}
+                onClick={
+                  closePaymentModal
+                }
+                disabled={
+                  submittingPayment
+                }
                 className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
               >
                 <XCircle className="h-5 w-5" />
@@ -1697,8 +2083,12 @@ export default function Fees() {
 
                   <button
                     type="button"
-                    onClick={copyBkashNumber}
-                    disabled={!paymentInfo?.bkashNumber}
+                    onClick={
+                      copyBkashNumber
+                    }
+                    disabled={
+                      !paymentInfo?.bkashNumber
+                    }
                     className="rounded-lg border border-[#e6c8d3] bg-white p-2 text-[#9b4d69] transition hover:bg-[#fff0f5] disabled:opacity-50"
                   >
                     {copied ? (
@@ -1710,47 +2100,47 @@ export default function Fees() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[11px] text-slate-500">
-                    Fee
-                  </p>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-600">
+                  Overall Fee Summary
+                </p>
 
-                  <p className="mt-1 text-sm font-bold text-slate-900">
-                    {formatCurrency(
-                      Number(selectedFee.amount || 0)
-                    )}
-                  </p>
-                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-white p-3">
+                    <p className="text-[11px] text-slate-500">
+                      Total
+                    </p>
 
-                <div className="rounded-xl bg-emerald-50 p-3">
-                  <p className="text-[11px] text-emerald-600">
-                    Paid
-                  </p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">
+                      {formatCurrency(
+                        overallTotals.totalFee
+                      )}
+                    </p>
+                  </div>
 
-                  <p className="mt-1 text-sm font-bold text-emerald-700">
-                    {formatCurrency(
-                      Number(selectedFee.amountPaid || 0)
-                    )}
-                  </p>
-                </div>
+                  <div className="rounded-xl bg-emerald-50 p-3">
+                    <p className="text-[11px] text-emerald-600">
+                      Paid
+                    </p>
 
-                <div className="rounded-xl bg-rose-50 p-3">
-                  <p className="text-[11px] text-rose-600">
-                    Due
-                  </p>
+                    <p className="mt-1 text-sm font-bold text-emerald-700">
+                      {formatCurrency(
+                        overallTotals.totalPaid
+                      )}
+                    </p>
+                  </div>
 
-                  <p className="mt-1 text-sm font-bold text-rose-700">
-                    {formatCurrency(
-                      Math.max(
-                        Number(selectedFee.amount || 0) -
-                          Number(
-                            selectedFee.amountPaid || 0
-                          ),
-                        0
-                      )
-                    )}
-                  </p>
+                  <div className="rounded-xl bg-rose-50 p-3">
+                    <p className="text-[11px] text-rose-600">
+                      Due
+                    </p>
+
+                    <p className="mt-1 text-sm font-bold text-rose-700">
+                      {formatCurrency(
+                        overallTotals.totalDue
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1762,13 +2152,29 @@ export default function Fees() {
                 <input
                   type="number"
                   min="1"
-                  value={paymentAmount}
+                  max={
+                    overallTotals.totalDue
+                  }
+                  value={
+                    paymentAmount
+                  }
                   onChange={(event) =>
-                    setPaymentAmount(event.target.value)
+                    setPaymentAmount(
+                      event.target.value
+                    )
                   }
                   placeholder="Enter amount"
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
                 />
+
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Maximum payable amount:{" "}
+                  <strong>
+                    {formatCurrency(
+                      overallTotals.totalDue
+                    )}
+                  </strong>
+                </p>
               </label>
 
               <label className="block">
@@ -1779,9 +2185,13 @@ export default function Fees() {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={senderNumber}
+                  value={
+                    senderNumber
+                  }
                   onChange={(event) =>
-                    setSenderNumber(event.target.value)
+                    setSenderNumber(
+                      event.target.value
+                    )
                   }
                   placeholder="01XXXXXXXXX"
                   maxLength={11}
@@ -1796,7 +2206,9 @@ export default function Fees() {
 
                 <input
                   type="text"
-                  value={transactionId}
+                  value={
+                    transactionId
+                  }
                   onChange={(event) =>
                     setTransactionId(
                       event.target.value.toUpperCase()
@@ -1811,21 +2223,35 @@ export default function Fees() {
                 <div className="flex gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
-                  <p>{paymentError}</p>
+                  <p>
+                    {paymentError}
+                  </p>
                 </div>
               )}
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                After submitting, your payment will remain
-                <strong> Pending </strong>
-                until an admin verifies the bKash transaction.
+                After submitting, your payment
+                will remain
+                <strong>
+                  {" "}
+                  Pending{" "}
+                </strong>
+                until an admin verifies the
+                bKash transaction. Once approved,
+                the amount will automatically be
+                distributed across your outstanding
+                fees.
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={closePaymentModal}
-                  disabled={submittingPayment}
+                  onClick={
+                    closePaymentModal
+                  }
+                  disabled={
+                    submittingPayment
+                  }
                   className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                 >
                   Cancel
@@ -1833,8 +2259,12 @@ export default function Fees() {
 
                 <button
                   type="button"
-                  onClick={handleSubmitPayment}
-                  disabled={submittingPayment}
+                  onClick={
+                    handleSubmitPayment
+                  }
+                  disabled={
+                    submittingPayment
+                  }
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#111827] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#263449] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submittingPayment ? (

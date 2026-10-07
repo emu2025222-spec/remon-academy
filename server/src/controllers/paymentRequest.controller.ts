@@ -11,6 +11,10 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { success } from "../utils/apiResponse";
 import { ApiError } from "../utils/ApiError";
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
 function normalizeAmount(
   value: unknown
 ): number {
@@ -114,6 +118,66 @@ async function getOwnStudent(
 }
 
 /* =========================================================
+   GET STUDENT OUTSTANDING FEES
+========================================================= */
+
+async function getStudentOutstandingFees(
+  studentId: mongoose.Types.ObjectId
+) {
+  const fees = await Fee.find({
+    student: studentId,
+  }).sort({
+    billingMonth: 1,
+    createdAt: 1,
+  });
+
+  return fees.filter((fee) => {
+    const amount = Number(
+      fee.amount || 0
+    );
+
+    const paid = Number(
+      fee.amountPaid || 0
+    );
+
+    return amount > paid;
+  });
+}
+
+/* =========================================================
+   CALCULATE TOTAL STUDENT DUE
+========================================================= */
+
+async function getStudentTotalDue(
+  studentId: mongoose.Types.ObjectId
+) {
+  const fees =
+    await getStudentOutstandingFees(
+      studentId
+    );
+
+  return fees.reduce(
+    (total, fee) => {
+      const amount = Number(
+        fee.amount || 0
+      );
+
+      const paid = Number(
+        fee.amountPaid || 0
+      );
+
+      const due = Math.max(
+        amount - paid,
+        0
+      );
+
+      return total + due;
+    },
+    0
+  );
+}
+
+/* =========================================================
    STUDENT
    PAYMENT INFORMATION
 ========================================================= */
@@ -137,7 +201,7 @@ export const paymentInfo =
 
 /* =========================================================
    STUDENT
-   CREATE PAYMENT REQUEST
+   CREATE OVERALL PAYMENT REQUEST
 ========================================================= */
 
 export const createPaymentRequest =
@@ -147,74 +211,35 @@ export const createPaymentRequest =
       res: Response
     ) => {
       const {
-        feeId,
         amount,
         senderNumber,
         transactionId,
       } = req.body;
 
-      if (
-        !feeId ||
-        !mongoose.Types.ObjectId.isValid(
-          String(feeId)
-        )
-      ) {
-        throw new ApiError(
-          400,
-          "Valid fee ID is required"
-        );
-      }
-
       const student =
         await getOwnStudent(req);
-
-      const fee =
-        await Fee.findById(feeId);
-
-      if (!fee) {
-        throw new ApiError(
-          404,
-          "Fee not found"
-        );
-      }
-
-      if (
-        String(fee.student) !==
-        String(student._id)
-      ) {
-        throw new ApiError(
-          403,
-          "You can only pay your own fee"
-        );
-      }
-
-      const feeAmount = Number(
-        fee.amount || 0
-      );
-
-      const alreadyPaid = Number(
-        fee.amountPaid || 0
-      );
-
-      const due = Math.max(
-        feeAmount - alreadyPaid,
-        0
-      );
-
-      if (due <= 0) {
-        throw new ApiError(
-          400,
-          "This fee has already been fully paid"
-        );
-      }
 
       const paymentAmount =
         normalizeAmount(amount);
 
-      if (paymentAmount > due) {
+      const totalDue =
+        await getStudentTotalDue(
+          student._id
+        );
+
+      if (totalDue <= 0) {
         throw new ApiError(
           400,
-          `Payment amount cannot be greater than the current due amount of ${due}`
+          "You do not have any outstanding fee"
+        );
+      }
+
+      if (
+        paymentAmount > totalDue
+      ) {
+        throw new ApiError(
+          400,
+          `Payment amount cannot be greater than your total outstanding fee of ${totalDue}`
         );
       }
 
@@ -227,6 +252,10 @@ export const createPaymentRequest =
         normalizeTransactionId(
           transactionId
         );
+
+      /* -----------------------------------------
+         CHECK DUPLICATE TRANSACTION ID
+      ----------------------------------------- */
 
       const existingTransaction =
         await PaymentRequest.findOne({
@@ -241,22 +270,29 @@ export const createPaymentRequest =
         );
       }
 
+      /* -----------------------------------------
+         ONLY ONE PENDING PAYMENT PER STUDENT
+      ----------------------------------------- */
+
       const pendingRequest =
         await PaymentRequest.findOne({
-          fee: fee._id,
+          student: student._id,
           status: "PENDING",
         });
 
       if (pendingRequest) {
         throw new ApiError(
           409,
-          "You already have a payment request waiting for admin verification for this fee"
+          "You already have a payment request waiting for admin verification"
         );
       }
 
+      /* -----------------------------------------
+         CREATE OVERALL PAYMENT REQUEST
+      ----------------------------------------- */
+
       const request =
         await PaymentRequest.create({
-          fee: fee._id,
           student: student._id,
           amount: paymentAmount,
           senderNumber:
@@ -264,6 +300,7 @@ export const createPaymentRequest =
           transactionId:
             normalizedTransactionId,
           status: "PENDING",
+          allocations: [],
         });
 
       const populated =
@@ -275,7 +312,7 @@ export const createPaymentRequest =
             "fullName studentId class group"
           )
           .populate(
-            "fee",
+            "allocations.fee",
             "amount amountPaid billingMonth dueDate status"
           );
 
@@ -307,7 +344,7 @@ export const myPaymentRequests =
           student: student._id,
         })
           .populate(
-            "fee",
+            "allocations.fee",
             "amount amountPaid billingMonth dueDate status"
           )
           .sort({
@@ -364,8 +401,8 @@ export const listPaymentRequests =
             "fullName studentId phone class group"
           )
           .populate(
-            "fee",
-            "amount amountPaid billingMonth dueDate status"
+            "allocations.fee",
+            "amount amountPaid billingMonth dueDate status paymentDate paymentMethod transactionId"
           )
           .populate(
             "reviewedBy",
@@ -385,7 +422,7 @@ export const listPaymentRequests =
 
 /* =========================================================
    ADMIN
-   APPROVE
+   APPROVE OVERALL PAYMENT
 ========================================================= */
 
 export const approvePaymentRequest =
@@ -407,147 +444,239 @@ export const approvePaymentRequest =
         );
       }
 
-      const paymentRequest =
-        await PaymentRequest.findById(
-          id
+      const session =
+        await mongoose.startSession();
+
+      try {
+        let populatedRequest:
+          | any
+          | null = null;
+
+        await session.withTransaction(
+          async () => {
+            /* -----------------------------------------
+               GET PAYMENT REQUEST
+            ----------------------------------------- */
+
+            const paymentRequest =
+              await PaymentRequest.findById(
+                id
+              ).session(session);
+
+            if (!paymentRequest) {
+              throw new ApiError(
+                404,
+                "Payment request not found"
+              );
+            }
+
+            if (
+              paymentRequest.status !==
+              "PENDING"
+            ) {
+              throw new ApiError(
+                400,
+                `This payment request is already ${paymentRequest.status.toLowerCase()}`
+              );
+            }
+
+            /* -----------------------------------------
+               GET ALL OUTSTANDING FEES
+               OLDEST FIRST
+            ----------------------------------------- */
+
+            const fees =
+              await Fee.find({
+                student:
+                  paymentRequest.student,
+              })
+                .sort({
+                  billingMonth: 1,
+                  createdAt: 1,
+                })
+                .session(session);
+
+            let remainingPayment =
+              Number(
+                paymentRequest.amount || 0
+              );
+
+            if (
+              !Number.isFinite(
+                remainingPayment
+              ) ||
+              remainingPayment <= 0
+            ) {
+              throw new ApiError(
+                400,
+                "Invalid payment amount"
+              );
+            }
+
+            const allocations: Array<{
+              fee: mongoose.Types.ObjectId;
+              amount: number;
+            }> = [];
+
+            /* -----------------------------------------
+               DISTRIBUTE PAYMENT ACROSS ALL FEES
+            ----------------------------------------- */
+
+            for (const fee of fees) {
+              if (
+                remainingPayment <= 0
+              ) {
+                break;
+              }
+
+              const feeAmount = Number(
+                fee.amount || 0
+              );
+
+              const currentPaid =
+                Number(
+                  fee.amountPaid || 0
+                );
+
+              const currentDue =
+                Math.max(
+                  feeAmount -
+                    currentPaid,
+                  0
+                );
+
+              if (currentDue <= 0) {
+                continue;
+              }
+
+              const allocationAmount =
+                Math.min(
+                  remainingPayment,
+                  currentDue
+                );
+
+              const newPaid =
+                currentPaid +
+                allocationAmount;
+
+              let newStatus:
+                | "PAID"
+                | "PENDING"
+                | "PARTIAL";
+
+              if (
+                newPaid >= feeAmount
+              ) {
+                newStatus = "PAID";
+              } else if (
+                newPaid > 0
+              ) {
+                newStatus = "PARTIAL";
+              } else {
+                newStatus = "PENDING";
+              }
+
+              fee.amountPaid =
+                newPaid;
+
+              fee.status =
+                newStatus;
+
+              fee.paymentDate =
+                new Date();
+
+              fee.paymentMethod =
+                "BKASH";
+
+              fee.transactionId =
+                paymentRequest.transactionId;
+
+              await fee.save({
+                session,
+              });
+
+              allocations.push({
+                fee: fee._id,
+                amount:
+                  allocationAmount,
+              });
+
+              remainingPayment -=
+                allocationAmount;
+            }
+
+            /* -----------------------------------------
+               PAYMENT CANNOT EXCEED TOTAL DUE
+            ----------------------------------------- */
+
+            if (
+              remainingPayment >
+              0.000001
+            ) {
+              throw new ApiError(
+                400,
+                "Payment amount is greater than the student's current total outstanding fee"
+              );
+            }
+
+            /* -----------------------------------------
+               SAVE ALLOCATION HISTORY
+            ----------------------------------------- */
+
+            paymentRequest.allocations =
+              allocations;
+
+            paymentRequest.status =
+              "APPROVED";
+
+            paymentRequest.reviewedBy =
+              req.auth?.userId as any;
+
+            paymentRequest.reviewedAt =
+              new Date();
+
+            await paymentRequest.save({
+              session,
+            });
+
+            /* -----------------------------------------
+               GET POPULATED RESULT
+            ----------------------------------------- */
+
+            populatedRequest =
+              await PaymentRequest.findById(
+                paymentRequest._id
+              )
+                .session(session)
+                .populate(
+                  "student",
+                  "fullName studentId phone class group"
+                )
+                .populate(
+                  "allocations.fee",
+                  "amount amountPaid billingMonth dueDate status paymentDate paymentMethod transactionId"
+                )
+                .populate(
+                  "reviewedBy",
+                  "email"
+                );
+          }
         );
 
-      if (!paymentRequest) {
-        throw new ApiError(
-          404,
-          "Payment request not found"
+        return success(
+          res,
+          populatedRequest,
+          "Payment approved and automatically distributed across the student's fees"
         );
+      } finally {
+        await session.endSession();
       }
-
-      if (
-        paymentRequest.status !==
-        "PENDING"
-      ) {
-        throw new ApiError(
-          400,
-          `This payment request is already ${paymentRequest.status.toLowerCase()}`
-        );
-      }
-
-      const fee =
-        await Fee.findById(
-          paymentRequest.fee
-        );
-
-      if (!fee) {
-        throw new ApiError(
-          404,
-          "Associated fee not found"
-        );
-      }
-
-      const feeAmount = Number(
-        fee.amount || 0
-      );
-
-      const currentPaid = Number(
-        fee.amountPaid || 0
-      );
-
-      const paymentAmount =
-        Number(
-          paymentRequest.amount || 0
-        );
-
-      const currentDue = Math.max(
-        feeAmount - currentPaid,
-        0
-      );
-
-      if (currentDue <= 0) {
-        throw new ApiError(
-          400,
-          "This fee has already been fully paid"
-        );
-      }
-
-      if (
-        paymentAmount > currentDue
-      ) {
-        throw new ApiError(
-          400,
-          "Payment amount is greater than the current fee due"
-        );
-      }
-
-      const newPaid =
-        currentPaid +
-        paymentAmount;
-
-      let newStatus:
-        | "PAID"
-        | "PENDING"
-        | "PARTIAL";
-
-      if (newPaid >= feeAmount) {
-        newStatus = "PAID";
-      } else if (newPaid > 0) {
-        newStatus = "PARTIAL";
-      } else {
-        newStatus = "PENDING";
-      }
-
-      fee.amountPaid =
-        newPaid;
-
-      fee.status =
-        newStatus;
-
-      fee.paymentDate =
-        new Date();
-
-      fee.paymentMethod =
-        "BKASH";
-
-      fee.transactionId =
-        paymentRequest.transactionId;
-
-      await fee.save();
-
-      paymentRequest.status =
-        "APPROVED";
-
-      paymentRequest.reviewedBy =
-        req.auth?.userId as any;
-
-      paymentRequest.reviewedAt =
-        new Date();
-
-      await paymentRequest.save();
-
-      const populated =
-        await PaymentRequest.findById(
-          paymentRequest._id
-        )
-          .populate(
-            "student",
-            "fullName studentId phone class group"
-          )
-          .populate(
-            "fee",
-            "amount amountPaid billingMonth dueDate status paymentDate paymentMethod transactionId"
-          )
-          .populate(
-            "reviewedBy",
-            "email"
-          );
-
-      return success(
-        res,
-        populated,
-        "Payment approved and fee updated successfully"
-      );
     }
   );
 
 /* =========================================================
    ADMIN
-   REJECT
+   REJECT PAYMENT
 ========================================================= */
 
 export const rejectPaymentRequest =
@@ -620,7 +749,7 @@ export const rejectPaymentRequest =
             "fullName studentId phone class group"
           )
           .populate(
-            "fee",
+            "allocations.fee",
             "amount amountPaid billingMonth dueDate status"
           )
           .populate(

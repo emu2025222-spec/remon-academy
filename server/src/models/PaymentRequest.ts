@@ -10,31 +10,52 @@ export type PaymentRequestStatus =
   | "APPROVED"
   | "REJECTED";
 
+export interface IPaymentAllocation {
+  fee: Types.ObjectId;
+  amount: number;
+}
+
 export interface IPaymentRequest
   extends Document {
-  fee: Types.ObjectId;
   student: Types.ObjectId;
   amount: number;
   senderNumber: string;
   transactionId: string;
   status: PaymentRequestStatus;
+
+  allocations: IPaymentAllocation[];
+
   reviewedBy?: Types.ObjectId;
   reviewedAt?: Date;
   rejectionReason?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
 
-const paymentRequestSchema =
-  new Schema<IPaymentRequest>(
+const paymentAllocationSchema =
+  new Schema<IPaymentAllocation>(
     {
       fee: {
         type: Schema.Types.ObjectId,
         ref: "Fee",
         required: true,
-        index: true,
       },
 
+      amount: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+    },
+    {
+      _id: false,
+    }
+  );
+
+const paymentRequestSchema =
+  new Schema<IPaymentRequest>(
+    {
       student: {
         type: Schema.Types.ObjectId,
         ref: "Student",
@@ -75,6 +96,11 @@ const paymentRequestSchema =
         index: true,
       },
 
+      allocations: {
+        type: [paymentAllocationSchema],
+        default: [],
+      },
+
       reviewedBy: {
         type: Schema.Types.ObjectId,
         ref: "User",
@@ -96,6 +122,12 @@ const paymentRequestSchema =
 
 paymentRequestSchema.index({
   student: 1,
+  createdAt: -1,
+});
+
+paymentRequestSchema.index({
+  student: 1,
+  status: 1,
   createdAt: -1,
 });
 
