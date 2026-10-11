@@ -1,7 +1,6 @@
 import { Router } from "express";
 
 import { requireAuth, requireRole } from "../middleware/auth";
-
 import { resolveOwnStudentId } from "../middleware/resolveStudent";
 
 import {
@@ -28,7 +27,6 @@ const router = Router();
 /* =========================================================
    STUDENT FEE ROUTES
 ========================================================= */
-
 router.get(
   "/my",
   requireAuth,
@@ -40,7 +38,6 @@ router.get(
 /* =========================================================
    STUDENT PAYMENT INFO
 ========================================================= */
-
 router.get(
   "/payment-info",
   requireAuth,
@@ -51,7 +48,6 @@ router.get(
 /* =========================================================
    STUDENT PAYMENT REQUEST ROUTES
 ========================================================= */
-
 router.post(
   "/payment-requests",
   requireAuth,
@@ -69,7 +65,6 @@ router.get(
 /* =========================================================
    ADMIN PAYMENT REQUEST ROUTES
 ========================================================= */
-
 router.get(
   "/payment-requests",
   requireAuth,
@@ -94,7 +89,6 @@ router.post(
 /* =========================================================
    ADMIN FEE ROUTES
 ========================================================= */
-
 router.get(
   "/summary",
   requireAuth,

@@ -14,6 +14,7 @@ import {
   Wallet,
   X,
   CreditCard,
+  Trash2,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
@@ -1184,6 +1185,45 @@ export default function AdminFees() {
 
   /*
    * =======================================================
+   * DELETE FEE RECORD
+   * =======================================================
+   */
+  async function handleDeleteFee(
+    fee: FeeWithMonthly
+  ) {
+    const studentName = getStudentName(fee.student);
+    const courseName = getCourseName(fee.course);
+    const amount = Number(fee.amount || 0);
+    const paid = Number(fee.amountPaid || 0);
+
+    const warning = paid > 0
+      ? `\n\nWARNING: This record has ${money(paid)} recorded as paid. Deleting it may make the fee totals differ from payment history.`
+      : "";
+
+    const confirmed = window.confirm(
+      `Delete this fee record?\n\n` +
+      `Student: ${studentName}\n` +
+      `Course: ${courseName}\n` +
+      `Month: ${monthLabel(fee.billingMonth)}\n` +
+      `Total fee: ${money(amount)}\n` +
+      `Recorded paid: ${money(paid)}` +
+      warning +
+      `\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/fees/${fee._id}`);
+      show("Fee record deleted successfully.", "success");
+      await load();
+    } catch (err) {
+      show(getErrorMessage(err), "error");
+    }
+  }
+
+  /*
+   * =======================================================
    * MONTH TOGGLE
    * =======================================================
    */
@@ -2229,18 +2269,26 @@ export default function AdminFees() {
                                     </td>
 
                                     <td className="px-6 py-5 text-right">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          openEdit(
-                                            fee
-                                          )
-                                        }
-                                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                                        title="Edit fee"
-                                      >
-                                        <Edit3 className="h-4 w-4" />
-                                      </button>
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => openEdit(fee)}
+                                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                          title="Edit fee"
+                                          aria-label="Edit fee"
+                                        >
+                                          <Edit3 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteFee(fee)}
+                                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950"
+                                          title="Delete fee"
+                                          aria-label="Delete fee"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -2308,17 +2356,26 @@ export default function AdminFees() {
                                     </div>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openEdit(
-                                        fee
-                                      )
-                                    }
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700"
-                                  >
-                                    <Edit3 className="h-4 w-4" />
-                                  </button>
+                                  <div className="flex shrink-0 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openEdit(fee)}
+                                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700"
+                                      title="Edit fee"
+                                      aria-label="Edit fee"
+                                    >
+                                      <Edit3 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteFee(fee)}
+                                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 dark:border-red-900"
+                                      title="Delete fee"
+                                      aria-label="Delete fee"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
