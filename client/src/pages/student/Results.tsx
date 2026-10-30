@@ -15,6 +15,7 @@ import { Loader } from "../../components/Loader";
 import { EmptyState } from "../../components/EmptyState";
 import { Badge } from "../../components/Badge";
 import { useToast } from "../../components/Toast";
+import { ResultsPdfActions } from "../../components/ResultsPdfActions";
 
 interface ExamSummary {
   examName: string;
@@ -98,6 +99,10 @@ export default function StudentResults() {
           </div>
         </div>
       </section>
+      <ResultsPdfActions
+        mode="student"
+        results={results}
+      />
 
       {results.length === 0 ? (
         <div className="card-premium p-8">
@@ -221,10 +226,10 @@ export default function StudentResults() {
                   const percentage =
                     exam.totalMarks > 0
                       ? Math.round(
-                          (exam.obtainedMarks /
-                            exam.totalMarks) *
-                            100
-                        )
+                        (exam.obtainedMarks /
+                          exam.totalMarks) *
+                        100
+                      )
                       : 0;
 
                   return (
@@ -392,8 +397,8 @@ export default function StudentResults() {
                               result.gpa >= 4
                                 ? "green"
                                 : result.gpa >= 3
-                                ? "gold"
-                                : "red"
+                                  ? "gold"
+                                  : "red"
                             }
                           >
                             {result.grade}
@@ -461,8 +466,8 @@ export default function StudentResults() {
                           result.gpa >= 4
                             ? "green"
                             : result.gpa >= 3
-                            ? "gold"
-                            : "red"
+                              ? "gold"
+                              : "red"
                         }
                       >
                         {result.grade}

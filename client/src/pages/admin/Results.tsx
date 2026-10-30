@@ -28,6 +28,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 import { useToast } from "../../components/Toast";
+import { ResultsPdfActions } from "../../components/ResultsPdfActions";
 
 interface FormState {
   student: string;
@@ -666,10 +667,10 @@ export default function AdminResults() {
       const averageGpa =
         gpas.length
           ? gpas.reduce(
-              (sum, gpa) =>
-                sum + gpa,
-              0
-            ) / gpas.length
+            (sum, gpa) =>
+              sum + gpa,
+            0
+          ) / gpas.length
           : 0;
 
       const passed =
@@ -937,12 +938,11 @@ export default function AdminResults() {
               "MANAGE"
             )
           }
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-            activeSection ===
-            "MANAGE"
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeSection ===
+              "MANAGE"
               ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
               : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           Manage Results
         </button>
@@ -954,12 +954,11 @@ export default function AdminResults() {
               "HISTORY"
             )
           }
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-            activeSection ===
-            "HISTORY"
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeSection ===
+              "HISTORY"
               ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
               : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           Result History
         </button>
@@ -971,656 +970,26 @@ export default function AdminResults() {
 
       {activeSection ===
         "MANAGE" && (
-        <>
-          {loading ? (
-            <Loader />
-          ) : !data ||
-            data.data.length ===
+          <>
+            {loading ? (
+              <Loader />
+            ) : !data ||
+              data.data.length ===
               0 ? (
-            <EmptyState
-              message="No results yet."
-            />
-          ) : (
-            <div className="card overflow-x-auto p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-slate-800/50">
-                  <tr>
-                    <th className="px-4 py-3">
-                      Student
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Course
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Exam
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Subject
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Marks
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Grade
-                    </th>
-
-                    <th className="px-4 py-3">
-                      GPA
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Date
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {data.data.map(
-                    (result) => (
-                      <tr
-                        key={
-                          result._id
-                        }
-                        className="border-t border-slate-100 dark:border-slate-800"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-slate-900 dark:text-white">
-                            {getResultStudentName(
-                              result
-                            )}
-                          </div>
-
-                          <div className="mt-0.5 font-mono text-xs text-slate-400">
-                            {getResultStudentId(
-                              result
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-3 font-medium">
-                          {getResultCourseName(
-                            result
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {
-                            result.examName
-                          }
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {
-                            result.subject
-                          }
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <span className="font-semibold">
-                            {
-                              result.obtainedMarks
-                            }
-                          </span>
-
-                          <span className="text-slate-400">
-                            /
-                            {
-                              result.totalMarks
-                            }
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-3 font-semibold">
-                          {
-                            result.grade
-                          }
-                        </td>
-
-                        <td className="px-4 py-3 font-semibold">
-                          {result.gpa}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-500">
-                          {formatDate(
-                            result.examDate
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDeleteTarget(
-                                result
-                              )
-                            }
-                            className="rounded p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                            title="Delete result"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {data && (
-            <Pagination
-              page={data.page}
-              totalPages={
-                data.totalPages
-              }
-              onChange={setPage}
-            />
-          )}
-        </>
-      )}
-
-      {/* ================================================= */}
-      {/* RESULT HISTORY */}
-      {/* ================================================= */}
-
-      {activeSection ===
-        "HISTORY" && (
-        <>
-          {/* FILTER PANEL */}
-
-          <div className="card p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                  Complete Result History
-                </h3>
-
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Search results by batch, exam, subject, student or date.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  loadHistory
-                }
-                disabled={
-                  historyLoading
-                }
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${
-                    historyLoading
-                      ? "animate-spin"
-                      : ""
-                  }`}
-                />
-
-                Refresh
-              </button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-              {/* COURSE */}
-
-              <div>
-                <label className="label-field">
-                  Batch / Course
-                </label>
-
-                <select
-                  className="input-field w-full"
-                  value={
-                    historyCourse
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setHistoryCourse(
-                      event.target
-                        .value
-                    )
-                  }
-                >
-                  <option value="">
-                    All batches / courses
-                  </option>
-
-                  {courses.map(
-                    (course) => (
-                      <option
-                        key={
-                          course._id
-                        }
-                        value={
-                          course._id
-                        }
-                      >
-                        {
-                          course.title
-                        }
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              {/* EXAM */}
-
-              <div>
-                <label className="label-field">
-                  Exam
-                </label>
-
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-                  <input
-                    type="text"
-                    className="input-field w-full pl-9"
-                    placeholder="Exam name"
-                    value={
-                      historyExam
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setHistoryExam(
-                        event.target
-                          .value
-                      )
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* SUBJECT */}
-
-              <div>
-                <label className="label-field">
-                  Subject
-                </label>
-
-                <input
-                  type="text"
-                  className="input-field w-full"
-                  placeholder="Subject"
-                  value={
-                    historySubject
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setHistorySubject(
-                      event.target
-                        .value
-                    )
-                  }
-                />
-              </div>
-
-              {/* STUDENT */}
-
-              <div>
-                <label className="label-field">
-                  Student
-                </label>
-
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-                  <input
-                    type="text"
-                    className="input-field w-full pl-9"
-                    placeholder="Name or Student ID"
-                    value={
-                      historyStudent
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setHistoryStudent(
-                        event.target
-                          .value
-                      )
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* DATE */}
-
-              <div>
-                <label className="label-field">
-                  Exam Date
-                </label>
-
-                <input
-                  type="date"
-                  className="input-field w-full"
-                  value={
-                    historyDate
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setHistoryDate(
-                      event.target
-                        .value
-                    )
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  clearHistoryFilters();
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <XCircle className="h-4 w-4" />
-                Clear Filters
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  loadHistory
-                }
-                className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
-              >
-                <Search className="h-4 w-4" />
-                Apply Filters
-              </button>
-            </div>
-          </div>
-
-          {/* SUMMARY CARDS */}
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {/* TOTAL */}
-
-            <div className="card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Results
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                    {
-                      displayHistorySummary.totalRecords
-                    }
-                  </p>
-                </div>
-
-                <Users className="h-6 w-6 text-slate-400" />
-              </div>
-            </div>
-
-            {/* TOTAL MARKS */}
-
-            <div className="card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Total Marks
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                    {
-                      displayHistorySummary.totalMarks
-                    }
-                  </p>
-                </div>
-
-                <Trophy className="h-6 w-6 text-slate-400" />
-              </div>
-            </div>
-
-            {/* OBTAINED */}
-
-            <div className="card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Obtained
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                    {
-                      displayHistorySummary.obtainedMarks
-                    }
-                  </p>
-                </div>
-
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
-              </div>
-            </div>
-
-            {/* GPA */}
-
-            <div className="card p-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Average GPA
-                </p>
-
-                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                  {
-                    displayHistorySummary.averageGpa
-                  }
-                </p>
-              </div>
-            </div>
-
-            {/* PASSED */}
-
-            <div className="card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Passed
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                    {
-                      displayHistorySummary.passed
-                    }
-                  </p>
-                </div>
-
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
-              </div>
-            </div>
-
-            {/* FAILED */}
-
-            <div className="card p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Failed
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                    {
-                      displayHistorySummary.failed
-                    }
-                  </p>
-                </div>
-
-                <XCircle className="h-6 w-6 text-red-500" />
-              </div>
-            </div>
-          </div>
-
-          {/* ================================================= */}
-          {/* EXAM SUMMARY */}
-          {/* ================================================= */}
-
-          {!historyLoading &&
-            historyExams.length >
-              0 && (
-              <div className="card overflow-hidden p-0">
-                <div className="border-b border-slate-200 p-5 dark:border-slate-800">
-                  <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                    Exam Summary
-                  </h3>
-
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Exam-wise result overview.
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-slate-800/50">
-                      <tr>
-                        <th className="px-5 py-3">
-                          Exam
-                        </th>
-
-                        <th className="px-5 py-3">
-                          Date
-                        </th>
-
-                        <th className="px-5 py-3">
-                          Results
-                        </th>
-
-                        <th className="px-5 py-3">
-                          Total Marks
-                        </th>
-
-                        <th className="px-5 py-3">
-                          Obtained
-                        </th>
-
-                        <th className="px-5 py-3">
-                          Avg. GPA
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {historyExams.map(
-                        (
-                          exam,
-                          index
-                        ) => (
-                          <tr
-                            key={`${exam.examName}-${exam.examDate}-${index}`}
-                            className="border-t border-slate-100 dark:border-slate-800"
-                          >
-                            <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white">
-                              {
-                                exam.examName
-                              }
-                            </td>
-
-                            <td className="px-5 py-3 text-slate-500">
-                              {formatDate(
-                                exam.examDate
-                              )}
-                            </td>
-
-                            <td className="px-5 py-3">
-                              {
-                                exam.resultCount
-                              }
-                            </td>
-
-                            <td className="px-5 py-3">
-                              {
-                                exam.totalMarks
-                              }
-                            </td>
-
-                            <td className="px-5 py-3 font-semibold">
-                              {
-                                exam.obtainedMarks
-                              }
-                            </td>
-
-                            <td className="px-5 py-3 font-semibold">
-                              {
-                                exam.averageGpa
-                              }
-                            </td>
-                          </tr>
-                        )
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-          {/* ================================================= */}
-          {/* FULL HISTORY TABLE */}
-          {/* ================================================= */}
-
-          {historyLoading ? (
-            <Loader />
-          ) : filteredHistoryResults.length ===
-            0 ? (
-            <EmptyState
-              message="No results found for the selected filters."
-            />
-          ) : (
-            <div className="card overflow-hidden p-0">
-              <div className="border-b border-slate-200 p-5 dark:border-slate-800">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                      Result Records
-                    </h3>
-
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Showing{" "}
-                      {
-                        filteredHistoryResults.length
-                      }{" "}
-                      matching result records.
-                    </p>
-                  </div>
-
-                  <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    Complete History
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
+              <EmptyState
+                message="No results yet."
+              />
+            ) : (
+              <div className="card overflow-x-auto p-0">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-slate-800/50">
                     <tr>
                       <th className="px-4 py-3">
-                        Date
-                      </th>
-
-                      <th className="px-4 py-3">
-                        Batch / Course
-                      </th>
-
-                      <th className="px-4 py-3">
                         Student
+                      </th>
+
+                      <th className="px-4 py-3">
+                        Course
                       </th>
 
                       <th className="px-4 py-3">
@@ -1644,13 +1013,17 @@ export default function AdminResults() {
                       </th>
 
                       <th className="px-4 py-3">
-                        Action
+                        Date
+                      </th>
+
+                      <th className="px-4 py-3">
+                        Actions
                       </th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredHistoryResults.map(
+                    {data.data.map(
                       (result) => (
                         <tr
                           key={
@@ -1658,24 +1031,6 @@ export default function AdminResults() {
                           }
                           className="border-t border-slate-100 dark:border-slate-800"
                         >
-                          <td className="whitespace-nowrap px-4 py-3">
-                            <div className="flex items-center gap-2 text-slate-500">
-                              <CalendarDays className="h-4 w-4 text-slate-400" />
-
-                              {formatDate(
-                                result.examDate
-                              )}
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <span className="font-semibold text-slate-900 dark:text-white">
-                              {getResultCourseName(
-                                result
-                              )}
-                            </span>
-                          </td>
-
                           <td className="px-4 py-3">
                             <div className="font-medium text-slate-900 dark:text-white">
                               {getResultStudentName(
@@ -1691,6 +1046,12 @@ export default function AdminResults() {
                           </td>
 
                           <td className="px-4 py-3 font-medium">
+                            {getResultCourseName(
+                              result
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3">
                             {
                               result.examName
                             }
@@ -1717,26 +1078,20 @@ export default function AdminResults() {
                             </span>
                           </td>
 
-                          <td className="px-4 py-3">
-                            <span
-                              className={`font-bold ${
-                                String(
-                                  result.grade ||
-                                    ""
-                                ).toUpperCase() ===
-                                "F"
-                                  ? "text-red-600"
-                                  : "text-slate-900 dark:text-white"
-                              }`}
-                            >
-                              {
-                                result.grade
-                              }
-                            </span>
+                          <td className="px-4 py-3 font-semibold">
+                            {
+                              result.grade
+                            }
                           </td>
 
-                          <td className="px-4 py-3 font-bold">
+                          <td className="px-4 py-3 font-semibold">
                             {result.gpa}
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-3 text-slate-500">
+                            {formatDate(
+                              result.examDate
+                            )}
                           </td>
 
                           <td className="px-4 py-3">
@@ -1747,7 +1102,7 @@ export default function AdminResults() {
                                   result
                                 )
                               }
-                              className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950"
+                              className="rounded p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
                               title="Delete result"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1759,10 +1114,662 @@ export default function AdminResults() {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {data && (
+              <Pagination
+                page={data.page}
+                totalPages={
+                  data.totalPages
+                }
+                onChange={setPage}
+              />
+            )}
+          </>
+        )}
+
+      {/* ================================================= */}
+      {/* RESULT HISTORY */}
+
+      {activeSection ===
+        "HISTORY" && (
+          <>
+            {/* ================================================= */}
+            {/* PDF MARKSHEET CENTER */}
+            {/* ================================================= */}
+
+            {!historyLoading && (
+              <ResultsPdfActions
+                mode="admin"
+                results={filteredHistoryResults}
+              />
+            )}
+
+            {/* FILTER PANEL */}
+
+            <div className="card p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                    Complete Result History
+                  </h3>
+
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Search results by batch, exam, subject, student or date.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    loadHistory
+                  }
+                  disabled={
+                    historyLoading
+                  }
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${historyLoading
+                        ? "animate-spin"
+                        : ""
+                      }`}
+                  />
+
+                  Refresh
+                </button>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                {/* COURSE */}
+
+                <div>
+                  <label className="label-field">
+                    Batch / Course
+                  </label>
+
+                  <select
+                    className="input-field w-full"
+                    value={
+                      historyCourse
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setHistoryCourse(
+                        event.target
+                          .value
+                      )
+                    }
+                  >
+                    <option value="">
+                      All batches / courses
+                    </option>
+
+                    {courses.map(
+                      (course) => (
+                        <option
+                          key={
+                            course._id
+                          }
+                          value={
+                            course._id
+                          }
+                        >
+                          {
+                            course.title
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                {/* EXAM */}
+
+                <div>
+                  <label className="label-field">
+                    Exam
+                  </label>
+
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                    <input
+                      type="text"
+                      className="input-field w-full pl-9"
+                      placeholder="Exam name"
+                      value={
+                        historyExam
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setHistoryExam(
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* SUBJECT */}
+
+                <div>
+                  <label className="label-field">
+                    Subject
+                  </label>
+
+                  <input
+                    type="text"
+                    className="input-field w-full"
+                    placeholder="Subject"
+                    value={
+                      historySubject
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setHistorySubject(
+                        event.target
+                          .value
+                      )
+                    }
+                  />
+                </div>
+
+                {/* STUDENT */}
+
+                <div>
+                  <label className="label-field">
+                    Student
+                  </label>
+
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                    <input
+                      type="text"
+                      className="input-field w-full pl-9"
+                      placeholder="Name or Student ID"
+                      value={
+                        historyStudent
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setHistoryStudent(
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* DATE */}
+
+                <div>
+                  <label className="label-field">
+                    Exam Date
+                  </label>
+
+                  <input
+                    type="date"
+                    className="input-field w-full"
+                    value={
+                      historyDate
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setHistoryDate(
+                        event.target
+                          .value
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearHistoryFilters();
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Clear Filters
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    loadHistory
+                  }
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
+                >
+                  <Search className="h-4 w-4" />
+                  Apply Filters
+                </button>
+              </div>
             </div>
-          )}
-        </>
-      )}
+
+            {/* SUMMARY CARDS */}
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {/* TOTAL */}
+
+              <div className="card p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Results
+                    </p>
+
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                      {
+                        displayHistorySummary.totalRecords
+                      }
+                    </p>
+                  </div>
+
+                  <Users className="h-6 w-6 text-slate-400" />
+                </div>
+              </div>
+
+              {/* TOTAL MARKS */}
+
+              <div className="card p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Total Marks
+                    </p>
+
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                      {
+                        displayHistorySummary.totalMarks
+                      }
+                    </p>
+                  </div>
+
+                  <Trophy className="h-6 w-6 text-slate-400" />
+                </div>
+              </div>
+
+              {/* OBTAINED */}
+
+              <div className="card p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Obtained
+                    </p>
+
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                      {
+                        displayHistorySummary.obtainedMarks
+                      }
+                    </p>
+                  </div>
+
+                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                </div>
+              </div>
+
+              {/* GPA */}
+
+              <div className="card p-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Average GPA
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                    {
+                      displayHistorySummary.averageGpa
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* PASSED */}
+
+              <div className="card p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Passed
+                    </p>
+
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                      {
+                        displayHistorySummary.passed
+                      }
+                    </p>
+                  </div>
+
+                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                </div>
+              </div>
+
+              {/* FAILED */}
+
+              <div className="card p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Failed
+                    </p>
+
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                      {
+                        displayHistorySummary.failed
+                      }
+                    </p>
+                  </div>
+
+                  <XCircle className="h-6 w-6 text-red-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* ================================================= */}
+            {/* EXAM SUMMARY */}
+            {/* ================================================= */}
+
+            {!historyLoading &&
+              historyExams.length >
+              0 && (
+                <div className="card overflow-hidden p-0">
+                  <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+                    <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                      Exam Summary
+                    </h3>
+
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Exam-wise result overview.
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-slate-800/50">
+                        <tr>
+                          <th className="px-5 py-3">
+                            Exam
+                          </th>
+
+                          <th className="px-5 py-3">
+                            Date
+                          </th>
+
+                          <th className="px-5 py-3">
+                            Results
+                          </th>
+
+                          <th className="px-5 py-3">
+                            Total Marks
+                          </th>
+
+                          <th className="px-5 py-3">
+                            Obtained
+                          </th>
+
+                          <th className="px-5 py-3">
+                            Avg. GPA
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {historyExams.map(
+                          (
+                            exam,
+                            index
+                          ) => (
+                            <tr
+                              key={`${exam.examName}-${exam.examDate}-${index}`}
+                              className="border-t border-slate-100 dark:border-slate-800"
+                            >
+                              <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white">
+                                {
+                                  exam.examName
+                                }
+                              </td>
+
+                              <td className="px-5 py-3 text-slate-500">
+                                {formatDate(
+                                  exam.examDate
+                                )}
+                              </td>
+
+                              <td className="px-5 py-3">
+                                {
+                                  exam.resultCount
+                                }
+                              </td>
+
+                              <td className="px-5 py-3">
+                                {
+                                  exam.totalMarks
+                                }
+                              </td>
+
+                              <td className="px-5 py-3 font-semibold">
+                                {
+                                  exam.obtainedMarks
+                                }
+                              </td>
+
+                              <td className="px-5 py-3 font-semibold">
+                                {
+                                  exam.averageGpa
+                                }
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            {/* ================================================= */}
+            {/* FULL HISTORY TABLE */}
+            {/* ================================================= */}
+
+            {historyLoading ? (
+              <Loader />
+            ) : filteredHistoryResults.length ===
+              0 ? (
+              <EmptyState
+                message="No results found for the selected filters."
+              />
+            ) : (
+              <div className="card overflow-hidden p-0">
+                <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                        Result Records
+                      </h3>
+
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Showing{" "}
+                        {
+                          filteredHistoryResults.length
+                        }{" "}
+                        matching result records.
+                      </p>
+                    </div>
+
+                    <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      Complete History
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-slate-800/50">
+                      <tr>
+                        <th className="px-4 py-3">
+                          Date
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Batch / Course
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Student
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Exam
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Subject
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Marks
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Grade
+                        </th>
+
+                        <th className="px-4 py-3">
+                          GPA
+                        </th>
+
+                        <th className="px-4 py-3">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {filteredHistoryResults.map(
+                        (result) => (
+                          <tr
+                            key={
+                              result._id
+                            }
+                            className="border-t border-slate-100 dark:border-slate-800"
+                          >
+                            <td className="whitespace-nowrap px-4 py-3">
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <CalendarDays className="h-4 w-4 text-slate-400" />
+
+                                {formatDate(
+                                  result.examDate
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {getResultCourseName(
+                                  result
+                                )}
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-slate-900 dark:text-white">
+                                {getResultStudentName(
+                                  result
+                                )}
+                              </div>
+
+                              <div className="mt-0.5 font-mono text-xs text-slate-400">
+                                {getResultStudentId(
+                                  result
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3 font-medium">
+                              {
+                                result.examName
+                              }
+                            </td>
+
+                            <td className="px-4 py-3">
+                              {
+                                result.subject
+                              }
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <span className="font-semibold">
+                                {
+                                  result.obtainedMarks
+                                }
+                              </span>
+
+                              <span className="text-slate-400">
+                                /
+                                {
+                                  result.totalMarks
+                                }
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <span
+                                className={`font-bold ${String(
+                                  result.grade ||
+                                  ""
+                                ).toUpperCase() ===
+                                    "F"
+                                    ? "text-red-600"
+                                    : "text-slate-900 dark:text-white"
+                                  }`}
+                              >
+                                {
+                                  result.grade
+                                }
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-3 font-bold">
+                              {result.gpa}
+                            </td>
+
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDeleteTarget(
+                                    result
+                                  )
+                                }
+                                className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950"
+                                title="Delete result"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
       {/* ================================================= */}
       {/* ADD RESULT MODAL */}
@@ -1853,7 +1860,7 @@ export default function AdminResults() {
                 {!form.student
                   ? "Select student first"
                   : selectedCourses.length ===
-                      0
+                    0
                     ? "No course assigned"
                     : "Select course"}
               </option>
@@ -1878,7 +1885,7 @@ export default function AdminResults() {
 
             {form.student &&
               selectedCourses.length ===
-                0 && (
+              0 && (
                 <p className="mt-1 text-xs text-amber-600">
                   This student has no assigned course.
                 </p>
