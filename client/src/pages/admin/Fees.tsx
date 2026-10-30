@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   CalendarDays,
   Check,
@@ -1265,6 +1267,165 @@ export default function AdminFees() {
 
   /*
    * =======================================================
+   * EXPORT COMPLETE FEE REPORT PDF
+   * =======================================================
+   */
+  function handleExportFeePdf() {
+    if (fees.length === 0) {
+      show("There are no fee records to export.", "error");
+      return;
+    }
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a3",
+      compress: true,
+    });
+
+    const reportDate = new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    const totalFee = fees.reduce(
+      (sum, fee) => sum + Number(fee.amount || 0),
+      0
+    );
+    const totalPaid = fees.reduce(
+      (sum, fee) => sum + Number(fee.amountPaid || 0),
+      0
+    );
+    const totalDue = Math.max(0, totalFee - totalPaid);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(19);
+    doc.text("REMON ACADEMY", 14, 15);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("STUDENT FEE RECORD REPORT", 14, 21);
+    doc.text(`Report Date: ${reportDate}`, 14, 27);
+    doc.text(`Total Records: ${fees.length}`, 14, 34);
+    doc.text(`Total Fee: BDT ${totalFee.toLocaleString("en-BD")}`, 80, 34);
+    doc.text(`Total Paid: BDT ${totalPaid.toLocaleString("en-BD")}`, 160, 34);
+    doc.text(`Total Due: BDT ${totalDue.toLocaleString("en-BD")}`, 240, 34);
+
+    const body = fees.map((fee, index) => {
+      const amount = Number(fee.amount || 0);
+      const paid = Number(fee.amountPaid || 0);
+      const due = Math.max(0, amount - paid);
+      const status = fee.status || getStatus(amount, paid);
+      const student = fee.student;
+      const course = fee.course;
+      const studentPhone =
+        typeof student === "object" && student
+          ? (student as Student).phone || "-"
+          : "-";
+
+      return [
+        String(index + 1),
+        getStudentName(student),
+        getStudentId(student),
+        studentPhone,
+        getCourseName(course),
+        getCourseSubject(course) || "-",
+        monthLabel(fee.billingMonth),
+        `BDT ${amount.toLocaleString("en-BD")}`,
+        `BDT ${paid.toLocaleString("en-BD")}`,
+        `BDT ${due.toLocaleString("en-BD")}`,
+        status,
+        formatDate(fee.dueDate),
+        formatDate(fee.paymentDate),
+        fee.paymentMethod || "-",
+        fee.transactionId || "-",
+        fee.note || "-",
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 40,
+      head: [[
+        "SL",
+        "Student Name",
+        "Student ID",
+        "Phone",
+        "Course",
+        "Class / Subject",
+        "Billing Month",
+        "Total Fee",
+        "Paid Amount",
+        "Due Amount",
+        "Status",
+        "Due Date",
+        "Payment Date",
+        "Payment Method",
+        "Transaction ID",
+        "Note",
+      ]],
+      body,
+      theme: "grid",
+      showHead: "everyPage",
+      pageBreak: "auto",
+      rowPageBreak: "auto",
+      margin: { top: 12, right: 8, bottom: 13, left: 8 },
+      styles: {
+        font: "helvetica",
+        fontSize: 6,
+        cellPadding: 1.4,
+        overflow: "linebreak",
+        valign: "middle",
+        lineColor: [210, 215, 223],
+        lineWidth: 0.15,
+      },
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 6,
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250],
+      },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 27 },
+        2: { cellWidth: 19 },
+        3: { cellWidth: 19 },
+        4: { cellWidth: 27 },
+        5: { cellWidth: 24 },
+        6: { cellWidth: 20 },
+        7: { cellWidth: 19, halign: "right" },
+        8: { cellWidth: 19, halign: "right" },
+        9: { cellWidth: 19, halign: "right" },
+        10: { cellWidth: 14, halign: "center" },
+        11: { cellWidth: 18 },
+        12: { cellWidth: 18 },
+        13: { cellWidth: 19 },
+        14: { cellWidth: 25 },
+        15: { cellWidth: 30 },
+      },
+      didDrawPage: (data) => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setFontSize(7);
+        doc.setTextColor(100);
+        doc.text(
+          `REMON ACADEMY • Fee Report • Page ${data.pageNumber}`,
+          pageWidth - 8,
+          pageHeight - 5,
+          { align: "right" }
+        );
+      },
+    });
+
+    doc.save(`REMON-Academy-Fee-Report-${getToday()}.pdf`);
+    show("Fee report PDF generated successfully.", "success");
+  }
+
+  /*
+   * =======================================================
    * UI
    * =======================================================
    */
@@ -1289,22 +1450,34 @@ export default function AdminFees() {
           </p>
         </div>
 
-        <Button
-          onClick={() => {
-            setCreateForm({
-              ...emptyCreate,
-              billingMonth:
-                getCurrentMonth(),
-              dueDate: getToday(),
-            });
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="secondary"
+            onClick={handleExportFeePdf}
+            disabled={loading || fees.length === 0}
+            className="gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Export All Fees PDF
+          </Button>
 
-            setCreateOpen(true);
-          }}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add Monthly Fee
-        </Button>
+          <Button
+            onClick={() => {
+              setCreateForm({
+                ...emptyCreate,
+                billingMonth:
+                  getCurrentMonth(),
+                dueDate: getToday(),
+              });
+
+              setCreateOpen(true);
+            }}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Monthly Fee
+          </Button>
+        </div>
       </div>
 
       {/* ===================================================
