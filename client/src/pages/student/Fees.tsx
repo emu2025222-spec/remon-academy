@@ -1,109 +1,205 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  RefreshCw,
-  Wallet,
+  AlertCircle,
+  CalendarDays,
   CheckCircle2,
   Clock,
-  AlertCircle,
-  BookOpen,
-  CalendarDays,
   CreditCard,
+  FileText,
+  RefreshCw,
+  Wallet,
+  BookOpen,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
 
-type Course = {
+interface CourseInfo {
   _id?: string;
   title?: string;
   subject?: string;
   classLevel?: string;
   fee?: number;
-};
+}
 
-type FeeRecord = {
+interface FeeRecord {
   _id: string;
+  student: string | {
+    _id?: string;
+    fullName?: string;
+    studentId?: string;
+  };
+  course?: CourseInfo | string | null;
+
   billingMonth?: string;
-  month?: string;
+  amount: number;
+  amountPaid: number;
+  dueDate?: string;
+  status?: "PAID" | "PARTIAL" | "PENDING" | string;
 
-  course?: Course | string;
-
-  feeAmount?: number;
-  fee?: number;
-  amount?: number;
-
-  paidAmount?: number;
-  paid?: number;
-
-  dueAmount?: number;
-  due?: number;
-
-  status?: string;
   paymentDate?: string;
-  paidAt?: string;
+  paymentMethod?: string;
+  transactionId?: string;
+  note?: string;
+
   createdAt?: string;
+  updatedAt?: string;
+}
+
+interface MonthlySummary {
+  month: string;
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+  records: number;
+}
+
+interface CourseSummary {
+  courseId: string;
+  course?: CourseInfo | null;
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+  records: number;
+}
+
+interface StudentFeeResponse {
+  fees: FeeRecord[];
+  totalFee: number;
+  totalPaid: number;
+  totalDue: number;
+  pendingTotal: number;
+  totalRecords: number;
+  paidPercentage: number;
+  duePercentage: number;
+  monthlySummary: MonthlySummary[];
+  courseSummary: CourseSummary[];
+}
+
+const emptyData: StudentFeeResponse = {
+  fees: [],
+  totalFee: 0,
+  totalPaid: 0,
+  totalDue: 0,
+  pendingTotal: 0,
+  totalRecords: 0,
+  paidPercentage: 0,
+  duePercentage: 0,
+  monthlySummary: [],
+  courseSummary: [],
 };
 
-type FeeData = {
-  fees?: FeeRecord[];
-  totalFee?: number;
-  totalPaid?: number;
-  totalDue?: number;
-  paidPercentage?: number;
-  monthlySummary?: unknown[];
-  courseSummary?: unknown[];
-};
+function money(value: number) {
+  return `৳${Number(value || 0).toLocaleString("en-BD")}`;
+}
 
-const money = (value: number) =>
-  `৳${Number(value || 0).toLocaleString("en-BD")}`;
+function formatMonth(month?: string) {
+  if (!month || month === "UNASSIGNED") {
+    return "Previous / Unassigned";
+  }
 
-const getMonthLabel = (value?: string) => {
-  if (!value) return "Unknown Month";
+  const [year, monthNumber] = month.split("-");
+
+  if (!year || !monthNumber) return month;
 
   const date = new Date(
-    value.length === 7 ? `${value}-01` : value
+    Number(year),
+    Number(monthNumber) - 1,
+    1
   );
-
-  if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
   });
-};
+}
 
-const getCourseName = (course?: Course | string) => {
-  if (!course) return "Course";
+function formatDate(value?: string) {
+  if (!value) return "-";
 
-  if (typeof course === "string") return "Course";
+  const date = new Date(value);
 
-  return (
-    course.title ||
-    course.subject ||
-    "Course"
-  );
-};
+  if (Number.isNaN(date.getTime())) return "-";
 
-const extractFeeData = (response: any): FeeData => {
-  const data = response?.data ?? response;
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-  if (data?.data) {
-    return data.data;
+function getCourseName(course?: FeeRecord["course"]) {
+  if (!course) return "Course information unavailable";
+
+  if (typeof course === "string") {
+    return "Course";
   }
 
-  return data || {};
-};
+  return course.title || course.subject || "Course";
+}
 
-export default function Fees() {
-  const [fees, setFees] = useState<FeeRecord[]>([]);
+function getCourseDetails(course?: FeeRecord["course"]) {
+  if (!course || typeof course === "string") return "";
+
+  return [course.classLevel, course.subject]
+    .filter(Boolean)
+    .join(" • ");
+}
+
+function getStatus(fee: FeeRecord) {
+  const amount = Number(fee.amount || 0);
+  const paid = Number(fee.amountPaid || 0);
+
+  // Use the same status logic as Admin Fees.
+  if (paid >= amount && amount > 0) return "PAID";
+  if (paid > 0) return "PARTIAL";
+
+  return "PENDING";
+}
+
+function statusClass(status: string) {
+  if (status === "PAID") {
+    return "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400";
+  }
+
+  if (status === "PARTIAL") {
+    return "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400";
+  }
+
+  return "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400";
+}
+
+function getStudentFeeData(response: any): StudentFeeResponse {
+  // API success response: response.data.data
+  const payload = response?.data?.data;
+
+  if (!payload || !Array.isArray(payload.fees)) {
+    throw new Error("Invalid fee data received from server.");
+  }
+
+  return {
+    ...emptyData,
+    ...payload,
+    fees: payload.fees,
+    monthlySummary: Array.isArray(payload.monthlySummary)
+      ? payload.monthlySummary
+      : [],
+    courseSummary: Array.isArray(payload.courseSummary)
+      ? payload.courseSummary
+      : [],
+  };
+}
+
+export default function StudentFees() {
+  const [data, setData] = useState<StudentFeeResponse>(emptyData);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
 
-  const [selectedMonth, setSelectedMonth] = useState("all");
-
-  const loadFees = useCallback(async (isRefresh = false) => {
+  const loadFees = useCallback(async (refresh = false) => {
     try {
-      if (isRefresh) {
+      if (refresh) {
         setRefreshing(true);
       } else {
         setLoading(true);
@@ -111,13 +207,16 @@ export default function Fees() {
 
       setError("");
 
+      // Backend automatically resolves the logged-in student's ID.
+      // Do not send a manually selected student ID.
       const response = await api.get("/fees/my");
-      const data = extractFeeData(response);
 
-      setFees(Array.isArray(data.fees) ? data.fees : []);
+      const result = getStudentFeeData(response);
+
+      // Keep every original fee record and its database ID.
+      setData(result);
     } catch (err) {
       setError(getErrorMessage(err));
-      setFees([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -125,109 +224,64 @@ export default function Fees() {
   }, []);
 
   useEffect(() => {
-    loadFees();
+    void loadFees();
   }, [loadFees]);
 
-  const totalFee = useMemo(
-    () =>
-      fees.reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.feeAmount ?? item.fee ?? item.amount ?? 0
-          ),
-        0
-      ),
-    [fees]
-  );
-
-  const totalPaid = useMemo(
-    () =>
-      fees.reduce(
-        (sum, item) =>
-          sum +
-          Number(item.paidAmount ?? item.paid ?? 0),
-        0
-      ),
-    [fees]
-  );
-
-  const totalDue = Math.max(0, totalFee - totalPaid);
-
-  const paidPercentage =
-    totalFee > 0
-      ? Math.min(100, (totalPaid / totalFee) * 100)
-      : 0;
-
   const months = useMemo(() => {
-    const values = fees.map(
-      (item) => item.billingMonth || item.month || ""
-    );
-
-    return [...new Set(values)]
-      .filter(Boolean)
-      .sort()
-      .reverse();
-  }, [fees]);
+    return Array.from(
+      new Set(
+        data.fees.map((fee) => fee.billingMonth || "UNASSIGNED")
+      )
+    ).sort((a, b) => {
+      if (a === "UNASSIGNED") return 1;
+      if (b === "UNASSIGNED") return -1;
+      return b.localeCompare(a);
+    });
+  }, [data.fees]);
 
   const filteredFees = useMemo(() => {
-    if (selectedMonth === "all") return fees;
+    return data.fees.filter((fee) => {
+      const month = fee.billingMonth || "UNASSIGNED";
+      const status = getStatus(fee);
 
-    return fees.filter(
-      (item) =>
-        (item.billingMonth || item.month) === selectedMonth
+      const matchesMonth =
+        selectedMonth === "ALL" || month === selectedMonth;
+
+      const matchesStatus =
+        selectedStatus === "ALL" || status === selectedStatus;
+
+      return matchesMonth && matchesStatus;
+    });
+  }, [data.fees, selectedMonth, selectedStatus]);
+
+  const filteredTotals = useMemo(() => {
+    return filteredFees.reduce(
+      (total, fee) => {
+        const amount = Number(fee.amount || 0);
+        const paid = Number(fee.amountPaid || 0);
+
+        total.fee += amount;
+        total.paid += paid;
+        total.due += Math.max(amount - paid, 0);
+
+        return total;
+      },
+      { fee: 0, paid: 0, due: 0 }
     );
-  }, [fees, selectedMonth]);
+  }, [filteredFees]);
 
-  const getAmounts = (item: FeeRecord) => {
-    const fee = Number(
-      item.feeAmount ?? item.fee ?? item.amount ?? 0
-    );
-
-    const paid = Number(
-      item.paidAmount ?? item.paid ?? 0
-    );
-
-    const due = Math.max(
-      0,
-      Number(item.dueAmount ?? item.due ?? fee - paid)
-    );
-
-    return { fee, paid, due };
-  };
-
-  const getStatus = (item: FeeRecord) => {
-    const { fee, paid, due } = getAmounts(item);
-
-    if (due <= 0 && paid > 0) return "PAID";
-    if (paid > 0 && due > 0) return "PARTIAL";
-    if (fee > 0 && paid <= 0) return "PENDING";
-
-    return item.status?.toUpperCase() || "PENDING";
-  };
-
-  const filteredTotal = filteredFees.reduce(
-    (sum, item) => sum + getAmounts(item).fee,
-    0
-  );
-
-  const filteredPaid = filteredFees.reduce(
-    (sum, item) => sum + getAmounts(item).paid,
-    0
-  );
-
-  const filteredDue = filteredFees.reduce(
-    (sum, item) => sum + getAmounts(item).due,
-    0
-  );
+  const paidPercentage =
+    data.totalFee > 0
+      ? Math.min(100, (data.totalPaid / data.totalFee) * 100)
+      : 0;
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* HEADER */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-500">
-            <Wallet size={17} />
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-widest text-indigo-500">
+            <Wallet size={16} />
             STUDENT PORTAL
           </div>
 
@@ -241,9 +295,10 @@ export default function Fees() {
         </div>
 
         <button
-          onClick={() => loadFees(true)}
+          type="button"
+          onClick={() => void loadFees(true)}
           disabled={loading || refreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
         >
           <RefreshCw
             size={16}
@@ -253,11 +308,11 @@ export default function Fees() {
         </button>
       </div>
 
-      {/* Error */}
+      {/* ERROR */}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
-          <div className="flex items-center gap-2 font-semibold text-red-600 dark:text-red-400">
-            <AlertCircle size={18} />
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950/30">
+          <div className="flex items-center gap-2 font-bold text-red-700 dark:text-red-400">
+            <AlertCircle size={19} />
             Unable to load fees
           </div>
 
@@ -266,304 +321,346 @@ export default function Fees() {
           </p>
 
           <button
-            onClick={() => loadFees()}
-            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            type="button"
+            onClick={() => void loadFees()}
+            className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
           >
             Try again
           </button>
         </div>
       )}
 
-      {/* Loading */}
+      {/* LOADING */}
       {loading ? (
-        <div className="flex min-h-52 items-center justify-center">
+        <div className="flex min-h-64 items-center justify-center">
           <div className="text-center">
             <RefreshCw
-              size={28}
+              size={30}
               className="mx-auto animate-spin text-indigo-500"
             />
             <p className="mt-3 text-sm text-slate-500">
-              Loading your fees...
+              Loading your fee history...
             </p>
           </div>
         </div>
       ) : (
         <>
-          {/* Summary Cards */}
+          {/* OVERALL SUMMARY */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Total Fees
-                  </p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-                    {money(totalFee)}
-                  </h2>
-                </div>
+            <SummaryCard
+              title="Total Fees"
+              amount={money(data.totalFee)}
+              icon={<Wallet size={22} />}
+              color="indigo"
+            />
 
-                <div className="rounded-xl bg-indigo-100 p-3 text-indigo-600 dark:bg-indigo-950">
-                  <Wallet size={23} />
-                </div>
-              </div>
-            </div>
+            <SummaryCard
+              title="Total Paid"
+              amount={money(data.totalPaid)}
+              icon={<CheckCircle2 size={22} />}
+              color="green"
+            />
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Total Paid
-                  </p>
-                  <h2 className="mt-2 text-2xl font-bold text-green-600">
-                    {money(totalPaid)}
-                  </h2>
-                </div>
-
-                <div className="rounded-xl bg-green-100 p-3 text-green-600 dark:bg-green-950">
-                  <CheckCircle2 size={23} />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Outstanding Due
-                  </p>
-                  <h2 className="mt-2 text-2xl font-bold text-red-600">
-                    {money(totalDue)}
-                  </h2>
-                </div>
-
-                <div className="rounded-xl bg-red-100 p-3 text-red-600 dark:bg-red-950">
-                  <Clock size={23} />
-                </div>
-              </div>
-            </div>
+            <SummaryCard
+              title="Total Due"
+              amount={money(data.totalDue)}
+              icon={<Clock size={22} />}
+              color="red"
+            />
           </div>
 
-          {/* Payment Progress */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-3 flex items-center justify-between gap-3">
+          {/* PAYMENT PROGRESS */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">
+                <h2 className="font-bold text-slate-900 dark:text-white">
                   Payment Progress
-                </h3>
+                </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Your overall fee payment status
+                  Overall payment completion
                 </p>
               </div>
 
-              <span className="text-lg font-bold text-indigo-600">
+              <span className="text-xl font-bold text-indigo-600">
                 {paidPercentage.toFixed(0)}%
               </span>
             </div>
 
             <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <div
-                className="h-full rounded-full bg-indigo-600 transition-all"
+                className="h-full rounded-full bg-indigo-600 transition-all duration-500"
                 style={{ width: `${paidPercentage}%` }}
               />
             </div>
 
             <div className="mt-3 flex justify-between text-xs text-slate-500">
-              <span>Paid: {money(totalPaid)}</span>
-              <span>Total: {money(totalFee)}</span>
+              <span>Paid: {money(data.totalPaid)}</span>
+              <span>Total: {money(data.totalFee)}</span>
             </div>
-          </div>
+          </section>
 
-          {/* Monthly Fees */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex flex-col gap-4 border-b border-slate-200 p-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+          {/* COURSE SUMMARY */}
+          {data.courseSummary.length > 0 && (
+            <section className="space-y-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Monthly Fee History
-                </h3>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Course-wise Fees
+                </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Course-wise payment details
+                  Your fee summary for each enrolled course
                 </p>
               </div>
 
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              >
-                <option value="all">All Months</option>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {data.courseSummary.map((item) => (
+                  <div
+                    key={item.courseId}
+                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-indigo-100 p-3 text-indigo-600 dark:bg-indigo-950">
+                        <BookOpen size={20} />
+                      </div>
 
-                {months.map((month) => (
-                  <option key={month} value={month}>
-                    {getMonthLabel(month)}
-                  </option>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-slate-900 dark:text-white">
+                          {item.course?.title ||
+                            item.course?.subject ||
+                            "Course"}
+                        </h3>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          {[
+                            item.course?.classLevel,
+                            item.course?.subject,
+                          ]
+                            .filter(Boolean)
+                            .join(" • ") || "Course fee details"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+                      <Amount label="Fee" value={item.totalFee} />
+                      <Amount
+                        label="Paid"
+                        value={item.totalPaid}
+                        color="green"
+                      />
+                      <Amount
+                        label="Due"
+                        value={item.totalDue}
+                        color="red"
+                      />
+                    </div>
+
+                    <p className="mt-3 text-xs text-slate-500">
+                      {item.records} fee record(s)
+                    </p>
+                  </div>
                 ))}
-              </select>
+              </div>
+            </section>
+          )}
+
+          {/* MONTHLY SUMMARY */}
+          {data.monthlySummary.length > 0 && (
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Monthly Summary
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Previous and current monthly fee history
+                </p>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <table className="w-full min-w-[580px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/50">
+                    <tr>
+                      <th className="px-5 py-4">Month</th>
+                      <th className="px-5 py-4">Records</th>
+                      <th className="px-5 py-4">Total Fee</th>
+                      <th className="px-5 py-4">Paid</th>
+                      <th className="px-5 py-4">Due</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {data.monthlySummary.map((month) => (
+                      <tr key={month.month}>
+                        <td className="px-5 py-4 font-semibold text-slate-800 dark:text-white">
+                          {formatMonth(month.month)}
+                        </td>
+                        <td className="px-5 py-4 text-slate-500">
+                          {month.records}
+                        </td>
+                        <td className="px-5 py-4 font-medium">
+                          {money(month.totalFee)}
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-green-600">
+                          {money(month.totalPaid)}
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-red-600">
+                          {money(month.totalDue)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* INDIVIDUAL RECORDS */}
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-4 border-b border-slate-200 p-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Complete Fee History
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  All fee records assigned to your student account
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <select
+                  value={selectedMonth}
+                  onChange={(event) =>
+                    setSelectedMonth(event.target.value)
+                  }
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                >
+                  <option value="ALL">All Months</option>
+                  {months.map((month) => (
+                    <option key={month} value={month}>
+                      {formatMonth(month)}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedStatus}
+                  onChange={(event) =>
+                    setSelectedStatus(event.target.value)
+                  }
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="PAID">Paid</option>
+                  <option value="PARTIAL">Partial</option>
+                  <option value="PENDING">Pending</option>
+                </select>
+              </div>
+            </div>
+
+            {/* FILTERED TOTALS */}
+            <div className="grid grid-cols-3 gap-3 border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+              <Amount label="Filtered Fee" value={filteredTotals.fee} />
+              <Amount
+                label="Filtered Paid"
+                value={filteredTotals.paid}
+                color="green"
+              />
+              <Amount
+                label="Filtered Due"
+                value={filteredTotals.due}
+                color="red"
+              />
             </div>
 
             {filteredFees.length === 0 ? (
               <div className="px-5 py-16 text-center">
-                <BookOpen
-                  size={36}
+                <FileText
+                  size={38}
                   className="mx-auto text-slate-300"
                 />
-
-                <h4 className="mt-4 font-semibold text-slate-800 dark:text-white">
+                <h3 className="mt-4 font-bold text-slate-800 dark:text-white">
                   No fee records found
-                </h4>
-
+                </h3>
                 <p className="mt-2 text-sm text-slate-500">
-                  Your monthly fee records will appear here when added by the admin.
+                  There are no fee records for the selected filters.
                 </p>
               </div>
             ) : (
               <>
-                {/* Filter Summary */}
-                <div className="grid grid-cols-3 gap-3 border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
-                  <div>
-                    <p className="text-xs text-slate-500">Fee</p>
-                    <p className="mt-1 font-bold text-slate-900 dark:text-white">
-                      {money(filteredTotal)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">Paid</p>
-                    <p className="mt-1 font-bold text-green-600">
-                      {money(filteredPaid)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">Due</p>
-                    <p className="mt-1 font-bold text-red-600">
-                      {money(filteredDue)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Mobile Cards */}
+                {/* MOBILE RECORDS */}
                 <div className="space-y-3 p-4 md:hidden">
-                  {filteredFees.map((item) => {
-                    const amounts = getAmounts(item);
-                    const status = getStatus(item);
-
-                    return (
-                      <div
-                        key={item._id}
-                        className="rounded-xl border border-slate-200 p-4 dark:border-slate-700"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h4 className="font-semibold text-slate-900 dark:text-white">
-                              {getCourseName(item.course)}
-                            </h4>
-
-                            <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                              <CalendarDays size={13} />
-                              {getMonthLabel(
-                                item.billingMonth || item.month
-                              )}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              status === "PAID"
-                                ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                                : status === "PARTIAL"
-                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-                                  : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
-                            }`}
-                          >
-                            {status}
-                          </span>
-                        </div>
-
-                        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
-                          <div>
-                            <p className="text-xs text-slate-500">Fee</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                              {money(amounts.fee)}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-slate-500">Paid</p>
-                            <p className="mt-1 text-sm font-semibold text-green-600">
-                              {money(amounts.paid)}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-slate-500">Due</p>
-                            <p className="mt-1 text-sm font-semibold text-red-600">
-                              {money(amounts.due)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {filteredFees.map((fee) => (
+                    <FeeMobileCard key={fee._id} fee={fee} />
+                  ))}
                 </div>
 
-                {/* Desktop Table */}
+                {/* DESKTOP TABLE */}
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40">
+                  <table className="w-full min-w-[1050px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/50">
                       <tr>
                         <th className="px-5 py-4">Month</th>
                         <th className="px-5 py-4">Course</th>
                         <th className="px-5 py-4">Fee</th>
                         <th className="px-5 py-4">Paid</th>
                         <th className="px-5 py-4">Due</th>
+                        <th className="px-5 py-4">Due Date</th>
+                        <th className="px-5 py-4">Payment Date</th>
+                        <th className="px-5 py-4">Method</th>
                         <th className="px-5 py-4">Status</th>
                       </tr>
                     </thead>
 
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {filteredFees.map((item) => {
-                        const amounts = getAmounts(item);
-                        const status = getStatus(item);
+                      {filteredFees.map((fee) => {
+                        const amount = Number(fee.amount || 0);
+                        const paid = Number(fee.amountPaid || 0);
+                        const due = Math.max(amount - paid, 0);
+                        const status = getStatus(fee);
 
                         return (
                           <tr
-                            key={item._id}
-                            className="transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            key={fee._id}
+                            className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
                           >
-                            <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-700 dark:text-slate-200">
-                              {getMonthLabel(
-                                item.billingMonth || item.month
-                              )}
-                            </td>
-
-                            <td className="px-5 py-4 font-medium text-slate-900 dark:text-white">
-                              {getCourseName(item.course)}
-                            </td>
-
-                            <td className="whitespace-nowrap px-5 py-4">
-                              {money(amounts.fee)}
-                            </td>
-
-                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-green-600">
-                              {money(amounts.paid)}
-                            </td>
-
-                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-red-600">
-                              {money(amounts.due)}
+                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-slate-800 dark:text-white">
+                              {formatMonth(fee.billingMonth)}
                             </td>
 
                             <td className="px-5 py-4">
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                  status === "PAID"
-                                    ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                                    : status === "PARTIAL"
-                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-                                      : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
-                                }`}
-                              >
-                                {status}
-                              </span>
+                              <p className="font-semibold text-slate-800 dark:text-white">
+                                {getCourseName(fee.course)}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {getCourseDetails(fee.course)}
+                              </p>
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4">
+                              {money(amount)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-green-600">
+                              {money(paid)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-red-600">
+                              {money(due)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-500">
+                              {formatDate(fee.dueDate)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-500">
+                              {formatDate(fee.paymentDate)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-500">
+                              {fee.paymentMethod || "-"}
+                            </td>
+
+                            <td className="px-5 py-4">
+                              <StatusBadge status={status} />
                             </td>
                           </tr>
                         );
@@ -573,9 +670,76 @@ export default function Fees() {
                 </div>
               </>
             )}
-          </div>
+          </section>
 
-          {/* Payment Information */}
+          {/* PAYMENT DETAILS */}
+          {filteredFees.some(
+            (fee) =>
+              fee.transactionId ||
+              fee.note ||
+              fee.paymentMethod
+          ) && (
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Payment Details
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Additional information saved by the administration
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {filteredFees
+                  .filter(
+                    (fee) =>
+                      fee.transactionId ||
+                      fee.note ||
+                      fee.paymentMethod
+                  )
+                  .map((fee) => (
+                    <div
+                      key={fee._id}
+                      className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CreditCard
+                          size={17}
+                          className="text-indigo-500"
+                        />
+                        <h3 className="font-bold text-slate-900 dark:text-white">
+                          {getCourseName(fee.course)}
+                        </h3>
+                      </div>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatMonth(fee.billingMonth)}
+                      </p>
+
+                      {fee.paymentMethod && (
+                        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                          Payment method: {fee.paymentMethod}
+                        </p>
+                      )}
+
+                      {fee.transactionId && (
+                        <p className="mt-2 break-all text-sm text-slate-600 dark:text-slate-300">
+                          Transaction ID: {fee.transactionId}
+                        </p>
+                      )}
+
+                      {fee.note && (
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-500">
+                          Note: {fee.note}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </section>
+          )}
+
+          {/* INFO */}
           <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
             <CreditCard
               size={20}
@@ -583,17 +747,158 @@ export default function Fees() {
             />
 
             <div>
-              <h4 className="font-semibold text-indigo-900 dark:text-indigo-300">
+              <h3 className="font-bold text-indigo-900 dark:text-indigo-300">
                 Payment Information
-              </h4>
-
+              </h3>
               <p className="mt-1 text-sm text-indigo-800 dark:text-indigo-400">
-                For fee payment and payment confirmation, please contact the academy administration.
+                Your fee records are managed by the academy administration.
+                If any payment information is incorrect, please contact the
+                administration.
               </p>
             </div>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+function SummaryCard({
+  title,
+  amount,
+  icon,
+  color,
+}: {
+  title: string;
+  amount: string;
+  icon: React.ReactNode;
+  color: "indigo" | "green" | "red";
+}) {
+  const styles = {
+    indigo: {
+      icon: "bg-indigo-100 text-indigo-600 dark:bg-indigo-950",
+      amount: "text-slate-900 dark:text-white",
+    },
+    green: {
+      icon: "bg-green-100 text-green-600 dark:bg-green-950",
+      amount: "text-green-600",
+    },
+    red: {
+      icon: "bg-red-100 text-red-600 dark:bg-red-950",
+      amount: "text-red-600",
+    },
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {title}
+          </p>
+          <h2 className={`mt-2 text-2xl font-bold ${styles[color].amount}`}>
+            {amount}
+          </h2>
+        </div>
+
+        <div className={`rounded-xl p-3 ${styles[color].icon}`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Amount({
+  label,
+  value,
+  color = "default",
+}: {
+  label: string;
+  value: number;
+  color?: "default" | "green" | "red";
+}) {
+  const colorClass =
+    color === "green"
+      ? "text-green-600"
+      : color === "red"
+        ? "text-red-600"
+        : "text-slate-900 dark:text-white";
+
+  return (
+    <div className="min-w-0">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className={`mt-1 break-words text-sm font-bold sm:text-base ${colorClass}`}>
+        {money(value)}
+      </p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${statusClass(status)}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function FeeMobileCard({ fee }: { fee: FeeRecord }) {
+  const amount = Number(fee.amount || 0);
+  const paid = Number(fee.amountPaid || 0);
+  const due = Math.max(amount - paid, 0);
+  const status = getStatus(fee);
+
+  return (
+    <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-bold text-slate-900 dark:text-white">
+            {getCourseName(fee.course)}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            {getCourseDetails(fee.course)}
+          </p>
+          <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+            <CalendarDays size={13} />
+            {formatMonth(fee.billingMonth)}
+          </p>
+        </div>
+
+        <StatusBadge status={status} />
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+        <Amount label="Fee" value={amount} />
+        <Amount label="Paid" value={paid} color="green" />
+        <Amount label="Due" value={due} color="red" />
+      </div>
+
+      <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs dark:border-slate-700">
+        <p className="text-slate-500">
+          Due date: <span className="font-semibold text-slate-700 dark:text-slate-200">{formatDate(fee.dueDate)}</span>
+        </p>
+        <p className="text-slate-500">
+          Payment date: <span className="font-semibold text-slate-700 dark:text-slate-200">{formatDate(fee.paymentDate)}</span>
+        </p>
+        {fee.paymentMethod && (
+          <p className="text-slate-500">
+            Method: <span className="font-semibold text-slate-700 dark:text-slate-200">{fee.paymentMethod}</span>
+          </p>
+        )}
+        {fee.transactionId && (
+          <p className="break-all text-slate-500">
+            Transaction ID: <span className="font-semibold text-slate-700 dark:text-slate-200">{fee.transactionId}</span>
+          </p>
+        )}
+        {fee.note && (
+          <p className="whitespace-pre-wrap text-slate-500">
+            Note: {fee.note}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }
