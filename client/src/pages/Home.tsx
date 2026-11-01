@@ -7,7 +7,6 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
-  ChevronRight,
   GraduationCap,
   Layers3,
   Quote,
@@ -18,6 +17,16 @@ import {
   Sparkles,
   Brain,
   MonitorSmartphone,
+  Activity,
+  CalendarCheck,
+  Clock3,
+  Star,
+  Zap,
+  Globe2,
+  BookMarked,
+  Lightbulb,
+  Trophy,
+  ChevronRight,
 } from "lucide-react";
 
 import { api } from "../services/api";
@@ -25,6 +34,24 @@ import { Course, Teacher, Notice } from "../types";
 import { StatCard } from "../components/StatCard";
 import { Card } from "../components/Card";
 import { brand } from "../config/brand";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 35 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.65, ease: "easeOut" as const },
+  },
+};
+
+const stagger = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.12,
+    },
+  },
+};
 
 export default function Home() {
   const [stats, setStats] = useState({
@@ -72,24 +99,28 @@ export default function Home() {
       icon: Brain,
       title: "Concept First",
       text: "Strong academic foundations begin with understanding. We focus on concepts before memorization.",
+      color: "from-violet-500 to-purple-600",
     },
     {
       number: "02",
       icon: Target,
       title: "Focused Progress",
       text: "Structured learning, regular practice and academic tracking help students improve with direction.",
+      color: "from-blue-500 to-cyan-500",
     },
     {
       number: "03",
       icon: TrendingUp,
       title: "Measurable Growth",
       text: "Progress becomes meaningful when students can clearly see where they are and where they need to go.",
+      color: "from-fuchsia-500 to-pink-500",
     },
     {
       number: "04",
       icon: MonitorSmartphone,
       title: "Digital Learning",
       text: "Modern technology keeps academic information organized, accessible and connected.",
+      color: "from-indigo-500 to-blue-500",
     },
   ];
 
@@ -102,203 +133,454 @@ export default function Home() {
     "Transparent fee information",
   ];
 
+  const highlights = [
+    {
+      icon: BookOpen,
+      title: "Academic Programs",
+      text: "Structured courses",
+    },
+    {
+      icon: Users,
+      title: "Expert Teachers",
+      text: "Dedicated guidance",
+    },
+    {
+      icon: Activity,
+      title: "Student Progress",
+      text: "Track improvement",
+    },
+  ];
+
   return (
-    <main className="overflow-hidden bg-[#f5f3ee] text-[#111827] dark:bg-[#080c14] dark:text-white">
+    <main className="relative isolate overflow-hidden bg-[#070711] text-white selection:bg-violet-500/40">
+
+      {/* ============================================================
+          GLOBAL BACKGROUND
+      ============================================================ */}
+
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+
+        <div className="absolute -left-64 top-0 h-[600px] w-[600px] rounded-full bg-purple-700/[0.10] blur-[140px]" />
+
+        <div className="absolute -right-64 top-[30%] h-[650px] w-[650px] rounded-full bg-blue-700/[0.10] blur-[150px]" />
+
+        <div className="absolute bottom-0 left-[30%] h-[500px] w-[500px] rounded-full bg-fuchsia-700/[0.06] blur-[150px]" />
+
+      </div>
 
       {/* ============================================================
           HERO
       ============================================================ */}
 
-      <section className="relative overflow-hidden bg-[#101722] text-white">
+      <section className="relative min-h-[680px] overflow-hidden bg-[#080814] lg:min-h-[790px]">
+
+        {/* Spotlight and Background */}
 
         <div className="pointer-events-none absolute inset-0">
 
-          <div className="absolute right-[-180px] top-[-180px] h-[560px] w-[560px] rounded-full border border-brand-gold/[0.08]" />
+          <div className="absolute -left-40 top-[-150px] h-[600px] w-[600px] rounded-full bg-purple-600/[0.13] blur-[130px]" />
 
-          <div className="absolute right-[-80px] top-[-80px] h-[360px] w-[360px] rounded-full border border-brand-gold/[0.05]" />
+          <div className="absolute right-[-150px] top-[10%] h-[600px] w-[600px] rounded-full bg-blue-600/[0.13] blur-[140px]" />
 
-          <div className="absolute bottom-[-300px] left-[-200px] h-[550px] w-[550px] rounded-full border border-white/[0.035]" />
+          <div className="absolute bottom-[-300px] left-[35%] h-[550px] w-[550px] rounded-full bg-fuchsia-600/[0.08] blur-[130px]" />
 
-          <div className="absolute inset-0 opacity-[0.02] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:80px_80px]" />
+          <div className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(255,255,255,.7)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.7)_1px,transparent_1px)] [background-size:65px_65px]" />
 
-          <div className="absolute left-[10%] top-[20%] h-2 w-2 rounded-full bg-brand-gold/40" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#070711] to-transparent" />
 
-          <div className="absolute right-[25%] top-[32%] h-1.5 w-1.5 rounded-full bg-white/20" />
+          <motion.div
+            animate={{ y: [0, -20, 0], opacity: [0.3, 0.7, 0.3] }}
+            transition={{ duration: 6, repeat: Infinity }}
+            className="absolute left-[12%] top-[22%] h-2 w-2 rounded-full bg-violet-400 shadow-[0_0_20px_5px_rgba(139,92,246,0.5)]"
+          />
 
-          <div className="absolute bottom-[25%] right-[12%] h-2 w-2 rounded-full bg-brand-gold/30" />
+          <motion.div
+            animate={{ y: [0, 18, 0], opacity: [0.2, 0.8, 0.2] }}
+            transition={{ duration: 7, repeat: Infinity }}
+            className="absolute right-[20%] top-[30%] h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_20px_5px_rgba(59,130,246,0.5)]"
+          />
+
+          <motion.div
+            animate={{ y: [0, -15, 0], opacity: [0.2, 0.6, 0.2] }}
+            transition={{ duration: 5, repeat: Infinity }}
+            className="absolute bottom-[25%] right-[35%] h-1.5 w-1.5 rounded-full bg-fuchsia-400"
+          />
 
         </div>
 
-        <div className="container-page relative">
+        <div className="container-page relative z-10">
 
-          <div className="grid min-h-[680px] items-center gap-12 py-16 lg:grid-cols-[1.2fr_0.8fr] lg:gap-20">
+          <div className="grid min-h-[680px] items-center gap-12 py-16 lg:min-h-[790px] lg:grid-cols-[1.05fr_0.95fr] lg:gap-8 lg:py-20">
+
+            {/* Hero Content */}
 
             <motion.div
-              initial={{ opacity: 0, y: 25 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
+              initial="hidden"
+              animate="visible"
+              variants={stagger}
               className="relative z-10"
             >
 
-              <div className="mb-7 flex items-center gap-3">
+              <motion.div
+                variants={fadeUp}
+                className="mb-7 inline-flex items-center gap-3 rounded-full border border-violet-400/20 bg-violet-500/[0.08] px-4 py-2.5 shadow-[0_0_35px_rgba(139,92,246,0.10)] backdrop-blur-xl"
+              >
 
-                <span className="h-px w-12 bg-brand-gold" />
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-70" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-400" />
+                </span>
 
-                <span className="text-[9px] font-bold uppercase tracking-[0.34em] text-brand-gold">
+                <span className="text-[9px] font-bold uppercase tracking-[0.23em] text-violet-200">
                   REMON ACADEMY · EST. 2026
                 </span>
 
-              </div>
+                <Sparkles className="h-3.5 w-3.5 text-violet-300" />
 
-              <div className="mb-5 inline-flex items-center gap-2 border border-white/10 bg-white/[0.03] px-3 py-2">
+              </motion.div>
 
-                <Sparkles className="h-3.5 w-3.5 text-brand-gold" />
-
-                <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                  Learn · Grow · Achieve
-                </span>
-
-              </div>
-
-              <h1 className="max-w-5xl font-display text-[3.4rem] font-bold leading-[0.93] tracking-[-0.055em] sm:text-6xl lg:text-[6.4rem]">
+              <motion.h1
+                variants={fadeUp}
+                className="max-w-4xl font-display text-[3.3rem] font-extrabold leading-[0.99] tracking-[-0.065em] sm:text-6xl lg:text-[5.2rem] xl:text-[6rem]"
+              >
 
                 Learn with
+
                 <br />
 
-                <span className="text-white/30">
+                <span className="bg-gradient-to-r from-violet-300 via-purple-400 to-blue-400 bg-clip-text text-transparent">
                   clarity.
                 </span>
 
                 <br />
 
-                <span className="text-brand-gold">
-                  Grow with purpose.
+                Grow with
+
+                <br className="hidden sm:block" />
+
+                <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">
+                  purpose.
                 </span>
 
-              </h1>
+              </motion.h1>
 
-              <p className="mt-8 max-w-xl text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">
+              <motion.p
+                variants={fadeUp}
+                className="mt-7 max-w-xl text-sm leading-8 text-slate-400 sm:text-base"
+              >
                 {brand.name} is a modern learning environment built around
                 strong academic foundations, focused guidance, measurable
                 progress and meaningful student growth.
-              </p>
+              </motion.p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <motion.div
+                variants={fadeUp}
+                className="mt-9 flex flex-col gap-3 sm:flex-row"
+              >
 
                 <Link
                   to="/courses"
-                  className="group inline-flex items-center justify-center gap-3 bg-brand-gold px-7 py-3.5 text-sm font-bold text-[#101722] transition-all duration-300 hover:bg-brand-goldLight"
+                  className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-7 py-4 text-sm font-bold text-white shadow-[0_0_35px_rgba(124,58,237,0.30)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_rgba(124,58,237,0.48)]"
                 >
-                  Explore Courses
 
-                  <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
+                  <span className="absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-[100%]" />
+
+                  <span className="relative">
+                    Explore Courses
+                  </span>
+
+                  <ArrowUpRight className="relative h-4 w-4 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
+
                 </Link>
 
                 <Link
                   to="/about"
-                  className="group inline-flex items-center justify-center gap-3 border border-white/15 px-7 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:border-brand-gold hover:text-brand-gold"
+                  className="group inline-flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-7 py-4 text-sm font-semibold text-slate-200 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-violet-400/40 hover:bg-violet-500/[0.08] hover:text-white"
                 >
+
                   Discover REMON
 
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+
                 </Link>
 
-              </div>
+              </motion.div>
 
-              <div className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 text-xs text-slate-400">
+              <motion.div
+                variants={fadeUp}
+                className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-4 text-xs text-slate-400"
+              >
 
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-brand-gold" />
+                  <CheckCircle2 className="h-4 w-4 text-violet-400" />
                   Structured Learning
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-brand-gold" />
+                  <CheckCircle2 className="h-4 w-4 text-blue-400" />
                   Digital Academic Support
                 </div>
 
-              </div>
+              </motion.div>
 
             </motion.div>
 
-            {/* ABSTRACT ACADEMY VISUAL — NO FOUNDER PHOTO */}
+            {/* Floating Academic Dashboard */}
 
             <motion.div
-              initial={{ opacity: 0, x: 35 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-              className="relative hidden justify-center lg:flex"
+              initial={{ opacity: 0, scale: 0.9, x: 35 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{ duration: 0.9, delay: 0.2 }}
+              className="relative mx-auto w-full max-w-[520px] pt-5 lg:pt-0"
             >
 
-              <div className="relative h-[480px] w-[390px]">
+              <div className="absolute left-1/2 top-1/2 h-[390px] w-[390px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.13] blur-[100px] sm:h-[480px] sm:w-[480px]" />
 
-                <div className="absolute inset-10 rounded-full border border-brand-gold/10" />
+              {/* Main Dashboard */}
 
-                <div className="absolute inset-20 rounded-full border border-brand-gold/10" />
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                className="relative z-10 overflow-hidden rounded-2xl border border-white/10 bg-[#111122]/90 p-5 shadow-[0_25px_100px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-6"
+              >
 
-                <div className="absolute inset-[120px] rounded-full border border-white/5" />
+                <div className="flex items-center justify-between border-b border-white/[0.07] pb-5">
 
-                <div className="absolute left-1/2 top-1/2 flex h-52 w-52 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-brand-gold/20 bg-white/[0.025]">
+                  <div className="flex items-center gap-3">
 
-                  <div className="flex h-36 w-36 items-center justify-center rounded-full border border-brand-gold/20 bg-brand-gold/[0.04]">
-
-                    <div className="text-center">
-
-                      <p className="font-display text-5xl font-bold text-brand-gold">
-                        R
-                      </p>
-
-                      <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.3em] text-slate-400">
-                        Academy
-                      </p>
-
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">
+                      <GraduationCap className="h-5 w-5 text-white" />
                     </div>
+
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        Student Dashboard
+                      </p>
+                      <p className="mt-1 text-[9px] text-slate-500">
+                        Academic overview
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/[0.08] px-3 py-1.5">
+
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+
+                    <span className="text-[9px] font-semibold text-emerald-300">
+                      Active
+                    </span>
 
                   </div>
 
                 </div>
 
-                <div className="absolute left-0 top-16 border border-white/10 bg-[#101722]/90 p-4">
+                <div className="mt-5 grid grid-cols-2 gap-3">
 
-                  <GraduationCap className="h-5 w-5 text-brand-gold" />
+                  <div className="rounded-xl border border-violet-400/15 bg-gradient-to-br from-violet-500/[0.13] to-transparent p-4">
 
-                  <p className="mt-3 text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                    Academic
-                  </p>
+                    <div className="flex items-center justify-between">
 
-                  <p className="mt-1 text-xs font-semibold text-white">
-                    Excellence
-                  </p>
+                      <BookOpen className="h-4 w-4 text-violet-300" />
+
+                      <ArrowUpRight className="h-3 w-3 text-slate-500" />
+
+                    </div>
+
+                    <p className="mt-4 font-display text-2xl font-bold text-white">
+                      Courses
+                    </p>
+
+                    <p className="mt-1 text-[9px] text-slate-500">
+                      Academic programs
+                    </p>
+
+                  </div>
+
+                  <div className="rounded-xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.13] to-transparent p-4">
+
+                    <div className="flex items-center justify-between">
+
+                      <CalendarCheck className="h-4 w-4 text-blue-300" />
+
+                      <Activity className="h-3 w-3 text-slate-500" />
+
+                    </div>
+
+                    <p className="mt-4 font-display text-2xl font-bold text-white">
+                      Attendance
+                    </p>
+
+                    <p className="mt-1 text-[9px] text-slate-500">
+                      Daily academic record
+                    </p>
+
+                  </div>
 
                 </div>
 
-                <div className="absolute bottom-16 right-0 border border-white/10 bg-[#101722]/90 p-4">
+                {/* Progress */}
 
-                  <MonitorSmartphone className="h-5 w-5 text-brand-gold" />
+                <div className="mt-4 rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
 
-                  <p className="mt-3 text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                    Education
-                  </p>
+                  <div className="flex items-center justify-between">
 
-                  <p className="mt-1 text-xs font-semibold text-white">
-                    Technology
-                  </p>
+                    <div>
+                      <p className="text-xs font-semibold text-white">
+                        Learning Progress
+                      </p>
+                      <p className="mt-1 text-[9px] text-slate-500">
+                        Keep moving forward
+                      </p>
+                    </div>
+
+                    <TrendingUp className="h-4 w-4 text-violet-400" />
+
+                  </div>
+
+                  <div className="mt-5 flex h-16 items-end gap-2">
+
+                    {[35, 55, 43, 75, 58, 90, 68, 100, 78, 88, 65, 95].map(
+                      (height, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ height: 0 }}
+                          animate={{ height: `${height}%` }}
+                          transition={{
+                            duration: 0.8,
+                            delay: 0.3 + index * 0.04,
+                          }}
+                          className="flex-1 rounded-t-sm bg-gradient-to-t from-violet-700 to-blue-400 opacity-80"
+                        />
+                      )
+                    )}
+
+                  </div>
+
+                  <div className="mt-2 flex justify-between text-[8px] text-slate-600">
+                    <span>START</span>
+                    <span>CONSISTENCY</span>
+                    <span>GROWTH</span>
+                  </div>
 
                 </div>
 
-                <div className="absolute right-8 top-0 h-2 w-2 rounded-full bg-brand-gold" />
+                {/* Activity List */}
 
-                <div className="absolute bottom-5 left-12 h-1.5 w-1.5 rounded-full bg-white/30" />
+                <div className="mt-4 space-y-3">
 
-                <div className="absolute left-1/2 top-5 -translate-x-1/2 text-[8px] font-bold uppercase tracking-[0.4em] text-white/20">
-                  EDUCATION · FUTURE
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-white">
+                      Academic Activities
+                    </p>
+
+                    <span className="text-[9px] text-violet-300">
+                      Organized learning
+                    </span>
+                  </div>
+
+                  {[
+                    {
+                      icon: BookMarked,
+                      title: "Course Learning",
+                      subtitle: "Build strong foundations",
+                      color: "text-violet-300",
+                    },
+                    {
+                      icon: CalendarCheck,
+                      title: "Attendance Tracking",
+                      subtitle: "Stay consistent",
+                      color: "text-blue-300",
+                    },
+                    {
+                      icon: Trophy,
+                      title: "Academic Results",
+                      subtitle: "Measure your progress",
+                      color: "text-fuchsia-300",
+                    },
+                  ].map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                      <div
+                        key={item.title}
+                        className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.02] p-3"
+                      >
+
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05]">
+                          <Icon className={`h-4 w-4 ${item.color}`} />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-semibold text-slate-200">
+                            {item.title}
+                          </p>
+                          <p className="mt-1 text-[9px] text-slate-500">
+                            {item.subtitle}
+                          </p>
+                        </div>
+
+                        <CheckCircle2 className="ml-auto h-4 w-4 text-emerald-400" />
+
+                      </div>
+                    );
+                  })}
+
                 </div>
 
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.35em] text-white/20">
-                  KNOWLEDGE · DISCIPLINE · GROWTH
+              </motion.div>
+
+              {/* Floating Card */}
+
+              <motion.div
+                animate={{ y: [0, 12, 0], rotate: [0, 1, 0] }}
+                transition={{ duration: 5, repeat: Infinity }}
+                className="absolute -left-3 top-[15%] z-20 hidden rounded-xl border border-violet-400/20 bg-[#17152b]/95 p-4 shadow-[0_15px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:block"
+              >
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/15">
+                    <Lightbulb className="h-4 w-4 text-violet-300" />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-white">
+                      Learn Better
+                    </p>
+                    <p className="mt-1 text-[8px] text-slate-500">
+                      Understand concepts
+                    </p>
+                  </div>
+
                 </div>
 
-              </div>
+              </motion.div>
+
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 5.5, repeat: Infinity }}
+                className="absolute -right-3 bottom-[14%] z-20 hidden rounded-xl border border-blue-400/20 bg-[#111a2b]/95 p-4 shadow-[0_15px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:block"
+              >
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/15">
+                    <Star className="h-4 w-4 text-blue-300" />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-white">
+                      Grow Every Day
+                    </p>
+                    <p className="mt-1 text-[8px] text-slate-500">
+                      Consistency matters
+                    </p>
+                  </div>
+
+                </div>
+
+              </motion.div>
 
             </motion.div>
 
@@ -312,11 +594,11 @@ export default function Home() {
           QUICK STATS
       ============================================================ */}
 
-      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <section className="relative z-20 border-y border-white/[0.07] bg-[#0c0c19]">
 
         <div className="container-page grid grid-cols-2 md:grid-cols-4">
 
-          <div className="border-b border-slate-200 px-4 py-7 dark:border-slate-800 md:border-b-0 md:border-r">
+          <div className="border-b border-white/[0.07] px-4 py-7 md:border-b-0 md:border-r md:border-white/[0.07]">
 
             <StatCard
               icon={Users}
@@ -327,7 +609,7 @@ export default function Home() {
 
           </div>
 
-          <div className="border-b border-slate-200 px-4 py-7 dark:border-slate-800 md:border-b-0 md:border-r">
+          <div className="border-b border-white/[0.07] px-4 py-7 md:border-b-0 md:border-r md:border-white/[0.07]">
 
             <StatCard
               icon={GraduationCap}
@@ -338,7 +620,7 @@ export default function Home() {
 
           </div>
 
-          <div className="px-4 py-7 md:border-r md:border-slate-200 dark:md:border-slate-800">
+          <div className="px-4 py-7 md:border-r md:border-white/[0.07]">
 
             <StatCard
               icon={BookOpen}
@@ -368,21 +650,23 @@ export default function Home() {
           PHILOSOPHY
       ============================================================ */}
 
-      <section className="bg-[#f5f3ee] py-20 dark:bg-[#080c14] sm:py-24 lg:py-28">
+      <section className="relative overflow-hidden bg-[#080814] py-20 sm:py-24 lg:py-28">
 
-        <div className="container-page">
+        <div className="pointer-events-none absolute -right-40 top-0 h-[450px] w-[450px] rounded-full bg-purple-700/[0.08] blur-[130px]" />
+
+        <div className="container-page relative">
 
           <div className="grid gap-10 lg:grid-cols-[0.5fr_1.5fr]">
 
             <div>
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet-400">
                 Our Philosophy
               </p>
 
-              <div className="mt-4 h-px w-10 bg-brand-gold" />
+              <div className="mt-4 h-px w-12 bg-gradient-to-r from-violet-500 to-blue-500" />
 
-              <p className="mt-5 max-w-xs text-xs leading-6 text-slate-400">
+              <p className="mt-5 max-w-xs text-xs leading-6 text-slate-500">
                 A learning environment designed around understanding,
                 consistency and long-term growth.
               </p>
@@ -391,19 +675,19 @@ export default function Home() {
 
             <div>
 
-              <h2 className="max-w-5xl font-display text-2xl font-semibold leading-[1.3] tracking-tight text-[#111827] dark:text-white sm:text-3xl lg:text-[2.75rem]">
+              <h2 className="max-w-5xl font-display text-2xl font-semibold leading-[1.3] tracking-tight text-white sm:text-3xl lg:text-[2.75rem]">
 
                 Education should do more than prepare students for an
                 examination.
 
-                <span className="text-brand-gold">
+                <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
                   {" "}
                   It should prepare them for what comes after it.
                 </span>
 
               </h2>
 
-              <p className="mt-7 max-w-3xl text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
+              <p className="mt-7 max-w-3xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
                 REMON ACADEMY brings together academic discipline,
                 dedicated teaching and digital organization to create a
                 clearer path for students.
@@ -421,24 +705,26 @@ export default function Home() {
           WHY REMON
       ============================================================ */}
 
-      <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
+      <section className="relative overflow-hidden border-y border-white/[0.06] bg-[#0b0b19] py-20 sm:py-24 lg:py-28">
 
-        <div className="container-page">
+        <div className="pointer-events-none absolute -left-40 bottom-0 h-[400px] w-[400px] rounded-full bg-blue-700/[0.08] blur-[130px]" />
+
+        <div className="container-page relative">
 
           <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
 
             <div>
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+              <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet-400">
                 Why REMON
               </p>
 
-              <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-[#111827] dark:text-white sm:text-4xl lg:text-5xl">
+              <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
 
                 A better way
                 <br />
 
-                <span className="text-slate-300 dark:text-slate-700">
+                <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
                   to learn.
                 </span>
 
@@ -446,51 +732,62 @@ export default function Home() {
 
             </div>
 
-            <p className="max-w-md text-sm leading-7 text-slate-500">
+            <p className="max-w-md text-sm leading-7 text-slate-400">
               Every part of REMON ACADEMY is designed to make learning
               more structured, focused and meaningful.
             </p>
 
           </div>
 
-          <div className="mt-14 grid gap-px overflow-hidden border border-slate-200 bg-slate-200 dark:border-slate-800 dark:bg-slate-800 sm:grid-cols-2 lg:grid-cols-4">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.15 }}
+            variants={stagger}
+            className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
 
             {features.map((feature) => {
 
               const Icon = feature.icon;
 
               return (
-                <div
+                <motion.div
                   key={feature.number}
-                  className="group bg-[#faf9f6] p-7 transition-all duration-300 hover:bg-white dark:bg-slate-950 dark:hover:bg-slate-900 sm:p-8"
+                  variants={fadeUp}
+                  className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] p-7 transition-all duration-500 hover:-translate-y-2 hover:border-violet-400/30 hover:bg-white/[0.045] hover:shadow-[0_20px_60px_rgba(109,40,217,0.12)] sm:p-8"
                 >
 
                   <div className="flex items-start justify-between">
 
-                    <span className="font-display text-4xl font-bold text-slate-200 transition-colors group-hover:text-brand-gold/20 dark:text-slate-800">
+                    <span className="font-display text-4xl font-bold text-white/[0.09] transition-colors group-hover:text-violet-400/30">
                       {feature.number}
                     </span>
 
-                    <Icon className="h-6 w-6 text-brand-gold" />
+                    <div className={`rounded-xl bg-gradient-to-br ${feature.color} p-3 shadow-lg`}>
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
 
                   </div>
 
-                  <h3 className="mt-10 font-display text-xl font-bold text-[#111827] dark:text-white">
+                  <h3 className="mt-10 font-display text-xl font-bold text-white">
                     {feature.title}
                   </h3>
 
-                  <p className="mt-4 text-sm leading-7 text-slate-500">
+                  <p className="mt-4 text-sm leading-7 text-slate-400">
                     {feature.text}
                   </p>
 
-                  <div className="mt-7 h-px w-8 bg-brand-gold transition-all duration-300 group-hover:w-16" />
+                  <div className="mt-7 h-px w-8 bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-300 group-hover:w-16" />
 
-                </div>
+                  <div className="pointer-events-none absolute -bottom-20 -right-20 h-40 w-40 rounded-full bg-violet-500/[0.08] blur-[50px] transition-opacity group-hover:opacity-100" />
+
+                </motion.div>
               );
 
             })}
 
-          </div>
+          </motion.div>
 
         </div>
 
@@ -501,24 +798,26 @@ export default function Home() {
       ============================================================ */}
 
       {courses.length > 0 && (
-        <section className="bg-[#101722] py-20 text-white sm:py-24 lg:py-28">
+        <section className="relative overflow-hidden bg-[#080814] py-20 sm:py-24 lg:py-28">
 
-          <div className="container-page">
+          <div className="pointer-events-none absolute right-[-150px] top-[10%] h-[500px] w-[500px] rounded-full bg-blue-700/[0.09] blur-[140px]" />
+
+          <div className="container-page relative">
 
             <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
 
               <div>
 
-                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet-400">
                   Academic Programs
                 </p>
 
-                <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl lg:text-5xl">
+                <h2 className="mt-4 font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
 
                   Programs built
                   <br />
 
-                  <span className="text-white/35">
+                  <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
                     for progress.
                   </span>
 
@@ -535,7 +834,7 @@ export default function Home() {
 
                 <Link
                   to="/courses"
-                  className="group mt-5 inline-flex items-center gap-2 text-sm font-bold text-brand-gold"
+                  className="group mt-5 inline-flex items-center gap-2 text-sm font-bold text-violet-300 transition-colors hover:text-blue-300"
                 >
                   View all courses
 
@@ -546,34 +845,38 @@ export default function Home() {
 
             </div>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
 
               {courses.map((course, index) => (
 
                 <Card
                   key={course._id}
-                  className="group relative flex h-full flex-col overflow-hidden border border-white/10 bg-white/[0.025] p-0 text-white transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold/40 hover:bg-white/[0.045]"
+                  className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111122]/80 p-0 text-white shadow-[0_18px_45px_rgba(0,0,0,0.20)] backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:border-violet-400/35 hover:shadow-[0_25px_70px_rgba(109,40,217,0.16)]"
                 >
 
-                  <div className="relative border-b border-white/10 p-6">
+                  <div className="relative overflow-hidden border-b border-white/[0.07] p-6">
 
-                    <div className="flex items-start justify-between">
+                    <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-500/[0.10] blur-3xl transition-all group-hover:bg-violet-500/[0.20]" />
+
+                    <div className="relative flex items-start justify-between">
 
                       <span className="font-display text-5xl font-bold text-white/[0.07]">
                         {String(index + 1).padStart(2, "0")}
                       </span>
 
-                      <BookOpen className="h-5 w-5 text-brand-gold" />
+                      <div className="rounded-xl border border-violet-400/20 bg-violet-500/10 p-3">
+                        <BookOpen className="h-5 w-5 text-violet-300" />
+                      </div>
 
                     </div>
 
-                    <div className="mt-8">
+                    <div className="relative mt-8">
 
-                      <p className="text-[8px] font-bold uppercase tracking-[0.22em] text-brand-gold">
+                      <p className="text-[8px] font-bold uppercase tracking-[0.22em] text-violet-300">
                         {course.classLevel}
                       </p>
 
-                      <h3 className="mt-2 font-display text-xl font-bold">
+                      <h3 className="mt-2 font-display text-xl font-bold text-white">
                         {course.title}
                       </h3>
 
@@ -583,7 +886,7 @@ export default function Home() {
 
                     </div>
 
-                    <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-brand-gold transition-all duration-500 group-hover:w-full" />
+                    <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-500 group-hover:w-full" />
 
                   </div>
 
@@ -593,7 +896,7 @@ export default function Home() {
                       {course.description}
                     </p>
 
-                    <div className="mt-auto flex items-end justify-between gap-4 border-t border-white/10 pt-6">
+                    <div className="mt-auto flex items-end justify-between gap-4 border-t border-white/[0.07] pt-6">
 
                       <div>
 
@@ -601,7 +904,7 @@ export default function Home() {
                           Course Fee
                         </p>
 
-                        <p className="mt-1 text-xl font-bold text-brand-gold">
+                        <p className="mt-1 text-xl font-bold text-violet-300">
                           ৳{course.fee}
                         </p>
 
@@ -609,7 +912,7 @@ export default function Home() {
 
                       <Link
                         to={`/courses/${course.slug}`}
-                        className="inline-flex items-center gap-2 border border-white/15 px-4 py-2.5 text-xs font-bold transition-colors hover:border-brand-gold hover:bg-brand-gold hover:text-[#101722]"
+                        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs font-bold text-slate-200 transition-all hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-white"
                       >
                         Details
 
@@ -636,9 +939,11 @@ export default function Home() {
           LEARNING ECOSYSTEM
       ============================================================ */}
 
-      <section className="bg-[#f5f3ee] py-20 dark:bg-[#080c14] sm:py-24 lg:py-28">
+      <section className="relative overflow-hidden border-y border-white/[0.06] bg-[#0c0c1b] py-20 sm:py-24 lg:py-28">
 
-        <div className="container-page">
+        <div className="pointer-events-none absolute -left-40 top-1/3 h-[450px] w-[450px] rounded-full bg-purple-700/[0.08] blur-[130px]" />
+
+        <div className="container-page relative">
 
           <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
 
@@ -646,15 +951,15 @@ export default function Home() {
 
               <div className="flex items-center gap-3">
 
-                <Layers3 className="h-5 w-5 text-brand-gold" />
+                <Layers3 className="h-5 w-5 text-violet-400" />
 
-                <span className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                <span className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet-400">
                   One Learning Ecosystem
                 </span>
 
               </div>
 
-              <h2 className="mt-5 font-display text-3xl font-bold leading-tight text-[#111827] dark:text-white sm:text-4xl lg:text-5xl">
+              <h2 className="mt-5 font-display text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
 
                 Everything students
                 <br />
@@ -662,13 +967,13 @@ export default function Home() {
                 need to stay
                 <br />
 
-                <span className="text-brand-gold">
+                <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
                   on track.
                 </span>
 
               </h2>
 
-              <p className="mt-6 max-w-lg text-sm leading-7 text-slate-500 sm:text-base">
+              <p className="mt-6 max-w-lg text-sm leading-7 text-slate-400 sm:text-base">
                 REMON connects important academic information in one
                 organized digital environment so students can focus more
                 on learning and less on searching for information.
@@ -676,7 +981,7 @@ export default function Home() {
 
               <Link
                 to="/about"
-                className="group mt-7 inline-flex items-center gap-2 text-sm font-bold text-[#111827] dark:text-brand-gold"
+                className="group mt-7 inline-flex items-center gap-2 text-sm font-bold text-violet-300 transition-colors hover:text-blue-300"
               >
                 Learn about our approach
 
@@ -685,34 +990,41 @@ export default function Home() {
 
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.2 }}
+              variants={stagger}
+              className="grid gap-3 sm:grid-cols-2"
+            >
 
               {learningPoints.map((item, index) => (
 
-                <div
+                <motion.div
                   key={item}
-                  className="group border border-slate-200 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold/40 dark:border-slate-800 dark:bg-slate-900"
+                  variants={fadeUp}
+                  className="group rounded-xl border border-white/[0.07] bg-white/[0.025] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-violet-400/30 hover:bg-violet-500/[0.05]"
                 >
 
                   <div className="flex items-center justify-between">
 
-                    <span className="font-display text-2xl font-bold text-slate-200 dark:text-slate-800">
+                    <span className="font-display text-2xl font-bold text-white/[0.12]">
                       {String(index + 1).padStart(2, "0")}
                     </span>
 
-                    <CheckCircle2 className="h-5 w-5 text-brand-gold" />
+                    <CheckCircle2 className="h-5 w-5 text-violet-400 transition-transform group-hover:scale-110" />
 
                   </div>
 
-                  <p className="mt-8 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <p className="mt-8 text-sm font-semibold text-slate-200">
                     {item}
                   </p>
 
-                </div>
+                </motion.div>
 
               ))}
 
-            </div>
+            </motion.div>
 
           </div>
 
@@ -725,24 +1037,26 @@ export default function Home() {
       ============================================================ */}
 
       {teachers.length > 0 && (
-        <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
+        <section className="relative overflow-hidden bg-[#080814] py-20 sm:py-24 lg:py-28">
 
-          <div className="container-page">
+          <div className="pointer-events-none absolute -right-40 bottom-0 h-[450px] w-[450px] rounded-full bg-blue-700/[0.08] blur-[130px]" />
+
+          <div className="container-page relative">
 
             <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
 
               <div>
 
-                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet-400">
                   Faculty
                 </p>
 
-                <h2 className="mt-4 font-display text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+                <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
 
                   Guided by
                   <br />
 
-                  <span className="text-slate-300 dark:text-slate-700">
+                  <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
                     dedicated educators.
                   </span>
 
@@ -752,7 +1066,7 @@ export default function Home() {
 
               <Link
                 to="/teachers"
-                className="group inline-flex items-center gap-2 text-sm font-bold text-[#111827] dark:text-brand-gold"
+                className="group inline-flex items-center gap-2 text-sm font-bold text-violet-300 transition-colors hover:text-blue-300"
               >
                 Meet all teachers
 
@@ -761,37 +1075,37 @@ export default function Home() {
 
             </div>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
 
               {teachers.map((teacher, index) => (
 
                 <Card
                   key={teacher._id}
-                  className="group relative overflow-hidden border border-slate-200 bg-[#faf9f6] p-0 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold/40 dark:border-slate-800 dark:bg-slate-950"
+                  className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111122]/80 p-0 shadow-sm backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:border-violet-400/30 hover:shadow-[0_22px_55px_rgba(109,40,217,0.13)]"
                 >
 
-                  <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                  <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
 
-                    <span className="text-[8px] font-bold uppercase tracking-[0.25em] text-brand-gold">
+                    <span className="text-[8px] font-bold uppercase tracking-[0.25em] text-violet-300">
                       Faculty {String(index + 1).padStart(2, "0")}
                     </span>
 
-                    <GraduationCap className="h-4 w-4 text-slate-300" />
+                    <GraduationCap className="h-4 w-4 text-blue-300" />
 
                   </div>
 
                   <div className="flex gap-5 p-5 sm:p-6">
 
-                    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-brand-gold/20 bg-[#101722]">
+                    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-violet-400/20 bg-[#17152b] shadow-[0_0_25px_rgba(139,92,246,0.12)]">
 
                       {teacher.photo ? (
                         <img
                           src={teacher.photo}
                           alt={teacher.name}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-brand-gold">
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-600 to-blue-600 text-2xl font-bold text-white">
                           {teacher.name.charAt(0)}
                         </div>
                       )}
@@ -800,16 +1114,16 @@ export default function Home() {
 
                     <div className="min-w-0 pt-1">
 
-                      <h3 className="font-display text-lg font-bold text-[#111827] dark:text-white">
+                      <h3 className="font-display text-lg font-bold text-white">
                         {teacher.name}
                       </h3>
 
-                      <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-brand-gold">
+                      <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-violet-300">
                         {teacher.designation || "Instructor"}
                       </p>
 
                       {teacher.specialization && (
-                        <p className="mt-3 text-xs leading-5 text-slate-500">
+                        <p className="mt-3 text-xs leading-5 text-slate-400">
                           {teacher.specialization}
                         </p>
                       )}
@@ -818,7 +1132,7 @@ export default function Home() {
 
                   </div>
 
-                  <div className="h-1 w-0 bg-brand-gold transition-all duration-500 group-hover:w-full" />
+                  <div className="h-0.5 w-0 bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-500 group-hover:w-full" />
 
                 </Card>
 
@@ -832,24 +1146,28 @@ export default function Home() {
       )}
 
       {/* ============================================================
-          FOUNDER MESSAGE — NO PHOTO
+          FOUNDER MESSAGE
       ============================================================ */}
 
-      <section className="border-y border-slate-200 bg-[#101722] text-white dark:border-slate-800">
+      <section className="relative overflow-hidden border-y border-white/[0.07] bg-[#101020]">
 
-        <div className="container-page py-20 sm:py-24 lg:py-28">
+        <div className="pointer-events-none absolute -left-40 top-0 h-[450px] w-[450px] rounded-full bg-violet-700/[0.10] blur-[130px]" />
+
+        <div className="pointer-events-none absolute -right-40 bottom-0 h-[450px] w-[450px] rounded-full bg-blue-700/[0.08] blur-[130px]" />
+
+        <div className="container-page relative py-20 sm:py-24 lg:py-28">
 
           <div className="grid gap-10 lg:grid-cols-[0.5fr_1.5fr] lg:items-center">
 
             <div>
 
-              <div className="flex h-12 w-12 items-center justify-center border border-brand-gold/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-violet-400/25 bg-violet-500/[0.08]">
 
-                <Quote className="h-5 w-5 text-brand-gold" />
+                <Quote className="h-5 w-5 text-violet-300" />
 
               </div>
 
-              <p className="mt-5 text-[8px] font-bold uppercase tracking-[0.3em] text-brand-gold">
+              <p className="mt-5 text-[8px] font-bold uppercase tracking-[0.3em] text-violet-300">
                 Founder&apos;s Philosophy
               </p>
 
@@ -857,7 +1175,7 @@ export default function Home() {
 
             <div>
 
-              <blockquote className="max-w-5xl font-display text-2xl font-semibold leading-[1.35] tracking-tight sm:text-3xl lg:text-[2.7rem]">
+              <blockquote className="max-w-5xl font-display text-2xl font-semibold leading-[1.35] tracking-tight text-white sm:text-3xl lg:text-[2.7rem]">
 
                 “Every student has potential. Our responsibility is to
                 create the environment, guidance and discipline that helps
@@ -867,7 +1185,7 @@ export default function Home() {
 
               <div className="mt-7 flex items-center gap-3">
 
-                <span className="h-px w-8 bg-brand-gold" />
+                <span className="h-px w-8 bg-gradient-to-r from-violet-500 to-blue-500" />
 
                 <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400">
                   Emon Islam · Founder & CEO
@@ -877,7 +1195,7 @@ export default function Home() {
 
               <Link
                 to="/founder"
-                className="group mt-8 inline-flex items-center gap-2 border border-white/10 px-5 py-3 text-xs font-bold transition-colors hover:border-brand-gold hover:text-brand-gold"
+                className="group mt-8 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-bold text-slate-200 transition-all hover:border-violet-400/40 hover:bg-violet-500/[0.08] hover:text-white"
               >
                 Meet the Founder
 
@@ -897,19 +1215,21 @@ export default function Home() {
       ============================================================ */}
 
       {notices.length > 0 && (
-        <section className="bg-white py-20 dark:bg-slate-900 sm:py-24 lg:py-28">
+        <section className="relative overflow-hidden bg-[#080814] py-20 sm:py-24 lg:py-28">
 
-          <div className="container-page">
+          <div className="pointer-events-none absolute -right-40 top-0 h-[450px] w-[450px] rounded-full bg-purple-700/[0.08] blur-[130px]" />
+
+          <div className="container-page relative">
 
             <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
 
               <div>
 
-                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet-400">
                   Academy Journal
                 </p>
 
-                <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl lg:text-5xl">
+                <h2 className="mt-4 font-display text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
                   Stay informed.
                 </h2>
 
@@ -917,7 +1237,7 @@ export default function Home() {
 
               <Link
                 to="/notices"
-                className="group inline-flex items-center gap-2 text-sm font-bold text-[#111827] dark:text-brand-gold"
+                className="group inline-flex items-center gap-2 text-sm font-bold text-violet-300 transition-colors hover:text-blue-300"
               >
                 View all notices
 
@@ -926,23 +1246,23 @@ export default function Home() {
 
             </div>
 
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
 
               {notices.map((notice, index) => (
 
                 <Link
                   key={notice._id}
                   to={`/notices/${notice.slug}`}
-                  className="group relative overflow-hidden border border-slate-200 bg-[#faf9f6] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold/40 dark:border-slate-800 dark:bg-slate-950"
+                  className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111122]/80 p-6 shadow-sm backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:border-violet-400/30 hover:shadow-[0_22px_55px_rgba(109,40,217,0.13)]"
                 >
 
                   <div className="flex items-start justify-between">
 
-                    <span className="font-display text-4xl font-bold text-slate-200 dark:text-slate-800">
+                    <span className="font-display text-4xl font-bold text-white/[0.08]">
                       {String(index + 1).padStart(2, "0")}
                     </span>
 
-                    <ArrowUpRight className="h-5 w-5 text-slate-300 transition-all group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-brand-gold" />
+                    <ArrowUpRight className="h-5 w-5 text-slate-500 transition-all group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-violet-300" />
 
                   </div>
 
@@ -950,25 +1270,25 @@ export default function Home() {
 
                     <div className="mb-3 flex items-center gap-2">
 
-                      <ShieldCheck className="h-3.5 w-3.5 text-brand-gold" />
+                      <ShieldCheck className="h-3.5 w-3.5 text-violet-400" />
 
-                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-brand-gold">
+                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-violet-300">
                         {notice.category}
                       </span>
 
                     </div>
 
-                    <h3 className="font-display text-lg font-bold text-[#111827] transition-colors group-hover:text-brand-gold dark:text-white">
+                    <h3 className="font-display text-lg font-bold text-white transition-colors group-hover:text-violet-300">
                       {notice.title}
                     </h3>
 
-                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
                       {notice.description}
                     </p>
 
                   </div>
 
-                  <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-brand-gold transition-all duration-500 group-hover:w-full" />
+                  <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-500 group-hover:w-full" />
 
                 </Link>
 
@@ -985,30 +1305,46 @@ export default function Home() {
           FINAL CTA
       ============================================================ */}
 
-      <section className="bg-[#101722] py-20 text-white sm:py-24 lg:py-28">
+      <section className="relative overflow-hidden bg-[#080814] py-20 text-white sm:py-24 lg:py-28">
 
-        <div className="container-page">
+        <div className="pointer-events-none absolute inset-0">
 
-          <div className="relative overflow-hidden border border-white/10 px-6 py-14 text-center sm:px-12 lg:px-20 lg:py-20">
+          <div className="absolute left-1/2 top-1/2 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-700/[0.13] blur-[140px]" />
 
-            <div className="pointer-events-none absolute right-[-100px] top-[-100px] h-64 w-64 rounded-full border border-brand-gold/[0.08]" />
+          <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
 
-            <div className="pointer-events-none absolute bottom-[-130px] left-[-100px] h-72 w-72 rounded-full border border-white/[0.035]" />
+        </div>
+
+        <div className="container-page relative">
+
+          <div className="relative overflow-hidden rounded-3xl border border-violet-400/20 bg-gradient-to-br from-[#17142c] via-[#111225] to-[#101c34] px-6 py-14 text-center shadow-[0_25px_100px_rgba(0,0,0,0.4)] sm:px-12 lg:px-20 lg:py-20">
+
+            <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full border border-violet-400/[0.12]" />
+
+            <div className="pointer-events-none absolute -right-5 -top-12 h-44 w-44 rounded-full border border-blue-400/[0.10]" />
+
+            <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-blue-600/[0.10] blur-[80px]" />
 
             <div className="relative">
 
-              <Award className="mx-auto h-7 w-7 text-brand-gold" />
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-400/25 bg-violet-500/10 shadow-[0_0_35px_rgba(139,92,246,0.15)]">
 
-              <p className="mt-5 text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
+                <Award className="h-7 w-7 text-violet-300" />
+
+              </div>
+
+              <p className="mt-5 text-[9px] font-bold uppercase tracking-[0.35em] text-violet-300">
                 Begin Your Journey
               </p>
 
-              <h2 className="mx-auto mt-4 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+              <h2 className="mx-auto mt-4 max-w-3xl font-display text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
 
                 A stronger foundation.
                 <br />
 
-                A clearer future.
+                <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+                  A clearer future.
+                </span>
 
               </h2>
 
@@ -1024,7 +1360,7 @@ export default function Home() {
 
                 <Link
                   to="/register"
-                  className="group inline-flex items-center justify-center gap-3 bg-brand-gold px-7 py-3.5 text-sm font-bold text-[#101722] transition-colors hover:bg-brand-goldLight"
+                  className="group inline-flex items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-7 py-4 text-sm font-bold text-white shadow-[0_0_30px_rgba(124,58,237,0.25)] transition-all hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(124,58,237,0.4)]"
                 >
                   Join REMON ACADEMY
 
@@ -1034,7 +1370,7 @@ export default function Home() {
 
                 <Link
                   to="/contact"
-                  className="inline-flex items-center justify-center gap-3 border border-white/15 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-brand-gold hover:text-brand-gold"
+                  className="inline-flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.035] px-7 py-4 text-sm font-semibold text-white transition-all hover:border-violet-400/40 hover:bg-violet-500/[0.08]"
                 >
                   Contact Us
                 </Link>

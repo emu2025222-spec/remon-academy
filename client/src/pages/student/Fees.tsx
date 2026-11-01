@@ -1,46 +1,91 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   CalendarDays,
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Clock3,
-  Copy,
-  CreditCard,
+  CircleDollarSign,
+  Edit3,
   FileText,
-  ReceiptText,
+  Plus,
+  RefreshCw,
+  Search,
+  UserRound,
   Wallet,
-  XCircle,
+  X,
+  CreditCard,
+  Trash2,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
-import { Course, Fee } from "../../types";
+import {
+  Course,
+  Fee,
+  PaginatedResponse,
+  Student,
+} from "../../types";
 
 import { Loader } from "../../components/Loader";
 import { EmptyState } from "../../components/EmptyState";
+import { Modal } from "../../components/Modal";
+import { Input } from "../../components/Input";
+import { Button } from "../../components/Button";
+import { Badge } from "../../components/Badge";
+import { useToast } from "../../components/Toast";
 
 interface FeeWithMonthly extends Fee {
   billingMonth?: string;
 }
 
-interface MonthlyGroup {
-  month: string;
-  label: string;
-  records: FeeWithMonthly[];
+interface CreateForm {
+  student: string;
+  course: string;
+  billingMonth: string;
+  amount: string;
+  amountPaid: string;
+  dueDate: string;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionId: string;
+  note: string;
+}
+
+interface UpdateForm {
+  billingMonth: string;
+  amount: string;
+  amountPaid: string;
+  dueDate: string;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionId: string;
+  note: string;
+}
+
+interface FeeSummary {
+  totalRecords: number;
   totalFee: number;
   totalPaid: number;
   totalDue: number;
+  paidPercentage: number;
+  duePercentage: number;
 }
 
-interface MyFeesResponse {
-  fees: FeeWithMonthly[];
-  summary?: {
-    totalFee?: number;
-    totalPaid?: number;
-    totalDue?: number;
-  };
+interface PaymentRequestStudent {
+  _id: string;
+  fullName?: string;
+  studentId?: string;
+  phone?: string;
+  class?: string;
+  group?: string;
+}
+
+interface PaymentRequestFee {
+  _id: string;
+  amount: number;
+  amountPaid: number;
+  billingMonth?: string;
+  dueDate?: string;
+  status?: string;
 }
 
 type PaymentRequestStatus =
@@ -48,105 +93,80 @@ type PaymentRequestStatus =
   | "APPROVED"
   | "REJECTED";
 
-interface PaymentAllocation {
-  fee?: {
-    _id: string;
-    amount?: number;
-    amountPaid?: number;
-    billingMonth?: string;
-    dueDate?: string;
-    status?: string;
-  };
-  amount: number;
-}
-
-interface PaymentRequestItem {
+interface PaymentRequest {
   _id: string;
   amount: number;
   senderNumber: string;
   transactionId: string;
   status: PaymentRequestStatus;
+  rejectionReason?: string;
   createdAt: string;
   reviewedAt?: string;
-  rejectionReason?: string;
-  allocations?: PaymentAllocation[];
+  student?: PaymentRequestStudent;
+  fee?: PaymentRequestFee;
+  reviewedBy?: {
+    _id: string;
+    email?: string;
+  };
 }
 
-interface PaymentInfo {
-  bkashNumber: string;
+const emptySummary: FeeSummary = {
+  totalRecords: 0,
+  totalFee: 0,
+  totalPaid: 0,
+  totalDue: 0,
+  paidPercentage: 0,
+  duePercentage: 0,
+};
+
+function getCurrentMonth() {
+  return new Date().toISOString().slice(0, 7);
 }
 
-type CourseLike =
-  | Course
-  | { _id?: string; name?: string }
-  | string
-  | null
-  | undefined;
-
-function getCourse(course?: CourseLike) {
-  if (!course) return null;
-
-  if (typeof course === "string") {
-    return {
-      _id: course,
-      name: course,
-    };
-  }
-
-  if (typeof course === "object" && "_id" in course) {
-    const courseData = course as {
-      _id?: string;
-      name?: string;
-    };
-
-    return {
-      _id: courseData._id ?? "",
-      name: courseData.name ?? "Course",
-    };
-  }
-
-  return course;
+function getToday() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function getCourseName(course?: CourseLike) {
-  if (!course) return "Course";
+const emptyCreate: CreateForm = {
+  student: "",
+  course: "",
+  billingMonth: getCurrentMonth(),
+  amount: "",
+  amountPaid: "0",
+  dueDate: getToday(),
+  paymentDate: "",
+  paymentMethod: "",
+  transactionId: "",
+  note: "",
+};
 
-  if (typeof course === "string") {
-    return course;
-  }
+const emptyUpdate: UpdateForm = {
+  billingMonth: "",
+  amount: "",
+  amountPaid: "0",
+  dueDate: "",
+  paymentDate: "",
+  paymentMethod: "",
+  transactionId: "",
+  note: "",
+};
 
-  if (typeof course === "object") {
-    const courseData = course as {
-      name?: string;
-    };
-
-    if (
-      typeof courseData.name === "string" &&
-      courseData.name.trim()
-    ) {
-      return courseData.name;
-    }
-  }
-
-  return "Course";
+function money(value: number) {
+  return `৳${Number(value || 0).toLocaleString("en-BD")}`;
 }
 
-function formatCurrency(value: number) {
-  return `৳${Number(value || 0).toLocaleString(
-    "en-BD"
-  )}`;
-}
+function monthLabel(month?: string) {
+  if (!month) return "Unassigned";
 
-function formatMonth(value?: string) {
-  if (!value) return "Unknown Month";
+  const [year, monthNumber] = month.split("-");
+
+  if (!year || !monthNumber) return month;
 
   const date = new Date(
-    `${value}-01T00:00:00`
+    Number(year),
+    Number(monthNumber) - 1,
+    1
   );
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
 
   return date.toLocaleDateString("en-US", {
     month: "long",
@@ -154,13 +174,29 @@ function formatMonth(value?: string) {
   });
 }
 
-function formatDateTime(value?: string) {
-  if (!value) return "—";
+function formatDate(value?: string) {
+  if (!value) return "-";
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "—";
+    return "-";
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
   }
 
   return date.toLocaleString("en-GB", {
@@ -172,579 +208,1840 @@ function formatDateTime(value?: string) {
   });
 }
 
-function getStatusLabel(status?: string) {
-  switch (status) {
-    case "PAID":
-      return "Paid";
-    case "PARTIAL":
-      return "Partially Paid";
-    case "PENDING":
-      return "Pending";
-    default:
-      return status || "Pending";
+function getStatus(amount: number, paid: number) {
+  if (paid >= amount && amount > 0) {
+    return "PAID";
   }
+
+  if (paid > 0) {
+    return "PARTIAL";
+  }
+
+  return "PENDING";
 }
 
-function getStatusClass(status?: string) {
-  switch (status) {
-    case "PAID":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
-
-    case "PARTIAL":
-      return "bg-amber-50 text-amber-700 border-amber-200";
-
-    case "PENDING":
-    default:
-      return "bg-rose-50 text-rose-700 border-rose-200";
-  }
+function getStatusColor(status: string) {
+  if (status === "PAID") return "green";
+  if (status === "PARTIAL") return "gold";
+  return "red";
 }
 
-function getPaymentStatusLabel(
+function getStudentName(student: Fee["student"]) {
+  if (typeof student === "object" && student) {
+    return (
+      (student as Student).fullName ||
+      "Unknown Student"
+    );
+  }
+
+  return "Unknown Student";
+}
+
+function getStudentId(student: Fee["student"]) {
+  if (typeof student === "object" && student) {
+    return (
+      (student as Student).studentId || "-"
+    );
+  }
+
+  return "-";
+}
+
+function getCourseName(course: Fee["course"]) {
+  if (typeof course === "object" && course) {
+    return (
+      (course as Course).title ||
+      "Unknown Course"
+    );
+  }
+
+  return "Unknown Course";
+}
+
+function getCourseSubject(course: Fee["course"]) {
+  if (typeof course === "object" && course) {
+    const c = course as Course;
+
+    return [c.classLevel, c.subject]
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  return "";
+}
+
+function getAssignedCourseIds(
+  student: Student
+): string[] {
+  const ids = new Set<string>();
+
+  if (Array.isArray(student.courses)) {
+    student.courses.forEach((course) => {
+      if (!course) return;
+
+      if (typeof course === "string") {
+        ids.add(course);
+        return;
+      }
+
+      if (
+        typeof course === "object" &&
+        course._id
+      ) {
+        ids.add(course._id);
+      }
+    });
+  }
+
+  if (student.course) {
+    if (typeof student.course === "string") {
+      ids.add(student.course);
+    } else if (
+      typeof student.course === "object" &&
+      student.course._id
+    ) {
+      ids.add(student.course._id);
+    }
+  }
+
+  return Array.from(ids);
+}
+
+function getPaymentStatusColor(
   status: PaymentRequestStatus
 ) {
-  switch (status) {
-    case "APPROVED":
-      return "Approved";
-
-    case "REJECTED":
-      return "Rejected";
-
-    case "PENDING":
-    default:
-      return "Verification Pending";
-  }
+  if (status === "APPROVED") return "green";
+  if (status === "REJECTED") return "red";
+  return "gold";
 }
 
-function getPaymentStatusClass(
-  status: PaymentRequestStatus
-) {
-  switch (status) {
-    case "APPROVED":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
-
-    case "REJECTED":
-      return "bg-rose-50 text-rose-700 border-rose-200";
-
-    case "PENDING":
-    default:
-      return "bg-amber-50 text-amber-700 border-amber-200";
-  }
-}
-
-export default function Fees() {
+export default function AdminFees() {
   const [fees, setFees] = useState<
     FeeWithMonthly[]
   >([]);
 
-  const [summary, setSummary] = useState<
-    MyFeesResponse["summary"] | null
-  >(null);
+  const [students, setStudents] = useState<
+    Student[]
+  >([]);
 
-  const [paymentInfo, setPaymentInfo] =
-    useState<PaymentInfo | null>(null);
+  const [courses, setCourses] = useState<
+    Course[]
+  >([]);
+
+  const [summary, setSummary] =
+    useState<FeeSummary>(emptySummary);
 
   const [paymentRequests, setPaymentRequests] =
-    useState<PaymentRequestItem[]>([]);
+    useState<PaymentRequest[]>([]);
+
+  const [
+    paymentRequestLoading,
+    setPaymentRequestLoading,
+  ] = useState(true);
+
+  const [
+    paymentRequestStatus,
+    setPaymentRequestStatus,
+  ] = useState("");
+
+  const [
+    paymentActionId,
+    setPaymentActionId,
+  ] = useState<string | null>(null);
+
+  const [
+    rejectTarget,
+    setRejectTarget,
+  ] = useState<PaymentRequest | null>(null);
+
+  const [
+    rejectionReason,
+    setRejectionReason,
+  ] = useState("");
 
   const [loading, setLoading] =
     useState(true);
 
-  const [error, setError] =
-    useState("");
-
-  const [paymentLoading, setPaymentLoading] =
+  const [saving, setSaving] =
     useState(false);
 
-  const [paymentError, setPaymentError] =
+  const [createOpen, setCreateOpen] =
+    useState(false);
+
+  const [editTarget, setEditTarget] =
+    useState<FeeWithMonthly | null>(null);
+
+  const [createForm, setCreateForm] =
+    useState<CreateForm>(emptyCreate);
+
+  const [updateForm, setUpdateForm] =
+    useState<UpdateForm>(emptyUpdate);
+
+  const [search, setSearch] = useState("");
+  const [monthFilter, setMonthFilter] =
     useState("");
-
-  const [selectedMonth, setSelectedMonth] =
-    useState("ALL");
-
-  const [selectedCourse, setSelectedCourse] =
-    useState("ALL");
+  const [studentFilter, setStudentFilter] =
+    useState("");
+  const [courseFilter, setCourseFilter] =
+    useState("");
+  const [statusFilter, setStatusFilter] =
+    useState("");
 
   const [openMonths, setOpenMonths] =
     useState<Record<string, boolean>>({});
 
-  const [paymentAmount, setPaymentAmount] =
-    useState("");
+  const { show } = useToast();
 
-  const [senderNumber, setSenderNumber] =
-    useState("");
+  /*
+   * =======================================================
+   * LOAD ALL FEES
+   * =======================================================
+   */
+  async function loadAllFees() {
+    const response = await api.get("/fees", {
+      params: {
+        page: 1,
+        limit: 1000,
+      },
+    });
 
-  const [transactionId, setTransactionId] =
-    useState("");
+    const payload =
+      response.data?.data as
+        | PaginatedResponse<Fee>
+        | Fee[]
+        | undefined;
 
-  const [showPaymentModal, setShowPaymentModal] =
-    useState(false);
+    if (Array.isArray(payload)) {
+      return payload as FeeWithMonthly[];
+    }
 
-  const [submittingPayment, setSubmittingPayment] =
-    useState(false);
+    const pageData = Array.isArray(
+      payload?.data
+    )
+      ? payload.data
+      : [];
 
-  const [copied, setCopied] =
-    useState(false);
+    return pageData as FeeWithMonthly[];
+  }
 
-  useEffect(() => {
-    loadFees();
-    loadPaymentInfo();
-    loadPaymentRequests();
-  }, []);
+  /*
+   * =======================================================
+   * LOAD PAYMENT REQUESTS
+   * =======================================================
+   */
+  async function loadPaymentRequests() {
+    setPaymentRequestLoading(true);
 
-  async function loadFees() {
     try {
-      setLoading(true);
-      setError("");
-
-      const response =
-        await api.get("/fees/my");
-
-      const payload =
-        response.data?.data ??
-        response.data;
-
-      const nextFees =
-        Array.isArray(payload?.fees)
-          ? payload.fees
-          : [];
-
-      setFees(nextFees);
-      setSummary(
-        payload?.summary ?? null
+      const response = await api.get(
+        "/fees/payment-requests",
+        {
+          params: paymentRequestStatus
+            ? {
+                status:
+                  paymentRequestStatus,
+              }
+            : undefined,
+        }
       );
 
-      const months = Array.from(
-        new Set(
-          nextFees
-            .map(
-              (fee: FeeWithMonthly) =>
-                fee.billingMonth
-            )
-            .filter(Boolean)
-        )
-      ) as string[];
+      const payload =
+        response.data?.data;
 
-      const initialOpenState: Record<
+      const list = Array.isArray(
+        payload
+      )
+        ? payload
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+      setPaymentRequests(list);
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setPaymentRequestLoading(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * LOAD FEES + SUMMARY
+   * =======================================================
+   */
+  async function load() {
+    setLoading(true);
+
+    try {
+      const [
+        allFees,
+        summaryResponse,
+      ] = await Promise.all([
+        loadAllFees(),
+        api.get("/fees/summary"),
+      ]);
+
+      setFees(allFees);
+
+      const backendTotals =
+        summaryResponse.data?.data
+          ?.totals || {};
+
+      const totalAmount = Number(
+        backendTotals.amount || 0
+      );
+
+      const totalPaid = Number(
+        backendTotals.paid || 0
+      );
+
+      const totalDue = Number(
+        backendTotals.due || 0
+      );
+
+      const totalRecords = Number(
+        backendTotals.count || 0
+      );
+
+      setSummary({
+        totalRecords,
+        totalFee: totalAmount,
+        totalPaid,
+        totalDue,
+        paidPercentage:
+          totalAmount > 0
+            ? (totalPaid /
+                totalAmount) *
+              100
+            : 0,
+        duePercentage:
+          totalAmount > 0
+            ? (totalDue /
+                totalAmount) *
+              100
+            : 0,
+      });
+
+      const monthState: Record<
         string,
         boolean
       > = {};
 
-      months.forEach((month) => {
-        initialOpenState[month] = true;
+      allFees.forEach((fee) => {
+        const month =
+          fee.billingMonth ||
+          "UNASSIGNED";
+
+        monthState[month] = true;
       });
 
-      setOpenMonths(
-        initialOpenState
-      );
+      setOpenMonths(monthState);
     } catch (err) {
-      setError(
-        getErrorMessage(err)
+      show(
+        getErrorMessage(err),
+        "error"
       );
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadPaymentInfo() {
-    try {
-      const response =
-        await api.get(
-          "/fees/payment-info"
+  /*
+   * =======================================================
+   * LOAD STUDENTS + COURSES
+   * =======================================================
+   */
+  useEffect(() => {
+    async function loadOptions() {
+      try {
+        const [
+          studentsResponse,
+          coursesResponse,
+        ] = await Promise.all([
+          api.get("/students", {
+            params: {
+              limit: 200,
+            },
+          }),
+
+          api.get("/courses", {
+            params: {
+              limit: 100,
+            },
+          }),
+        ]);
+
+        const studentsPayload =
+          studentsResponse.data?.data;
+
+        const coursesPayload =
+          coursesResponse.data?.data;
+
+        const studentList =
+          Array.isArray(
+            studentsPayload?.data
+          )
+            ? studentsPayload.data
+            : Array.isArray(
+                studentsPayload
+              )
+            ? studentsPayload
+            : [];
+
+        const courseList =
+          Array.isArray(
+            coursesPayload?.data
+          )
+            ? coursesPayload.data
+            : Array.isArray(
+                coursesPayload
+              )
+            ? coursesPayload
+            : [];
+
+        setStudents(studentList);
+        setCourses(courseList);
+      } catch (err) {
+        show(
+          getErrorMessage(err),
+          "error"
         );
-
-      const payload =
-        response.data?.data ??
-        response.data;
-
-      setPaymentInfo(
-        payload ?? null
-      );
-    } catch {
-      setPaymentInfo(null);
+      }
     }
-  }
 
-  async function loadPaymentRequests() {
-    try {
-      setPaymentLoading(true);
-      setPaymentError("");
+    loadOptions();
+  }, []);
 
-      const response =
-        await api.get(
-          "/fees/payment-requests/my"
-        );
+  useEffect(() => {
+    load();
+    loadPaymentRequests();
+  }, []);
 
-      const payload =
-        response.data?.data ??
-        response.data;
+  useEffect(() => {
+    loadPaymentRequests();
+  }, [paymentRequestStatus]);
 
-      const requests =
-        Array.isArray(payload)
-          ? payload
-          : Array.isArray(
-              payload?.data
-            )
-          ? payload.data
-          : Array.isArray(
-              payload?.paymentRequests
-            )
-          ? payload.paymentRequests
-          : [];
-
-      setPaymentRequests(
-        requests
-      );
-    } catch (err) {
-      setPaymentError(
-        getErrorMessage(err)
-      );
-    } finally {
-      setPaymentLoading(false);
-    }
-  }
-
-  async function copyBkashNumber() {
+  /*
+   * =======================================================
+   * PAYMENT REQUEST ACTIONS
+   * =======================================================
+   */
+  async function handleApprovePayment(
+    request: PaymentRequest
+  ) {
     if (
-      !paymentInfo?.bkashNumber
-    ) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(
-        paymentInfo.bkashNumber
-      );
-
-      setCopied(true);
-
-      window.setTimeout(() => {
-        setCopied(false);
-      }, 1800);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  function openPaymentModal() {
-    const due =
-      overallTotals.totalDue;
-
-    if (due <= 0) {
-      setPaymentError(
-        "You do not have any outstanding fee."
-      );
-      return;
-    }
-
-    const hasPendingRequest =
-      paymentRequests.some(
-        (request) =>
-          request.status === "PENDING"
-      );
-
-    if (hasPendingRequest) {
-      setPaymentError(
-        "You already have a payment request waiting for admin verification."
-      );
-      return;
-    }
-
-    setPaymentAmount(
-      String(due)
-    );
-
-    setSenderNumber("");
-    setTransactionId("");
-    setPaymentError("");
-    setShowPaymentModal(true);
-  }
-
-  function closePaymentModal() {
-    if (submittingPayment) {
-      return;
-    }
-
-    setShowPaymentModal(false);
-    setPaymentAmount("");
-    setSenderNumber("");
-    setTransactionId("");
-    setPaymentError("");
-  }
-
-  async function handleSubmitPayment() {
-    const amount =
-      Number(paymentAmount);
-
-    const totalDue =
-      overallTotals.totalDue;
-
-    if (!amount || amount <= 0) {
-      setPaymentError(
-        "Please enter a valid payment amount."
-      );
-      return;
-    }
-
-    if (amount > totalDue) {
-      setPaymentError(
-        `Payment amount cannot exceed your total outstanding fee of ${formatCurrency(
-          totalDue
-        )}.`
-      );
-      return;
-    }
-
-    const normalizedSenderNumber =
-      senderNumber
-        .trim()
-        .replace(/\s+/g, "");
-
-    if (
-      !/^01[3-9]\d{8}$/.test(
-        normalizedSenderNumber
+      !window.confirm(
+        `Approve ${money(
+          Number(request.amount || 0)
+        )} payment from ${
+          request.student?.fullName ||
+          "this student"
+        }?`
       )
     ) {
-      setPaymentError(
-        "Please enter a valid Bangladeshi bKash number."
-      );
       return;
     }
 
-    const normalizedTransactionId =
-      transactionId
-        .trim()
-        .toUpperCase();
-
-    if (!normalizedTransactionId) {
-      setPaymentError(
-        "Please enter your bKash Transaction ID."
-      );
-      return;
-    }
+    setPaymentActionId(request._id);
 
     try {
-      setSubmittingPayment(true);
-      setPaymentError("");
-
       await api.post(
-        "/fees/payment-requests",
-        {
-          amount,
-          senderNumber:
-            normalizedSenderNumber,
-          transactionId:
-            normalizedTransactionId,
-        }
+        `/fees/payment-requests/${request._id}/approve`
       );
 
-      setShowPaymentModal(false);
-      setPaymentAmount("");
-      setSenderNumber("");
-      setTransactionId("");
+      show(
+        "Payment approved and fee updated successfully.",
+        "success"
+      );
 
       await Promise.all([
+        load(),
         loadPaymentRequests(),
-        loadFees(),
       ]);
     } catch (err) {
-      setPaymentError(
-        getErrorMessage(err)
+      show(
+        getErrorMessage(err),
+        "error"
       );
     } finally {
-      setSubmittingPayment(false);
+      setPaymentActionId(null);
     }
   }
 
-  const courseOptions =
-    useMemo(() => {
-      const map = new Map<
-        string,
-        string
-      >();
+  async function handleRejectPayment() {
+    if (!rejectTarget) return;
 
-      fees.forEach((fee) => {
-        const course = getCourse(
-          fee.course
-        );
+    setPaymentActionId(
+      rejectTarget._id
+    );
 
-        if (course?._id) {
-          map.set(
-            course._id,
-            getCourseName(course)
-          );
+    try {
+      await api.post(
+        `/fees/payment-requests/${rejectTarget._id}/reject`,
+        {
+          reason:
+            rejectionReason.trim() ||
+            undefined,
         }
-      });
-
-      return Array.from(
-        map.entries()
-      ).map(
-        ([_id, name]) => ({
-          _id,
-          name,
-        })
       );
-    }, [fees]);
 
-  const monthOptions =
+      show(
+        "Payment request rejected.",
+        "success"
+      );
+
+      setRejectTarget(null);
+      setRejectionReason("");
+
+      await loadPaymentRequests();
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setPaymentActionId(null);
+    }
+  }
+
+  /*
+   * =======================================================
+   * SELECTED STUDENT
+   * =======================================================
+   */
+  const selectedCreateStudent =
     useMemo(() => {
-      return Array.from(
-        new Set(
-          fees
-            .map(
-              (fee) =>
-                fee.billingMonth
-            )
-            .filter(Boolean)
-        )
-      ).sort((a, b) =>
-        String(b).localeCompare(
-          String(a)
-        )
-      ) as string[];
-    }, [fees]);
+      if (!createForm.student) {
+        return null;
+      }
 
-  const overallTotals =
-    useMemo(() => {
-      const totalFee =
-        fees.reduce(
-          (sum, fee) =>
-            sum +
-            Number(
-              fee.amount || 0
-            ),
-          0
-        );
-
-      const totalPaid =
-        fees.reduce(
-          (sum, fee) =>
-            sum +
-            Number(
-              fee.amountPaid || 0
-            ),
-          0
-        );
-
-      const totalDue =
-        Math.max(
-          totalFee -
-            totalPaid,
-          0
-        );
-
-      return {
-        totalFee:
-          Number(
-            summary?.totalFee ??
-              totalFee
-          ) || 0,
-
-        totalPaid:
-          Number(
-            summary?.totalPaid ??
-              totalPaid
-          ) || 0,
-
-        totalDue:
-          Number(
-            summary?.totalDue ??
-              totalDue
-          ) || 0,
-      };
-    }, [fees, summary]);
-
-  const filteredFees =
-    useMemo(() => {
-      return fees.filter(
-        (fee) => {
-          const monthMatch =
-            selectedMonth ===
-              "ALL" ||
-            fee.billingMonth ===
-              selectedMonth;
-
-          const course =
-            getCourse(
-              fee.course
-            );
-
-          const courseMatch =
-            selectedCourse ===
-              "ALL" ||
-            course?._id ===
-              selectedCourse;
-
-          return (
-            monthMatch &&
-            courseMatch
-          );
-        }
+      return (
+        students.find(
+          (student) =>
+            student._id ===
+            createForm.student
+        ) || null
       );
     }, [
-      fees,
-      selectedMonth,
-      selectedCourse,
+      students,
+      createForm.student,
     ]);
 
-  const monthlyGroups =
-    useMemo<MonthlyGroup[]>(
-      () => {
-        const map = new Map<
-          string,
-          FeeWithMonthly[]
-        >();
+  /*
+   * =======================================================
+   * AVAILABLE COURSES
+   * =======================================================
+   */
+  const createAvailableCourses =
+    useMemo(() => {
+      if (!selectedCreateStudent) {
+        return [];
+      }
 
-        filteredFees.forEach(
-          (fee) => {
-            const month =
-              fee.billingMonth ||
-              "UNKNOWN";
+      const assignedIds = new Set(
+        getAssignedCourseIds(
+          selectedCreateStudent
+        )
+      );
 
-            if (!map.has(month)) {
-              map.set(
-                month,
-                []
-              );
-            }
+      return courses.filter((course) =>
+        assignedIds.has(course._id)
+      );
+    }, [
+      selectedCreateStudent,
+      courses,
+    ]);
 
-            map
-              .get(month)!
-              .push(fee);
-          }
+  /*
+   * =======================================================
+   * FILTER FEES
+   * =======================================================
+   */
+  const filteredFees = useMemo(() => {
+    const query =
+      search.trim().toLowerCase();
+
+    return fees.filter((fee) => {
+      const studentName =
+        getStudentName(fee.student);
+
+      const studentId =
+        getStudentId(fee.student);
+
+      const courseName =
+        getCourseName(fee.course);
+
+      const billingMonth =
+        fee.billingMonth ||
+        "UNASSIGNED";
+
+      const status =
+        fee.status ||
+        getStatus(
+          Number(fee.amount || 0),
+          Number(
+            fee.amountPaid || 0
+          )
         );
 
-        return Array.from(
-          map.entries()
+      const matchesSearch =
+        !query ||
+        [
+          studentName,
+          studentId,
+          courseName,
+          billingMonth,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      const matchesMonth =
+        !monthFilter ||
+        billingMonth === monthFilter;
+
+      const matchesStudent =
+        !studentFilter ||
+        (typeof fee.student ===
+          "object" &&
+          fee.student?._id ===
+            studentFilter);
+
+      const matchesCourse =
+        !courseFilter ||
+        (typeof fee.course ===
+          "object" &&
+          fee.course?._id ===
+            courseFilter);
+
+      const matchesStatus =
+        !statusFilter ||
+        status === statusFilter;
+
+      return (
+        matchesSearch &&
+        matchesMonth &&
+        matchesStudent &&
+        matchesCourse &&
+        matchesStatus
+      );
+    });
+  }, [
+    fees,
+    search,
+    monthFilter,
+    studentFilter,
+    courseFilter,
+    statusFilter,
+  ]);
+
+  /*
+   * =======================================================
+   * MONTH GROUPS
+   * =======================================================
+   */
+  const monthGroups = useMemo(() => {
+    const groups: Record<
+      string,
+      FeeWithMonthly[]
+    > = {};
+
+    filteredFees.forEach((fee) => {
+      const month =
+        fee.billingMonth ||
+        "UNASSIGNED";
+
+      if (!groups[month]) {
+        groups[month] = [];
+      }
+
+      groups[month].push(fee);
+    });
+
+    return Object.entries(groups).sort(
+      ([a], [b]) => {
+        if (a === "UNASSIGNED")
+          return 1;
+
+        if (b === "UNASSIGNED")
+          return -1;
+
+        return b.localeCompare(a);
+      }
+    );
+  }, [filteredFees]);
+
+  /*
+   * =======================================================
+   * FILTERED TOTALS
+   * =======================================================
+   */
+  const filteredTotals = useMemo(() => {
+    return filteredFees.reduce(
+      (acc, fee) => {
+        acc.fee += Number(
+          fee.amount || 0
+        );
+
+        acc.paid += Number(
+          fee.amountPaid || 0
+        );
+
+        return acc;
+      },
+      {
+        fee: 0,
+        paid: 0,
+      }
+    );
+  }, [filteredFees]);
+
+  const filteredDue = Math.max(
+    0,
+    filteredTotals.fee -
+      filteredTotals.paid
+  );
+
+  /*
+   * =======================================================
+   * CREATE
+   * =======================================================
+   */
+  async function handleCreate() {
+    const amount = Number(
+      createForm.amount || 0
+    );
+
+    const amountPaid = Number(
+      createForm.amountPaid || 0
+    );
+
+    if (!createForm.student) {
+      show(
+        "Please select a student",
+        "error"
+      );
+      return;
+    }
+
+    if (!createForm.course) {
+      show(
+        "Please select a course",
+        "error"
+      );
+      return;
+    }
+
+    if (!createForm.billingMonth) {
+      show(
+        "Please select a billing month",
+        "error"
+      );
+      return;
+    }
+
+    if (amount <= 0) {
+      show(
+        "Fee amount must be greater than 0",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid < 0) {
+      show(
+        "Paid amount cannot be negative",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid > amount) {
+      show(
+        "Paid amount cannot be greater than fee",
+        "error"
+      );
+      return;
+    }
+
+    if (selectedCreateStudent) {
+      const assignedIds =
+        getAssignedCourseIds(
+          selectedCreateStudent
+        );
+
+      if (
+        !assignedIds.includes(
+          createForm.course
         )
-          .sort(
-            ([a], [b]) =>
-              b.localeCompare(a)
-          )
-          .map(
-            ([
-              month,
-              records,
-            ]) => {
-              const totalFee =
-                records.reduce(
-                  (
-                    sum,
-                    fee
-                  ) =>
+      ) {
+        show(
+          "This course is not assigned to the selected student.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    setSaving(true);
+
+    try {
+      await api.post("/fees", {
+        student:
+          createForm.student,
+
+        course:
+          createForm.course,
+
+        billingMonth:
+          createForm.billingMonth,
+
+        amount,
+
+        amountPaid,
+
+        dueDate:
+          createForm.dueDate,
+
+        paymentDate:
+          createForm.paymentDate ||
+          undefined,
+
+        paymentMethod:
+          createForm.paymentMethod ||
+          undefined,
+
+        transactionId:
+          createForm.transactionId ||
+          undefined,
+
+        note:
+          createForm.note ||
+          undefined,
+      });
+
+      show(
+        "Monthly fee record created successfully",
+        "success"
+      );
+
+      setCreateOpen(false);
+
+      setCreateForm({
+        ...emptyCreate,
+        billingMonth:
+          getCurrentMonth(),
+        dueDate: getToday(),
+      });
+
+      await load();
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * OPEN EDIT
+   * =======================================================
+   */
+  function openEdit(
+    fee: FeeWithMonthly
+  ) {
+    setEditTarget(fee);
+
+    setUpdateForm({
+      billingMonth:
+        fee.billingMonth || "",
+
+      amount:
+        String(fee.amount || 0),
+
+      amountPaid:
+        String(fee.amountPaid || 0),
+
+      dueDate:
+        fee.dueDate
+          ? fee.dueDate.slice(0, 10)
+          : "",
+
+      paymentDate:
+        fee.paymentDate
+          ? fee.paymentDate.slice(0, 10)
+          : "",
+
+      paymentMethod:
+        fee.paymentMethod || "",
+
+      transactionId:
+        fee.transactionId || "",
+
+      note:
+        fee.note || "",
+    });
+  }
+
+  /*
+   * =======================================================
+   * UPDATE
+   * =======================================================
+   */
+  async function handleUpdate() {
+    if (!editTarget) return;
+
+    const amount = Number(
+      updateForm.amount || 0
+    );
+
+    const amountPaid = Number(
+      updateForm.amountPaid || 0
+    );
+
+    if (amount <= 0) {
+      show(
+        "Fee amount must be greater than 0",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid < 0) {
+      show(
+        "Paid amount cannot be negative",
+        "error"
+      );
+      return;
+    }
+
+    if (amountPaid > amount) {
+      show(
+        "Paid amount cannot be greater than fee",
+        "error"
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await api.put(
+        `/fees/${editTarget._id}`,
+        {
+          billingMonth:
+            updateForm.billingMonth ||
+            undefined,
+
+          amount,
+
+          amountPaid,
+
+          dueDate:
+            updateForm.dueDate ||
+            undefined,
+
+          paymentDate:
+            updateForm.paymentDate ||
+            undefined,
+
+          paymentMethod:
+            updateForm.paymentMethod ||
+            undefined,
+
+          transactionId:
+            updateForm.transactionId ||
+            undefined,
+
+          note:
+            updateForm.note ||
+            undefined,
+        }
+      );
+
+      show(
+        "Monthly fee record updated",
+        "success"
+      );
+
+      setEditTarget(null);
+
+      await load();
+    } catch (err) {
+      show(
+        getErrorMessage(err),
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * DELETE FEE RECORD
+   * =======================================================
+   */
+  async function handleDeleteFee(
+    fee: FeeWithMonthly
+  ) {
+    const studentName = getStudentName(fee.student);
+    const courseName = getCourseName(fee.course);
+    const amount = Number(fee.amount || 0);
+    const paid = Number(fee.amountPaid || 0);
+
+    const warning = paid > 0
+      ? `\n\nWARNING: This record has ${money(paid)} recorded as paid. Deleting it may make the fee totals differ from payment history.`
+      : "";
+
+    const confirmed = window.confirm(
+      `Delete this fee record?\n\n` +
+      `Student: ${studentName}\n` +
+      `Course: ${courseName}\n` +
+      `Month: ${monthLabel(fee.billingMonth)}\n` +
+      `Total fee: ${money(amount)}\n` +
+      `Recorded paid: ${money(paid)}` +
+      warning +
+      `\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/fees/${fee._id}`);
+      show("Fee record deleted successfully.", "success");
+      await load();
+    } catch (err) {
+      show(getErrorMessage(err), "error");
+    }
+  }
+
+  /*
+   * =======================================================
+   * MONTH TOGGLE
+   * =======================================================
+   */
+  function toggleMonth(
+    month: string
+  ) {
+    setOpenMonths((prev) => ({
+      ...prev,
+      [month]: !prev[month],
+    }));
+  }
+
+  const createDue = Math.max(
+    0,
+    Number(createForm.amount || 0) -
+      Number(
+        createForm.amountPaid || 0
+      )
+  );
+
+  const updateDue = Math.max(
+    0,
+    Number(updateForm.amount || 0) -
+      Number(
+        updateForm.amountPaid || 0
+      )
+  );
+
+  /*
+   * =======================================================
+   * PENDING COUNT
+   * =======================================================
+   */
+  const pendingPaymentCount =
+    paymentRequests.filter(
+      (request) =>
+        request.status === "PENDING"
+    ).length;
+
+  /*
+   * =======================================================
+   * UI
+   * =======================================================
+   */
+  return (
+    <div className="space-y-6">
+      {/* ===================================================
+          HEADER
+      =================================================== */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-brand-gold">
+            Finance Management
+          </p>
+
+          <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+            Monthly Fees
+          </h1>
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Manage every student fee month by month:
+            Student → Course → Fee → Paid → Due.
+          </p>
+        </div>
+
+        <Button
+          onClick={() => {
+            setCreateForm({
+              ...emptyCreate,
+              billingMonth:
+                getCurrentMonth(),
+              dueDate: getToday(),
+            });
+
+            setCreateOpen(true);
+          }}
+          className="gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add Monthly Fee
+        </Button>
+      </div>
+
+      {/* ===================================================
+          MAIN TOTALS
+      =================================================== */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="card-premium p-5">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <FileText className="h-5 w-5" />
+          </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Records
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+            {summary.totalRecords}
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+            <CircleDollarSign className="h-5 w-5" />
+          </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Fee
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+            {money(summary.totalFee)}
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+            <Wallet className="h-5 w-5" />
+          </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Paid
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+            {money(summary.totalPaid)}
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300">
+            <CalendarDays className="h-5 w-5" />
+          </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Total Due
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-red-700 dark:text-red-300">
+            {money(summary.totalDue)}
+          </p>
+        </div>
+      </div>
+
+      {/* ===================================================
+          BKASH PAYMENT VERIFICATION
+      =================================================== */}
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e2136e]/10 text-[#e2136e]">
+                <CreditCard className="h-5 w-5" />
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                    bKash Payment Verification
+                  </h2>
+
+                  {pendingPaymentCount > 0 && (
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      {pendingPaymentCount} Pending
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Verify student-submitted bKash payments before adding them to the fee record.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadPaymentRequests}
+              disabled={paymentRequestLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  paymentRequestLoading
+                    ? "animate-spin"
+                    : ""
+                }`}
+              />
+              Refresh
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {[
+              {
+                value: "",
+                label: "All",
+              },
+              {
+                value: "PENDING",
+                label: "Pending",
+              },
+              {
+                value: "APPROVED",
+                label: "Approved",
+              },
+              {
+                value: "REJECTED",
+                label: "Rejected",
+              },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() =>
+                  setPaymentRequestStatus(
+                    item.value
+                  )
+                }
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  paymentRequestStatus ===
+                  item.value
+                    ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {paymentRequestLoading ? (
+          <div className="flex min-h-[180px] items-center justify-center">
+            <Loader />
+          </div>
+        ) : paymentRequests.length === 0 ? (
+          <div className="p-8">
+            <EmptyState message="No bKash payment requests found." />
+          </div>
+        ) : (
+          <>
+            {/* Desktop payment requests */}
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[1100px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left dark:border-slate-800">
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Student
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Fee
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Payment
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Submitted
+                    </th>
+
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Status
+                    </th>
+
+                    <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {paymentRequests.map(
+                    (request) => (
+                      <tr
+                        key={request._id}
+                        className="border-b border-slate-100 last:border-0 dark:border-slate-800/80"
+                      >
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              <UserRound className="h-4 w-4" />
+                            </div>
+
+                            <div>
+                              <p className="font-semibold text-slate-950 dark:text-white">
+                                {request.student
+                                  ?.fullName ||
+                                  "Unknown Student"}
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                ID:{" "}
+                                {request.student
+                                  ?.studentId ||
+                                  "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <p className="font-semibold text-slate-950 dark:text-white">
+                            {request.fee
+                              ?.billingMonth
+                              ? monthLabel(
+                                  request.fee
+                                    .billingMonth
+                                )
+                              : "Fee"}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            Fee:{" "}
+                            {money(
+                              Number(
+                                request.fee
+                                  ?.amount ||
+                                  0
+                              )
+                            )}
+                            {" • "}
+                            Due:{" "}
+                            {money(
+                              Math.max(
+                                0,
+                                Number(
+                                  request
+                                    .fee
+                                    ?.amount ||
+                                    0
+                                ) -
+                                  Number(
+                                    request
+                                      .fee
+                                      ?.amountPaid ||
+                                      0
+                                  )
+                              )
+                            )}
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <p className="font-bold text-[#e2136e]">
+                            {money(
+                              Number(
+                                request.amount ||
+                                  0
+                              )
+                            )}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            bKash:{" "}
+                            {request.senderNumber}
+                          </p>
+
+                          <p className="mt-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            TrxID:{" "}
+                            {request.transactionId}
+                          </p>
+                        </td>
+
+                        <td className="px-6 py-5 text-sm text-slate-500">
+                          {formatDateTime(
+                            request.createdAt
+                          )}
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <Badge
+                            color={getPaymentStatusColor(
+                              request.status
+                            )}
+                          >
+                            {request.status}
+                          </Badge>
+
+                          {request.rejectionReason && (
+                            <p className="mt-2 max-w-[180px] text-xs text-red-600 dark:text-red-400">
+                              {request.rejectionReason}
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-5 text-right">
+                          {request.status ===
+                          "PENDING" ? (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                disabled={
+                                  paymentActionId ===
+                                  request._id
+                                }
+                                onClick={() =>
+                                  handleApprovePayment(
+                                    request
+                                  )
+                                }
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Check className="h-4 w-4" />
+
+                                {paymentActionId ===
+                                request._id
+                                  ? "..."
+                                  : "Approve"}
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  paymentActionId ===
+                                  request._id
+                                }
+                                onClick={() => {
+                                  setRejectTarget(
+                                    request
+                                  );
+                                  setRejectionReason(
+                                    ""
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <X className="h-4 w-4" />
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">
+                              Reviewed
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile payment requests */}
+            <div className="divide-y divide-slate-200 dark:divide-slate-800 lg:hidden">
+              {paymentRequests.map(
+                (request) => (
+                  <div
+                    key={request._id}
+                    className="p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          <UserRound className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-950 dark:text-white">
+                            {request.student
+                              ?.fullName ||
+                              "Unknown Student"}
+                          </p>
+
+                          <p className="text-xs text-slate-500">
+                            {request.student
+                              ?.studentId ||
+                              "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Badge
+                        color={getPaymentStatusColor(
+                          request.status
+                        )}
+                      >
+                        {request.status}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            Requested Amount
+                          </p>
+
+                          <p className="mt-1 text-xl font-bold text-[#e2136e]">
+                            {money(
+                              Number(
+                                request.amount ||
+                                  0
+                              )
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">
+                            Billing Month
+                          </p>
+
+                          <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            {monthLabel(
+                              request.fee
+                                ?.billingMonth
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            Sender bKash
+                          </p>
+
+                          <p className="mt-1 font-semibold text-slate-900 dark:text-white">
+                            {request.senderNumber}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-slate-500">
+                            Transaction ID
+                          </p>
+
+                          <p className="mt-1 break-all font-semibold text-slate-900 dark:text-white">
+                            {request.transactionId}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+                        <p className="text-xs text-slate-500">
+                          Submitted
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+                          {formatDateTime(
+                            request.createdAt
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {request.rejectionReason && (
+                      <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                        <strong>
+                          Rejection reason:
+                        </strong>{" "}
+                        {request.rejectionReason}
+                      </div>
+                    )}
+
+                    {request.status ===
+                      "PENDING" && (
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            paymentActionId ===
+                            request._id
+                          }
+                          onClick={() =>
+                            handleApprovePayment(
+                              request
+                            )
+                          }
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            paymentActionId ===
+                            request._id
+                          }
+                          onClick={() => {
+                            setRejectTarget(
+                              request
+                            );
+                            setRejectionReason(
+                              ""
+                            );
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-60"
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* ===================================================
+          FEE FILTERS
+      =================================================== */}
+      <div className="card-premium p-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+            <input
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              placeholder="Search student, ID, course..."
+              className="input-field pl-10"
+            />
+          </div>
+
+          <input
+            type="month"
+            value={monthFilter}
+            onChange={(e) =>
+              setMonthFilter(
+                e.target.value
+              )
+            }
+            className="input-field"
+          />
+
+          <select
+            value={studentFilter}
+            onChange={(e) =>
+              setStudentFilter(
+                e.target.value
+              )
+            }
+            className="input-field"
+          >
+            <option value="">
+              All Students
+            </option>
+
+            {students.map(
+              (student) => (
+                <option
+                  key={student._id}
+                  value={student._id}
+                >
+                  {student.fullName} —{" "}
+                  {student.studentId}
+                </option>
+              )
+            )}
+          </select>
+
+          <select
+            value={courseFilter}
+            onChange={(e) =>
+              setCourseFilter(
+                e.target.value
+              )
+            }
+            className="input-field"
+          >
+            <option value="">
+              All Courses
+            </option>
+
+            {courses.map(
+              (course) => (
+                <option
+                  key={course._id}
+                  value={course._id}
+                >
+                  {course.title}
+                </option>
+              )
+            )}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value
+              )
+            }
+            className="input-field"
+          >
+            <option value="">
+              All Status
+            </option>
+
+            <option value="PAID">
+              Paid
+            </option>
+
+            <option value="PARTIAL">
+              Partial
+            </option>
+
+            <option value="PENDING">
+              Pending
+            </option>
+          </select>
+        </div>
+
+        {(search ||
+          monthFilter ||
+          studentFilter ||
+          courseFilter ||
+          statusFilter) && (
+          <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-semibold text-slate-900 dark:text-white">
+                {filteredFees.length}
+              </span>{" "}
+              fee records
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setMonthFilter("");
+                setStudentFilter("");
+                setCourseFilter("");
+                setStatusFilter("");
+              }}
+              className="text-sm font-semibold text-brand-gold hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ===================================================
+          FILTERED TOTALS
+      =================================================== */}
+      {(search ||
+        monthFilter ||
+        studentFilter ||
+        courseFilter ||
+        statusFilter) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs text-slate-500">
+              Filtered Fee
+            </p>
+
+            <p className="mt-1 font-display text-xl font-bold text-slate-950 dark:text-white">
+              {money(
+                filteredTotals.fee
+              )}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <p className="text-xs text-emerald-700 dark:text-emerald-300">
+              Filtered Paid
+            </p>
+
+            <p className="mt-1 font-display text-xl font-bold text-emerald-700 dark:text-emerald-300">
+              {money(
+                filteredTotals.paid
+              )}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-900/40 dark:bg-red-950/20">
+            <p className="text-xs text-red-700 dark:text-red-300">
+              Filtered Due
+            </p>
+
+            <p className="mt-1 font-display text-xl font-bold text-red-700 dark:text-red-300">
+              {money(filteredDue)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================
+          FEE HISTORY
+      =================================================== */}
+      {loading ? (
+        <div className="card-premium flex min-h-[300px] items-center justify-center">
+          <Loader />
+        </div>
+      ) : monthGroups.length === 0 ? (
+        <div className="card-premium p-8">
+          <EmptyState message="No fee records found. There are no fee records matching the current filters." />
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {monthGroups.map(
+            ([month, monthFees]) => {
+              const monthFee =
+                monthFees.reduce(
+                  (sum, fee) =>
                     sum +
                     Number(
-                      fee.amount ||
-                        0
+                      fee.amount || 0
                     ),
                   0
                 );
 
-              const totalPaid =
-                records.reduce(
-                  (
-                    sum,
-                    fee
-                  ) =>
+              const monthPaid =
+                monthFees.reduce(
+                  (sum, fee) =>
                     sum +
                     Number(
                       fee.amountPaid ||
@@ -753,575 +2050,132 @@ export default function Fees() {
                   0
                 );
 
-              return {
-                month,
-                label:
-                  month ===
-                  "UNKNOWN"
-                    ? "Unknown Month"
-                    : formatMonth(
-                        month
-                      ),
-                records,
-                totalFee,
-                totalPaid,
-                totalDue:
-                  Math.max(
-                    totalFee -
-                      totalPaid,
-                    0
-                  ),
-              };
-            }
-          );
-      },
-      [filteredFees]
-    );
+              const monthDue =
+                Math.max(
+                  0,
+                  monthFee -
+                    monthPaid
+                );
 
-  const filteredTotals =
-    useMemo(() => {
-      const totalFee =
-        filteredFees.reduce(
-          (sum, fee) =>
-            sum +
-            Number(
-              fee.amount || 0
-            ),
-          0
-        );
+              const isOpen =
+                openMonths[month] !==
+                false;
 
-      const totalPaid =
-        filteredFees.reduce(
-          (sum, fee) =>
-            sum +
-            Number(
-              fee.amountPaid || 0
-            ),
-          0
-        );
-
-      const totalDue =
-        Math.max(
-          totalFee -
-            totalPaid,
-          0
-        );
-
-      return {
-        totalFee,
-        totalPaid,
-        totalDue,
-      };
-    }, [filteredFees]);
-
-  const displayedTotals =
-    selectedMonth === "ALL" &&
-    selectedCourse === "ALL"
-      ? overallTotals
-      : filteredTotals;
-
-  const paidPercentage =
-    displayedTotals.totalFee >
-    0
-      ? Math.min(
-          100,
-          Math.round(
-            (displayedTotals.totalPaid /
-              displayedTotals.totalFee) *
-              100
-          )
-        )
-      : 0;
-
-  const pendingPaymentCount =
-    paymentRequests.filter(
-      (request) =>
-        request.status ===
-        "PENDING"
-    ).length;
-
-  const hasPendingPayment =
-    pendingPaymentCount > 0;
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[420px] items-center justify-center">
-        <Loader />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-
-          <div>
-            <p className="font-semibold">
-              Unable to load fee statement
-            </p>
-
-            <p className="mt-1 text-sm">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadFees}
-              className="mt-4 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-800"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#111827] via-[#182235] to-[#263449] p-6 text-white shadow-xl sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/80">
-              <ReceiptText className="h-4 w-4" />
-              Student Finance
-            </div>
-
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Fee Statement
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-              View your fees, overall
-              outstanding balance,
-              payment history, and
-              bKash payment status in
-              one place.
-            </p>
-          </div>
-
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
-            <Wallet className="h-8 w-8 text-[#d7b56d]" />
-          </div>
-        </div>
-      </section>
-
-      {/* Overall Summary */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Total Fee
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {formatCurrency(
-                  displayedTotals.totalFee
-                )}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
-              <FileText className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Paid
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-emerald-700">
-                {formatCurrency(
-                  displayedTotals.totalPaid
-                )}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Due / Unpaid
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-rose-700">
-                {formatCurrency(
-                  displayedTotals.totalDue
-                )}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-rose-50 p-3 text-rose-700">
-              <CreditCard className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-[#d7b56d]/40 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-500">
-                Payment Progress
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-900">
-                {paidPercentage}%
-              </p>
-
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-[#b8954f] transition-all"
-                  style={{
-                    width: `${paidPercentage}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-[#faf6eb] p-3 text-[#9b7838]">
-              <Wallet className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Filters */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-5">
-          <h2 className="text-lg font-bold text-slate-900">
-            Fee Filters
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Filter your fee statement by
-            month or course.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-700">
-              Billing Month
-            </span>
-
-            <select
-              value={selectedMonth}
-              onChange={(event) =>
-                setSelectedMonth(
-                  event.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
-            >
-              <option value="ALL">
-                All Months
-              </option>
-
-              {monthOptions.map(
-                (month) => (
-                  <option
-                    key={month}
-                    value={month}
+              return (
+                <section
+                  key={month}
+                  className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toggleMonth(month)
+                    }
+                    className="w-full border-b border-slate-200 bg-slate-50/80 p-5 text-left transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:bg-slate-900"
                   >
-                    {formatMonth(
-                      month
-                    )}
-                  </option>
-                )
-              )}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-700">
-              Course
-            </span>
-
-            <select
-              value={selectedCourse}
-              onChange={(event) =>
-                setSelectedCourse(
-                  event.target.value
-                )
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
-            >
-              <option value="ALL">
-                All Courses
-              </option>
-
-              {courseOptions.map(
-                (course) => (
-                  <option
-                    key={course._id}
-                    value={course._id}
-                  >
-                    {course.name}
-                  </option>
-                )
-              )}
-            </select>
-          </label>
-        </div>
-      </section>
-
-      {/* Monthly Statement */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Monthly Statement
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Detailed fee records grouped
-                by billing month.
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-              {monthlyGroups.length}{" "}
-              {monthlyGroups.length ===
-              1
-                ? "month"
-                : "months"}
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 sm:p-6">
-          {monthlyGroups.length ===
-          0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <div className="rounded-full bg-slate-100 p-3 text-slate-500">
-                <FileText className="h-7 w-7" />
-              </div>
-
-              <div>
-                <p className="text-lg font-semibold text-slate-800">
-                  No fee records found
-                </p>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  There are no fee records
-                  matching your selected
-                  filters.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {monthlyGroups.map(
-                (group) => {
-                  const isOpen =
-                    openMonths[
-                      group.month
-                    ] ?? true;
-
-                  return (
-                    <div
-                      key={group.month}
-                      className="overflow-hidden rounded-2xl border border-slate-200"
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenMonths(
-                            (current) => ({
-                              ...current,
-                              [group.month]:
-                                !isOpen,
-                            })
-                          )
-                        }
-                        className="flex w-full items-center justify-between gap-4 bg-slate-50 px-4 py-4 text-left transition hover:bg-slate-100 sm:px-5"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="rounded-xl bg-white p-2.5 text-slate-700 shadow-sm">
-                            <CalendarDays className="h-5 w-5" />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate font-bold text-slate-900">
-                              {group.label}
-                            </p>
-
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {
-                                group.records
-                                  .length
-                              }{" "}
-                              {group.records
-                                .length ===
-                              1
-                                ? "fee record"
-                                : "fee records"}
-                            </p>
-                          </div>
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
+                          <CalendarDays className="h-5 w-5" />
                         </div>
 
-                        <div className="flex shrink-0 items-center gap-3">
-                          <div className="hidden text-right sm:block">
-                            <p className="text-xs text-slate-500">
-                              Due
-                            </p>
+                        <div>
+                          <p className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                            {monthLabel(month)}
+                          </p>
 
-                            <p className="font-bold text-rose-700">
-                              {formatCurrency(
-                                group.totalDue
-                              )}
-                            </p>
-                          </div>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {monthFees.length} fee{" "}
+                            {monthFees.length ===
+                            1
+                              ? "record"
+                              : "records"}
+                          </p>
+                        </div>
+                      </div>
 
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 dark:border-slate-700 dark:bg-slate-950">
+                          <span className="text-xs text-slate-500">
+                            Fee
+                          </span>
+
+                          <p className="font-bold text-slate-950 dark:text-white">
+                            {money(monthFee)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                          <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                            Paid
+                          </span>
+
+                          <p className="font-bold text-emerald-700 dark:text-emerald-300">
+                            {money(monthPaid)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 dark:border-red-900/50 dark:bg-red-950/30">
+                          <span className="text-xs text-red-700 dark:text-red-300">
+                            Due
+                          </span>
+
+                          <p className="font-bold text-red-700 dark:text-red-300">
+                            {money(monthDue)}
+                          </p>
+                        </div>
+
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
                           {isOpen ? (
-                            <ChevronUp className="h-5 w-5 text-slate-500" />
+                            <ChevronUp className="h-5 w-5" />
                           ) : (
-                            <ChevronDown className="h-5 w-5 text-slate-500" />
+                            <ChevronDown className="h-5 w-5" />
                           )}
                         </div>
-                      </button>
+                      </div>
+                    </div>
+                  </button>
 
-                      {isOpen && (
-                        <div className="border-t border-slate-200">
-                          {/* Desktop */}
-                          <div className="hidden overflow-x-auto md:block">
-                            <table className="min-w-full">
-                              <thead>
-                                <tr className="border-b border-slate-200 bg-white text-left">
-                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Course
-                                  </th>
+                  {isOpen && (
+                    <>
+                      {/* Desktop */}
+                      <div className="hidden overflow-x-auto lg:block">
+                        <table className="w-full min-w-[1000px]">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-left dark:border-slate-800">
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Student
+                              </th>
 
-                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Billing Month
-                                  </th>
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Course
+                              </th>
 
-                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Amount
-                                  </th>
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Fee
+                              </th>
 
-                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Paid
-                                  </th>
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-emerald-600">
+                                Paid
+                              </th>
 
-                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Due
-                                  </th>
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-red-600">
+                                Due
+                              </th>
 
-                                  <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Status
-                                  </th>
-                                </tr>
-                              </thead>
+                              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Status
+                              </th>
 
-                              <tbody>
-                                {group.records.map(
-                                  (fee) => {
-                                    const course =
-                                      getCourse(
-                                        fee.course
-                                      );
+                              <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
 
-                                    const amount =
-                                      Number(
-                                        fee.amount ||
-                                          0
-                                      );
-
-                                    const paid =
-                                      Number(
-                                        fee.amountPaid ||
-                                          0
-                                      );
-
-                                    const due =
-                                      Math.max(
-                                        amount -
-                                          paid,
-                                        0
-                                      );
-
-                                    return (
-                                      <tr
-                                        key={
-                                          fee._id
-                                        }
-                                        className="border-b border-slate-100 last:border-0"
-                                      >
-                                        <td className="px-5 py-4">
-                                          <div className="font-semibold text-slate-900">
-                                            {course?.name ||
-                                              "Course"}
-                                          </div>
-                                        </td>
-
-                                        <td className="px-5 py-4 text-sm text-slate-600">
-                                          {formatMonth(
-                                            fee.billingMonth
-                                          )}
-                                        </td>
-
-                                        <td className="px-5 py-4 text-sm font-semibold text-slate-900">
-                                          {formatCurrency(
-                                            amount
-                                          )}
-                                        </td>
-
-                                        <td className="px-5 py-4 text-sm font-semibold text-emerald-700">
-                                          {formatCurrency(
-                                            paid
-                                          )}
-                                        </td>
-
-                                        <td className="px-5 py-4 text-sm font-semibold text-rose-700">
-                                          {formatCurrency(
-                                            due
-                                          )}
-                                        </td>
-
-                                        <td className="px-5 py-4">
-                                          <span
-                                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
-                                              fee.status
-                                            )}`}
-                                          >
-                                            {getStatusLabel(
-                                              fee.status
-                                            )}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  }
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* Mobile */}
-                          <div className="divide-y divide-slate-100 md:hidden">
-                            {group.records.map(
+                          <tbody>
+                            {monthFees.map(
                               (fee) => {
-                                const course =
-                                  getCourse(
-                                    fee.course
-                                  );
-
                                 const amount =
                                   Number(
                                     fee.amount ||
@@ -1336,954 +2190,907 @@ export default function Fees() {
 
                                 const due =
                                   Math.max(
+                                    0,
                                     amount -
-                                      paid,
-                                    0
+                                      paid
+                                  );
+
+                                const status =
+                                  fee.status ||
+                                  getStatus(
+                                    amount,
+                                    paid
                                   );
 
                                 return (
-                                  <div
+                                  <tr
                                     key={
                                       fee._id
                                     }
-                                    className="space-y-4 p-4"
+                                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 dark:border-slate-800/80 dark:hover:bg-slate-900/50"
                                   >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div>
-                                        <p className="font-bold text-slate-900">
-                                          {course?.name ||
-                                            "Course"}
-                                        </p>
+                                    <td className="px-6 py-5">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                          <UserRound className="h-4 w-4" />
+                                        </div>
 
-                                        <p className="mt-1 text-xs text-slate-500">
-                                          {formatMonth(
-                                            fee.billingMonth
-                                          )}
-                                        </p>
+                                        <div>
+                                          <p className="font-semibold text-slate-950 dark:text-white">
+                                            {getStudentName(
+                                              fee.student
+                                            )}
+                                          </p>
+
+                                          <p className="mt-0.5 text-xs text-slate-500">
+                                            ID:{" "}
+                                            {getStudentId(
+                                              fee.student
+                                            )}
+                                          </p>
+                                        </div>
                                       </div>
+                                    </td>
 
-                                      <span
-                                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClass(
-                                          fee.status
-                                        )}`}
-                                      >
-                                        {getStatusLabel(
-                                          fee.status
+                                    <td className="px-6 py-5">
+                                      <p className="font-medium text-slate-800 dark:text-slate-200">
+                                        {getCourseName(
+                                          fee.course
                                         )}
-                                      </span>
-                                    </div>
+                                      </p>
 
-                                    <div className="grid grid-cols-3 gap-3">
-                                      <div className="rounded-xl bg-slate-50 p-3">
-                                        <p className="text-[11px] font-medium text-slate-500">
-                                          Amount
-                                        </p>
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        {getCourseSubject(
+                                          fee.course
+                                        )}
+                                      </p>
+                                    </td>
 
-                                        <p className="mt-1 text-sm font-bold text-slate-900">
-                                          {formatCurrency(
-                                            amount
-                                          )}
-                                        </p>
+                                    <td className="px-6 py-5 font-semibold text-slate-950 dark:text-white">
+                                      {money(amount)}
+                                    </td>
+
+                                    <td className="px-6 py-5 font-semibold text-emerald-700 dark:text-emerald-300">
+                                      {money(paid)}
+                                    </td>
+
+                                    <td className="px-6 py-5 font-semibold text-red-700 dark:text-red-300">
+                                      {money(due)}
+                                    </td>
+
+                                    <td className="px-6 py-5">
+                                      <Badge
+                                        color={getStatusColor(
+                                          status
+                                        )}
+                                      >
+                                        {status}
+                                      </Badge>
+                                    </td>
+
+                                    <td className="px-6 py-5 text-right">
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => openEdit(fee)}
+                                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                          title="Edit fee"
+                                          aria-label="Edit fee"
+                                        >
+                                          <Edit3 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteFee(fee)}
+                                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950"
+                                          title="Delete fee"
+                                          aria-label="Delete fee"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
                                       </div>
-
-                                      <div className="rounded-xl bg-emerald-50 p-3">
-                                        <p className="text-[11px] font-medium text-emerald-600">
-                                          Paid
-                                        </p>
-
-                                        <p className="mt-1 text-sm font-bold text-emerald-700">
-                                          {formatCurrency(
-                                            paid
-                                          )}
-                                        </p>
-                                      </div>
-
-                                      <div className="rounded-xl bg-rose-50 p-3">
-                                        <p className="text-[11px] font-medium text-rose-600">
-                                          Due
-                                        </p>
-
-                                        <p className="mt-1 text-sm font-bold text-rose-700">
-                                          {formatCurrency(
-                                            due
-                                          )}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    {due <=
-                                    0 ? (
-                                      <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Fully Paid
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
-                                        <Wallet className="h-4 w-4" />
-                                        Included in overall
-                                        bKash payment
-                                      </div>
-                                    )}
-                                  </div>
+                                    </td>
+                                  </tr>
                                 );
                               }
                             )}
-                          </div>
-
-                          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                            <div className="text-slate-600">
-                              Total:{" "}
-                              <span className="font-bold text-slate-900">
-                                {formatCurrency(
-                                  group.totalFee
-                                )}
-                              </span>
-                            </div>
-
-                            <div className="flex gap-4">
-                              <span className="text-emerald-700">
-                                Paid:{" "}
-                                <strong>
-                                  {formatCurrency(
-                                    group.totalPaid
-                                  )}
-                                </strong>
-                              </span>
-
-                              <span className="text-rose-700">
-                                Due:{" "}
-                                <strong>
-                                  {formatCurrency(
-                                    group.totalDue
-                                  )}
-                                </strong>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Course-wise Summary */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-5">
-          <h2 className="text-xl font-bold text-slate-900">
-            Course-wise Fee Summary
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Your fee totals grouped by enrolled
-            course. bKash payments are handled
-            across all courses together.
-          </p>
-        </div>
-
-        {courseOptions.length ===
-        0 ? (
-          <EmptyState message="No course fee records. Course-wise fee information is not available yet." />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {courseOptions.map(
-              (course) => {
-                const courseFees =
-                  fees.filter(
-                    (fee) => {
-                      const feeCourse =
-                        getCourse(
-                          fee.course
-                        );
-
-                      return (
-                        feeCourse?._id ===
-                        course._id
-                      );
-                    }
-                  );
-
-                const totalFee =
-                  courseFees.reduce(
-                    (
-                      sum,
-                      fee
-                    ) =>
-                      sum +
-                      Number(
-                        fee.amount ||
-                          0
-                      ),
-                    0
-                  );
-
-                const totalPaid =
-                  courseFees.reduce(
-                    (
-                      sum,
-                      fee
-                    ) =>
-                      sum +
-                      Number(
-                        fee.amountPaid ||
-                          0
-                      ),
-                    0
-                  );
-
-                const totalDue =
-                  Math.max(
-                    totalFee -
-                      totalPaid,
-                    0
-                  );
-
-                return (
-                  <div
-                    key={
-                      course._id
-                    }
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-xl bg-white p-3 text-slate-700 shadow-sm">
-                        <Wallet className="h-5 w-5" />
+                          </tbody>
+                        </table>
                       </div>
 
-                      <div className="min-w-0">
-                        <h3 className="truncate font-bold text-slate-900">
-                          {course.name}
-                        </h3>
+                      {/* Mobile */}
+                      <div className="divide-y divide-slate-200 dark:divide-slate-800 lg:hidden">
+                        {monthFees.map(
+                          (fee) => {
+                            const amount =
+                              Number(
+                                fee.amount ||
+                                  0
+                              );
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          {
-                            courseFees.length
-                          }{" "}
-                          {courseFees.length ===
-                          1
-                            ? "record"
-                            : "records"}
-                        </p>
-                      </div>
-                    </div>
+                            const paid =
+                              Number(
+                                fee.amountPaid ||
+                                  0
+                              );
 
-                    <div className="mt-5 grid grid-cols-3 gap-2">
-                      <div className="rounded-xl bg-white p-3">
-                        <p className="text-[11px] text-slate-500">
-                          Total
-                        </p>
+                            const due =
+                              Math.max(
+                                0,
+                                amount -
+                                  paid
+                              );
 
-                        <p className="mt-1 text-sm font-bold text-slate-900">
-                          {formatCurrency(
-                            totalFee
-                          )}
-                        </p>
-                      </div>
+                            const status =
+                              fee.status ||
+                              getStatus(
+                                amount,
+                                paid
+                              );
 
-                      <div className="rounded-xl bg-emerald-50 p-3">
-                        <p className="text-[11px] text-emerald-600">
-                          Paid
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold text-emerald-700">
-                          {formatCurrency(
-                            totalPaid
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-rose-50 p-3">
-                        <p className="text-[11px] text-rose-600">
-                          Due
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold text-rose-700">
-                          {formatCurrency(
-                            totalDue
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Payment History */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-[#faf6eb] p-2.5 text-[#9b7838]">
-                  <ReceiptText className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">
-                    Payment History
-                  </h2>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    Track your overall bKash payment
-                    verification requests.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={
-                loadPaymentRequests
-              }
-              disabled={
-                paymentLoading
-              }
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Clock3
-                className={`h-4 w-4 ${
-                  paymentLoading
-                    ? "animate-spin"
-                    : ""
-                }`}
-              />
-
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5 sm:p-6">
-          {paymentError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-              {paymentError}
-            </div>
-          ) : paymentRequests.length ===
-            0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-              <ReceiptText className="mx-auto h-8 w-8 text-slate-400" />
-
-              <p className="mt-3 font-semibold text-slate-800">
-                No payment requests yet
-              </p>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Your submitted bKash
-                payment requests will
-                appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paymentRequests.map(
-                (request) => (
-                  <div
-                    key={
-                      request._id
-                    }
-                    className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getPaymentStatusClass(
-                              request.status
-                            )}`}
-                          >
-                            {getPaymentStatusLabel(
-                              request.status
-                            )}
-                          </span>
-
-                          <span className="text-xs text-slate-500">
-                            {formatDateTime(
-                              request.createdAt
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <div>
-                            <p className="text-xs text-slate-500">
-                              Payment Amount
-                            </p>
-
-                            <p className="mt-1 font-bold text-slate-900">
-                              {formatCurrency(
-                                request.amount
-                              )}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-slate-500">
-                              Sender Number
-                            </p>
-
-                            <p className="mt-1 font-semibold text-slate-800">
-                              {
-                                request.senderNumber
-                              }
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-slate-500">
-                              Transaction ID
-                            </p>
-
-                            <p className="mt-1 break-all font-semibold text-slate-800">
-                              {
-                                request.transactionId
-                              }
-                            </p>
-                          </div>
-                        </div>
-
-                        {request.status ===
-                          "APPROVED" &&
-                          request.allocations &&
-                          request.allocations.length >
-                            0 && (
-                            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
-                                Payment Allocated
-                              </p>
-
-                              <div className="mt-3 space-y-2">
-                                {request.allocations.map(
-                                  (
-                                    allocation,
-                                    index
-                                  ) => (
-                                    <div
-                                      key={`${request._id}-${index}`}
-                                      className="flex items-center justify-between gap-4 text-sm"
-                                    >
-                                      <span className="text-emerald-800">
-                                        {allocation.fee
-                                          ?.billingMonth
-                                          ? formatMonth(
-                                              allocation
-                                                .fee
-                                                .billingMonth
-                                            )
-                                          : `Fee ${index + 1}`}
-                                      </span>
-
-                                      <span className="font-bold text-emerald-700">
-                                        {formatCurrency(
-                                          allocation.amount
-                                        )}
-                                      </span>
+                            return (
+                              <div
+                                key={
+                                  fee._id
+                                }
+                                className="p-5"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                      <UserRound className="h-4 w-4" />
                                     </div>
-                                  )
-                                )}
+
+                                    <div className="min-w-0">
+                                      <p className="truncate font-semibold text-slate-950 dark:text-white">
+                                        {getStudentName(
+                                          fee.student
+                                        )}
+                                      </p>
+
+                                      <p className="text-xs text-slate-500">
+                                        {getStudentId(
+                                          fee.student
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex shrink-0 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openEdit(fee)}
+                                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700"
+                                      title="Edit fee"
+                                      aria-label="Edit fee"
+                                    >
+                                      <Edit3 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteFee(fee)}
+                                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 text-red-600 dark:border-red-900"
+                                      title="Delete fee"
+                                      aria-label="Delete fee"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
+                                  <p className="font-medium text-slate-800 dark:text-slate-200">
+                                    {getCourseName(
+                                      fee.course
+                                    )}
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {getCourseSubject(
+                                      fee.course
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-3 gap-2">
+                                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                                    <p className="text-[10px] font-semibold uppercase text-slate-500">
+                                      Fee
+                                    </p>
+
+                                    <p className="mt-1 font-bold text-slate-950 dark:text-white">
+                                      {money(amount)}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                                    <p className="text-[10px] font-semibold uppercase text-emerald-600">
+                                      Paid
+                                    </p>
+
+                                    <p className="mt-1 font-bold text-emerald-700 dark:text-emerald-300">
+                                      {money(paid)}
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl border border-red-200 bg-red-50/50 p-3 dark:border-red-900/40 dark:bg-red-950/20">
+                                    <p className="text-[10px] font-semibold uppercase text-red-600">
+                                      Due
+                                    </p>
+
+                                    <p className="mt-1 font-bold text-red-700 dark:text-red-300">
+                                      {money(due)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 flex items-center justify-between">
+                                  <Badge
+                                    color={getStatusColor(
+                                      status
+                                    )}
+                                  >
+                                    {status}
+                                  </Badge>
+
+                                  <p className="text-xs text-slate-500">
+                                    Due:{" "}
+                                    {formatDate(
+                                      fee.dueDate
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          )}
-
-                        {request.reviewedAt && (
-                          <p className="mt-3 text-xs text-slate-500">
-                            Reviewed:{" "}
-                            {formatDateTime(
-                              request.reviewedAt
-                            )}
-                          </p>
-                        )}
-
-                        {request.status ===
-                          "REJECTED" &&
-                          request.rejectionReason && (
-                            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-                              <span className="font-semibold">
-                                Rejection reason:
-                              </span>{" "}
-                              {
-                                request.rejectionReason
-                              }
-                            </div>
-                          )}
-                      </div>
-
-                      <div className="shrink-0">
-                        {request.status ===
-                        "PENDING" ? (
-                          <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                            <Clock3 className="h-4 w-4" />
-                            Waiting for verification
-                          </div>
-                        ) : request.status ===
-                          "APPROVED" ? (
-                          <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                            <CheckCircle2 className="h-4 w-4" />
-                            Payment approved
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-                            <XCircle className="h-4 w-4" />
-                            Payment rejected
-                          </div>
+                            );
+                          }
                         )}
                       </div>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Pay Via bKash */}
-      <section className="overflow-hidden rounded-3xl border border-[#e6c8d3] bg-gradient-to-br from-[#fff8fb] via-white to-[#fff1f5] shadow-sm">
-        <div className="p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#e9c7d4] bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#9b4d69]">
-                <CreditCard className="h-4 w-4" />
-                Manual Payment
-              </div>
-
-              <h2 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                Pay Your Fee via bKash
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
-                Your bKash payment is handled
-                across all enrolled courses.
-                You can pay the full outstanding
-                balance or any partial amount.
-              </p>
-            </div>
-
-            {hasPendingPayment && (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                <Clock3 className="h-4 w-4" />
-                Payment verification pending
-              </div>
-            )}
-          </div>
-
-          <div className="mt-7 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-2xl border border-[#ead7de] bg-white p-5 sm:p-6">
-              <p className="text-sm font-semibold text-slate-500">
-                Academy bKash Number
-              </p>
-
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex-1 rounded-xl bg-[#fff7fa] px-4 py-4">
-                  <p className="text-2xl font-bold tracking-wide text-[#9b4d69]">
-                    {paymentInfo?.bkashNumber ||
-                      "Number unavailable"}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={
-                    copyBkashNumber
-                  }
-                  disabled={
-                    !paymentInfo?.bkashNumber
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#111827] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#263449] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" />
-                      Copy Number
                     </>
                   )}
-                </button>
-              </div>
+                </section>
+              );
+            }
+          )}
+        </div>
+      )}
 
-              <div className="mt-5 space-y-3">
-                <div className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f8e9ef] text-xs font-bold text-[#9b4d69]">
-                    1
-                  </span>
+      {/* ===================================================
+          CREATE MODAL
+      =================================================== */}
+      <Modal
+        open={createOpen}
+        onClose={() => {
+          if (!saving) {
+            setCreateOpen(false);
+          }
+        }}
+        title="Add Monthly Fee"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              Monthly Accounting
+            </p>
 
-                  <p className="text-sm leading-6 text-slate-600">
-                    Send your desired payment
-                    amount to the academy bKash
-                    number. You can pay the full
-                    due or make a partial payment.
-                  </p>
-                </div>
+            <p className="mt-1 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
+              Each student + course + month is a
+              separate fee record.
+            </p>
+          </div>
 
-                <div className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f8e9ef] text-xs font-bold text-[#9b4d69]">
-                    2
-                  </span>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-field">
+                Billing Month
+              </label>
 
-                  <p className="text-sm leading-6 text-slate-600">
-                    Keep your bKash Transaction ID
-                    and sender number safely.
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f8e9ef] text-xs font-bold text-[#9b4d69]">
-                    3
-                  </span>
-
-                  <p className="text-sm leading-6 text-slate-600">
-                    Submit the payment details
-                    below. After admin approval,
-                    the payment will automatically
-                    be distributed across your
-                    outstanding fee records.
-                  </p>
-                </div>
-              </div>
+              <input
+                type="month"
+                value={
+                  createForm.billingMonth
+                }
+                onChange={(e) =>
+                  setCreateForm(
+                    (prev) => ({
+                      ...prev,
+                      billingMonth:
+                        e.target.value,
+                    })
+                  )
+                }
+                className="input-field"
+              />
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
-                  <Wallet className="h-5 w-5" />
-                </div>
+            <div>
+              <label className="label-field">
+                Due Date
+              </label>
 
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">
-                    Total Outstanding Balance
-                  </p>
+              <input
+                type="date"
+                value={
+                  createForm.dueDate
+                }
+                onChange={(e) =>
+                  setCreateForm(
+                    (prev) => ({
+                      ...prev,
+                      dueDate:
+                        e.target.value,
+                    })
+                  )
+                }
+                className="input-field"
+              />
+            </div>
+          </div>
 
-                  <p className="mt-1 text-3xl font-bold text-rose-700">
-                    {formatCurrency(
-                      overallTotals.totalDue
-                    )}
-                  </p>
-                </div>
-              </div>
+          <div>
+            <label className="label-field">
+              Student
+            </label>
 
-              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-slate-500">
-                    Total fee
-                  </span>
+            <select
+              value={createForm.student}
+              onChange={(e) => {
+                const studentId =
+                  e.target.value;
 
-                  <span className="font-semibold text-slate-900">
-                    {formatCurrency(
-                      overallTotals.totalFee
-                    )}
-                  </span>
-                </div>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    student:
+                      studentId,
+                    course: "",
+                  })
+                );
+              }}
+              className="input-field"
+            >
+              <option value="">
+                Select student
+              </option>
 
-                <div className="mt-3 flex items-center justify-between gap-4 text-sm">
-                  <span className="text-slate-500">
-                    Paid
-                  </span>
-
-                  <span className="font-semibold text-emerald-700">
-                    {formatCurrency(
-                      overallTotals.totalPaid
-                    )}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between gap-4 border-t border-slate-200 pt-3 text-sm">
-                  <span className="font-semibold text-slate-700">
-                    Due
-                  </span>
-
-                  <span className="font-bold text-rose-700">
-                    {formatCurrency(
-                      overallTotals.totalDue
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-5">
-                {hasPendingPayment ? (
-                  <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
-                    <Clock3 className="h-4 w-4" />
-                    Payment verification is pending
-                  </div>
-                ) : overallTotals.totalDue <=
-                  0 ? (
-                  <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" />
-                    All fees are fully paid
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={
-                      openPaymentModal
-                    }
-                    className="w-full rounded-xl bg-[#111827] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#263449]"
+              {students.map(
+                (student) => (
+                  <option
+                    key={student._id}
+                    value={student._id}
                   >
-                    Pay via bKash
-                  </button>
-                )}
+                    {student.fullName} —{" "}
+                    {student.studentId}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="label-field">
+              Course
+            </label>
+
+            <select
+              value={createForm.course}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    course:
+                      e.target.value,
+                  })
+                )
+              }
+              disabled={
+                !createForm.student
+              }
+              className="input-field disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {!createForm.student
+                  ? "Select student first"
+                  : createAvailableCourses.length ===
+                    0
+                  ? "No assigned course"
+                  : "Select course"}
+              </option>
+
+              {createAvailableCourses.map(
+                (course) => (
+                  <option
+                    key={course._id}
+                    value={course._id}
+                  >
+                    {course.title}
+                    {course.classLevel
+                      ? ` — ${course.classLevel}`
+                      : ""}
+                    {course.subject
+                      ? ` • ${course.subject}`
+                      : ""}
+                  </option>
+                )
+              )}
+            </select>
+
+            {createForm.student &&
+              createAvailableCourses.length ===
+                0 && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                  No course is assigned to this
+                  student. Assign a course from
+                  the Student management page
+                  first.
+                </p>
+              )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Input
+              label="Monthly Fee"
+              type="number"
+              min="0"
+              value={createForm.amount}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    amount:
+                      e.target.value,
+                  })
+                )
+              }
+              placeholder="1000"
+            />
+
+            <Input
+              label="Paid Amount"
+              type="number"
+              min="0"
+              value={
+                createForm.amountPaid
+              }
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    amountPaid:
+                      e.target.value,
+                  })
+                )
+              }
+              placeholder="500"
+            />
+
+            <div>
+              <label className="label-field">
+                Due
+              </label>
+
+              <div className="input-field flex items-center bg-red-50 font-bold text-red-700 dark:bg-red-950/20 dark:text-red-300">
+                {money(createDue)}
               </div>
             </div>
           </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Payment Date"
+              type="date"
+              value={
+                createForm.paymentDate
+              }
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentDate:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+
+            <Input
+              label="Payment Method"
+              value={
+                createForm.paymentMethod
+              }
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentMethod:
+                      e.target.value,
+                  })
+                )
+              }
+              placeholder="Cash / bKash / Bank"
+            />
+          </div>
+
+          <Input
+            label="Transaction ID"
+            value={
+              createForm.transactionId
+            }
+            onChange={(e) =>
+              setCreateForm(
+                (prev) => ({
+                  ...prev,
+                  transactionId:
+                    e.target.value,
+                })
+              )
+            }
+            placeholder="Optional"
+          />
+
+          <div>
+            <label className="label-field">
+              Note
+            </label>
+
+            <textarea
+              value={createForm.note}
+              onChange={(e) =>
+                setCreateForm(
+                  (prev) => ({
+                    ...prev,
+                    note: e.target.value,
+                  })
+                )
+              }
+              rows={3}
+              className="input-field resize-none"
+              placeholder="Optional note..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setCreateOpen(false)
+              }
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleCreate}
+              disabled={
+                saving ||
+                !createForm.student ||
+                !createForm.course
+              }
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+
+              {saving
+                ? "Saving..."
+                : "Create Fee"}
+            </Button>
+          </div>
         </div>
-      </section>
+      </Modal>
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  Submit bKash Payment
-                </h3>
+      {/* ===================================================
+          EDIT MODAL
+      =================================================== */}
+      <Modal
+        open={!!editTarget}
+        onClose={() => {
+          if (!saving) {
+            setEditTarget(null);
+          }
+        }}
+        title="Edit Monthly Fee"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-slate-950 dark:text-white">
+              {editTarget
+                ? getStudentName(
+                    editTarget.student
+                  )
+                : ""}
+            </p>
 
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Overall student payment
-                </p>
-              </div>
+            <p className="mt-1 text-xs text-slate-500">
+              {editTarget
+                ? getCourseName(
+                    editTarget.course
+                  )
+                : ""}
+            </p>
+          </div>
 
-              <button
-                type="button"
-                onClick={
-                  closePaymentModal
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-field">
+                Billing Month
+              </label>
+
+              <input
+                type="month"
+                value={
+                  updateForm.billingMonth
                 }
-                disabled={
-                  submittingPayment
+                onChange={(e) =>
+                  setUpdateForm(
+                    (prev) => ({
+                      ...prev,
+                      billingMonth:
+                        e.target.value,
+                    })
+                  )
                 }
-                className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
+                className="input-field"
+              />
             </div>
 
-            <div className="space-y-5 p-5 sm:p-6">
-              <div className="rounded-2xl border border-[#ead7de] bg-[#fff8fb] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#9b4d69]">
-                  Academy bKash Number
-                </p>
+            <Input
+              label="Due Date"
+              type="date"
+              value={
+                updateForm.dueDate
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    dueDate:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+          </div>
 
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="text-xl font-bold text-slate-900">
-                    {paymentInfo?.bkashNumber ||
-                      "Number unavailable"}
-                  </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Input
+              label="Fee"
+              type="number"
+              min="0"
+              value={
+                updateForm.amount
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    amount:
+                      e.target.value,
+                  })
+                )
+              }
+            />
 
-                  <button
-                    type="button"
-                    onClick={
-                      copyBkashNumber
-                    }
-                    disabled={
-                      !paymentInfo?.bkashNumber
-                    }
-                    className="rounded-lg border border-[#e6c8d3] bg-white p-2 text-[#9b4d69] transition hover:bg-[#fff0f5] disabled:opacity-50"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
+            <Input
+              label="Paid"
+              type="number"
+              min="0"
+              value={
+                updateForm.amountPaid
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    amountPaid:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+
+            <div>
+              <label className="label-field">
+                Due
+              </label>
+
+              <div className="input-field flex items-center bg-red-50 font-bold text-red-700 dark:bg-red-950/20 dark:text-red-300">
+                {money(updateDue)}
               </div>
+            </div>
+          </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-600">
-                  Overall Fee Summary
-                </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Payment Date"
+              type="date"
+              value={
+                updateForm.paymentDate
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentDate:
+                      e.target.value,
+                  })
+                )
+              }
+            />
 
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-[11px] text-slate-500">
-                      Total
-                    </p>
+            <Input
+              label="Payment Method"
+              value={
+                updateForm.paymentMethod
+              }
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    paymentMethod:
+                      e.target.value,
+                  })
+                )
+              }
+            />
+          </div>
 
-                    <p className="mt-1 text-sm font-bold text-slate-900">
-                      {formatCurrency(
-                        overallTotals.totalFee
-                      )}
-                    </p>
-                  </div>
+          <Input
+            label="Transaction ID"
+            value={
+              updateForm.transactionId
+            }
+            onChange={(e) =>
+              setUpdateForm(
+                (prev) => ({
+                  ...prev,
+                  transactionId:
+                    e.target.value,
+                })
+              )
+            }
+          />
 
-                  <div className="rounded-xl bg-emerald-50 p-3">
-                    <p className="text-[11px] text-emerald-600">
-                      Paid
-                    </p>
+          <div>
+            <label className="label-field">
+              Note
+            </label>
 
-                    <p className="mt-1 text-sm font-bold text-emerald-700">
-                      {formatCurrency(
-                        overallTotals.totalPaid
-                      )}
-                    </p>
-                  </div>
+            <textarea
+              value={updateForm.note}
+              onChange={(e) =>
+                setUpdateForm(
+                  (prev) => ({
+                    ...prev,
+                    note: e.target.value,
+                  })
+                )
+              }
+              rows={3}
+              className="input-field resize-none"
+            />
+          </div>
 
-                  <div className="rounded-xl bg-rose-50 p-3">
-                    <p className="text-[11px] text-rose-600">
-                      Due
-                    </p>
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setEditTarget(null)
+              }
+              disabled={saving}
+            >
+              Cancel
+            </Button>
 
-                    <p className="mt-1 text-sm font-bold text-rose-700">
-                      {formatCurrency(
-                        overallTotals.totalDue
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <Button
+              onClick={handleUpdate}
+              disabled={saving}
+            >
+              {saving
+                ? "Updating..."
+                : "Update Fee"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">
-                  Payment Amount
-                </span>
+      {/* ===================================================
+          REJECT PAYMENT MODAL
+      =================================================== */}
+      <Modal
+        open={!!rejectTarget}
+        onClose={() => {
+          if (!paymentActionId) {
+            setRejectTarget(null);
+            setRejectionReason("");
+          }
+        }}
+        title="Reject bKash Payment"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900/40 dark:bg-red-950/20">
+            <p className="text-sm font-semibold text-red-900 dark:text-red-200">
+              Reject this payment request?
+            </p>
 
-                <input
-                  type="number"
-                  min="1"
-                  max={
-                    overallTotals.totalDue
-                  }
-                  value={
-                    paymentAmount
-                  }
-                  onChange={(event) =>
-                    setPaymentAmount(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Enter amount"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
-                />
-
-                <p className="mt-1.5 text-xs text-slate-500">
-                  Maximum payable amount:{" "}
+            {rejectTarget && (
+              <div className="mt-3 space-y-1 text-xs text-red-800/80 dark:text-red-300/80">
+                <p>
+                  Student:{" "}
                   <strong>
-                    {formatCurrency(
-                      overallTotals.totalDue
+                    {rejectTarget.student
+                      ?.fullName ||
+                      "-"}
+                  </strong>
+                </p>
+
+                <p>
+                  Amount:{" "}
+                  <strong>
+                    {money(
+                      Number(
+                        rejectTarget.amount ||
+                          0
+                      )
                     )}
                   </strong>
                 </p>
-              </label>
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">
-                  Sender bKash Number
-                </span>
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={
-                    senderNumber
-                  }
-                  onChange={(event) =>
-                    setSenderNumber(
-                      event.target.value
-                    )
-                  }
-                  placeholder="01XXXXXXXXX"
-                  maxLength={11}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">
-                  bKash Transaction ID
-                </span>
-
-                <input
-                  type="text"
-                  value={
-                    transactionId
-                  }
-                  onChange={(event) =>
-                    setTransactionId(
-                      event.target.value.toUpperCase()
-                    )
-                  }
-                  placeholder="Enter TrxID"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm uppercase text-slate-900 outline-none transition focus:border-[#b8954f] focus:ring-2 focus:ring-[#b8954f]/20"
-                />
-              </label>
-
-              {paymentError && (
-                <div className="flex gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-
-                  <p>
-                    {paymentError}
-                  </p>
-                </div>
-              )}
-
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                After submitting, your payment
-                will remain
-                <strong>
-                  {" "}
-                  Pending{" "}
-                </strong>
-                until an admin verifies the
-                bKash transaction. Once approved,
-                the amount will automatically be
-                distributed across your outstanding
-                fees.
+                <p>
+                  TrxID:{" "}
+                  <strong>
+                    {
+                      rejectTarget.transactionId
+                    }
+                  </strong>
+                </p>
               </div>
+            )}
+          </div>
 
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={
-                    closePaymentModal
-                  }
-                  disabled={
-                    submittingPayment
-                  }
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
+          <div>
+            <label className="label-field">
+              Rejection Reason
+            </label>
 
-                <button
-                  type="button"
-                  onClick={
-                    handleSubmitPayment
-                  }
-                  disabled={
-                    submittingPayment
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#111827] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#263449] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submittingPayment ? (
-                    <>
-                      <Clock3 className="h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      Submit Payment
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) =>
+                setRejectionReason(
+                  e.target.value
+                )
+              }
+              rows={4}
+              className="input-field resize-none"
+              placeholder="Optional reason, e.g. Transaction could not be verified."
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRejectTarget(null);
+                setRejectionReason("");
+              }}
+              disabled={!!paymentActionId}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleRejectPayment}
+              disabled={!!paymentActionId}
+              className="gap-2 bg-red-600 hover:bg-red-700"
+            >
+              <X className="h-4 w-4" />
+
+              {paymentActionId
+                ? "Rejecting..."
+                : "Reject Payment"}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
