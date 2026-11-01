@@ -1,47 +1,62 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  RefreshCw,
   Wallet,
   CheckCircle2,
   Clock,
   AlertCircle,
-  RefreshCw,
-  CalendarDays,
   BookOpen,
+  CalendarDays,
   CreditCard,
-  TrendingUp,
-  Receipt,
 } from "lucide-react";
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "An unexpected error occurred.";
+
+const api = {
+  async get(path: string) {
+    const response = await fetch(`/api${path}`, { credentials: "include" });
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw Object.assign(new Error(data?.message || response.statusText), {
+        response: { data },
+      });
+    }
+
+    return { data };
+  },
+};
+
+const getErrorMessage = (error: any) =>
+  error?.response?.data?.message || error?.message || "An unexpected error occurred.";
 
 type Course = {
   _id?: string;
   title?: string;
   subject?: string;
-  classLevel?: string | number;
+  classLevel?: string;
   fee?: number;
 };
 
 type FeeRecord = {
   _id: string;
-  course?: Course | string | null;
   billingMonth?: string;
   month?: string;
-  fee?: number;
+
+  course?: Course | string;
+
   feeAmount?: number;
+  fee?: number;
   amount?: number;
-  paid?: number;
+
   paidAmount?: number;
-  due?: number;
+  paid?: number;
+
   dueAmount?: number;
-  status?: "PAID" | "PARTIAL" | "PENDING" | string;
-  dueDate?: string;
+  due?: number;
+
+  status?: string;
   paymentDate?: string;
   paidAt?: string;
-  paymentMethod?: string;
   createdAt?: string;
-  updatedAt?: string;
 };
 
 type FeeData = {
@@ -49,18 +64,21 @@ type FeeData = {
   totalFee?: number;
   totalPaid?: number;
   totalDue?: number;
+  paidPercentage?: number;
   monthlySummary?: unknown[];
   courseSummary?: unknown[];
-  [key: string]: unknown;
 };
 
 const money = (value: number) =>
   `৳${Number(value || 0).toLocaleString("en-BD")}`;
 
 const getMonthLabel = (value?: string) => {
-  if (!value) return "Month not specified";
+  if (!value) return "Unknown Month";
 
-  const date = new Date(`${value}-01T00:00:00`);
+  const date = new Date(
+    value.length === 7 ? `${value}-01` : value
+  );
+
   if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleDateString("en-US", {
@@ -69,73 +87,48 @@ const getMonthLabel = (value?: string) => {
   });
 };
 
-const getCourseName = (course?: Course | string | null) => {
+const getCourseName = (course?: Course | string) => {
   if (!course) return "Course";
-  if (typeof course === "string") return course;
-  return course.title || course.subject || "Course";
+
+  if (typeof course === "string") return "Course";
+
+  return (
+    course.title ||
+    course.subject ||
+    "Course"
+  );
 };
 
-const getStatus = (fee: number, paid: number) => {
-  if (paid >= fee && fee > 0) return "PAID";
-  if (paid > 0) return "PARTIAL";
-  return "PENDING";
-};
+const extractFeeData = (response: any): FeeData => {
+  const data = response?.data ?? response;
 
-const statusStyle: Record<string, string> = {
-  PAID: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  PARTIAL: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  PENDING: "bg-rose-500/10 text-rose-400 border-rose-500/20",
-};
-
-function extractFeeData(response: unknown): FeeData {
-  let current = response as Record<string, unknown> | null;
-
-  for (let i = 0; i < 4 && current; i++) {
-    if (Array.isArray(current.fees)) {
-      return current as FeeData;
-    }
-
-    const next =
-      current.data && typeof current.data === "object"
-        ? (current.data as Record<string, unknown>)
-        : null;
-
-    if (!next) break;
-    current = next;
+  if (data?.data) {
+    return data.data;
   }
 
-  return current && typeof current === "object"
-    ? (current as FeeData)
-    : {};
-}
+  return data || {};
+};
 
-export default function StudentFees() {
+export default function Fees() {
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [filterMonth, setFilterMonth] = useState("ALL");
 
-  const fetchFees = useCallback(async () => {
+  const [selectedMonth, setSelectedMonth] = useState("all");
+
+  const loadFees = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch("/api/fees/my", {
-        credentials: "include",
-      });
-      const responseData: unknown = await response.json();
-
-      if (!response.ok) {
-        const message =
-          responseData &&
-          typeof responseData === "object" &&
-          "message" in responseData
-            ? String(responseData.message)
-            : `Unable to load fees (${response.status}).`;
-        throw new Error(message);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
 
-      const data = extractFeeData(responseData);
+      setError("");
+
+      const response = await api.get("/fees/my");
+      const data = extractFeeData(response);
 
       setFees(Array.isArray(data.fees) ? data.fees : []);
     } catch (err) {
@@ -143,198 +136,278 @@ export default function StudentFees() {
       setFees([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void fetchFees();
-  }, [fetchFees]);
+    loadFees();
+  }, [loadFees]);
 
-  const normalizedFees = useMemo(() => {
-    return fees.map((item) => {
-      const fee = Number(
-        item.feeAmount ?? item.fee ?? item.amount ?? 0
-      );
+  const totalFee = useMemo(
+    () =>
+      fees.reduce(
+        (sum, item) =>
+          sum +
+          Number(
+            item.feeAmount ?? item.fee ?? item.amount ?? 0
+          ),
+        0
+      ),
+    [fees]
+  );
 
-      const paid = Number(item.paidAmount ?? item.paid ?? 0);
-      const due = Math.max(0, Number(item.dueAmount ?? item.due ?? fee - paid));
+  const totalPaid = useMemo(
+    () =>
+      fees.reduce(
+        (sum, item) =>
+          sum +
+          Number(item.paidAmount ?? item.paid ?? 0),
+        0
+      ),
+    [fees]
+  );
 
-      const month = item.billingMonth || item.month || "";
-
-      return {
-        ...item,
-        feeValue: fee,
-        paidValue: paid,
-        dueValue: due,
-        monthValue: month,
-        statusValue: getStatus(fee, paid),
-      };
-    });
-  }, [fees]);
-
-  const totals = useMemo(() => {
-    return normalizedFees.reduce(
-      (acc, item) => ({
-        fee: acc.fee + item.feeValue,
-        paid: acc.paid + item.paidValue,
-        due: acc.due + item.dueValue,
-      }),
-      { fee: 0, paid: 0, due: 0 }
-    );
-  }, [normalizedFees]);
-
-  const months = useMemo(() => {
-    return Array.from(
-      new Set(normalizedFees.map((item) => item.monthValue).filter(Boolean))
-    ).sort((a, b) => b.localeCompare(a));
-  }, [normalizedFees]);
-
-  const filteredFees = useMemo(() => {
-    if (filterMonth === "ALL") return normalizedFees;
-
-    return normalizedFees.filter(
-      (item) => item.monthValue === filterMonth
-    );
-  }, [normalizedFees, filterMonth]);
+  const totalDue = Math.max(0, totalFee - totalPaid);
 
   const paidPercentage =
-    totals.fee > 0
-      ? Math.min(100, Math.round((totals.paid / totals.fee) * 100))
+    totalFee > 0
+      ? Math.min(100, (totalPaid / totalFee) * 100)
       : 0;
 
+  const months = useMemo(() => {
+    const values = fees.map(
+      (item) => item.billingMonth || item.month || ""
+    );
+
+    return [...new Set(values)]
+      .filter(Boolean)
+      .sort()
+      .reverse();
+  }, [fees]);
+
+  const filteredFees = useMemo(() => {
+    if (selectedMonth === "all") return fees;
+
+    return fees.filter(
+      (item) =>
+        (item.billingMonth || item.month) === selectedMonth
+    );
+  }, [fees, selectedMonth]);
+
+  const getAmounts = (item: FeeRecord) => {
+    const fee = Number(
+      item.feeAmount ?? item.fee ?? item.amount ?? 0
+    );
+
+    const paid = Number(
+      item.paidAmount ?? item.paid ?? 0
+    );
+
+    const due = Math.max(
+      0,
+      Number(item.dueAmount ?? item.due ?? fee - paid)
+    );
+
+    return { fee, paid, due };
+  };
+
+  const getStatus = (item: FeeRecord) => {
+    const { fee, paid, due } = getAmounts(item);
+
+    if (due <= 0 && paid > 0) return "PAID";
+    if (paid > 0 && due > 0) return "PARTIAL";
+    if (fee > 0 && paid <= 0) return "PENDING";
+
+    return item.status?.toUpperCase() || "PENDING";
+  };
+
+  const filteredTotal = filteredFees.reduce(
+    (sum, item) => sum + getAmounts(item).fee,
+    0
+  );
+
+  const filteredPaid = filteredFees.reduce(
+    (sum, item) => sum + getAmounts(item).paid,
+    0
+  );
+
+  const filteredDue = filteredFees.reduce(
+    (sum, item) => sum + getAmounts(item).due,
+    0
+  );
+
   return (
-    <div className="min-h-screen space-y-6 bg-slate-950 p-4 text-slate-100 sm:p-6 lg:p-8">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-400">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-500">
             <Wallet size={17} />
             STUDENT PORTAL
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
             My Fees
           </h1>
 
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             View your monthly course fees, payments and outstanding dues.
           </p>
         </div>
 
         <button
-          onClick={fetchFees}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold transition hover:border-emerald-500/50 hover:bg-slate-800 disabled:opacity-50"
+          onClick={() => loadFees(true)}
+          disabled={loading || refreshing}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
         >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          <RefreshCw
+            size={16}
+            className={refreshing ? "animate-spin" : ""}
+          />
           Refresh
         </button>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="flex min-h-52 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60">
-          <div className="text-center">
-            <RefreshCw className="mx-auto mb-3 animate-spin text-emerald-400" size={30} />
-            <p className="text-sm text-slate-400">Loading your fee records...</p>
-          </div>
-        </div>
-      )}
-
       {/* Error */}
-      {!loading && error && (
-        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5">
-          <div className="flex items-center gap-2 font-semibold text-rose-400">
-            <AlertCircle size={19} />
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
+          <div className="flex items-center gap-2 font-semibold text-red-600 dark:text-red-400">
+            <AlertCircle size={18} />
             Unable to load fees
           </div>
-          <p className="mt-2 text-sm text-slate-300">{error}</p>
+
+          <p className="mt-2 break-words text-sm text-red-600 dark:text-red-400">
+            {error}
+          </p>
+
           <button
-            onClick={fetchFees}
-            className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600"
+            onClick={() => loadFees()}
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
           >
             Try again
           </button>
         </div>
       )}
 
-      {!loading && !error && (
+      {/* Loading */}
+      {loading ? (
+        <div className="flex min-h-52 items-center justify-center">
+          <div className="text-center">
+            <RefreshCw
+              size={28}
+              className="mx-auto animate-spin text-indigo-500"
+            />
+            <p className="mt-3 text-sm text-slate-500">
+              Loading your fees...
+            </p>
+          </div>
+        </div>
+      ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Total Fee</span>
-                <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-400">
-                  <Receipt size={20} />
+                <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Total Fees
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                    {money(totalFee)}
+                  </h2>
+                </div>
+
+                <div className="rounded-xl bg-indigo-100 p-3 text-indigo-600 dark:bg-indigo-950">
+                  <Wallet size={23} />
                 </div>
               </div>
-              <p className="mt-4 text-2xl font-bold">{money(totals.fee)}</p>
-              <p className="mt-1 text-xs text-slate-500">All monthly records</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Total Paid</span>
-                <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-400">
-                  <CheckCircle2 size={20} />
+                <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Total Paid
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-green-600">
+                    {money(totalPaid)}
+                  </h2>
+                </div>
+
+                <div className="rounded-xl bg-green-100 p-3 text-green-600 dark:bg-green-950">
+                  <CheckCircle2 size={23} />
                 </div>
               </div>
-              <p className="mt-4 text-2xl font-bold text-emerald-400">
-                {money(totals.paid)}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">Successfully paid</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Total Due</span>
-                <div className="rounded-xl bg-rose-500/10 p-2.5 text-rose-400">
-                  <Clock size={20} />
+                <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Outstanding Due
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-red-600">
+                    {money(totalDue)}
+                  </h2>
                 </div>
-              </div>
-              <p className="mt-4 text-2xl font-bold text-rose-400">
-                {money(totals.due)}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">Outstanding amount</p>
-            </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Payment Progress</span>
-                <div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-400">
-                  <TrendingUp size={20} />
+                <div className="rounded-xl bg-red-100 p-3 text-red-600 dark:bg-red-950">
+                  <Clock size={23} />
                 </div>
-              </div>
-              <p className="mt-4 text-2xl font-bold">{paidPercentage}%</p>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{ width: `${paidPercentage}%` }}
-                />
               </div>
             </div>
           </div>
 
-          {/* Fee Records */}
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-            <div className="flex flex-col justify-between gap-3 border-b border-slate-800 p-5 sm:flex-row sm:items-center">
+          {/* Payment Progress */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="flex items-center gap-2 text-lg font-bold">
-                  <CalendarDays className="text-emerald-400" size={20} />
+                <h3 className="font-bold text-slate-900 dark:text-white">
+                  Payment Progress
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Your overall fee payment status
+                </p>
+              </div>
+
+              <span className="text-lg font-bold text-indigo-600">
+                {paidPercentage.toFixed(0)}%
+              </span>
+            </div>
+
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full rounded-full bg-indigo-600 transition-all"
+                style={{ width: `${paidPercentage}%` }}
+              />
+            </div>
+
+            <div className="mt-3 flex justify-between text-xs text-slate-500">
+              <span>Paid: {money(totalPaid)}</span>
+              <span>Total: {money(totalFee)}</span>
+            </div>
+          </div>
+
+          {/* Monthly Fees */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-4 border-b border-slate-200 p-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   Monthly Fee History
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Your course-wise monthly payment records.
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Course-wise payment details
                 </p>
               </div>
 
               <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-emerald-500"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               >
-                <option value="ALL">All Months</option>
+                <option value="all">All Months</option>
+
                 {months.map((month) => (
                   <option key={month} value={month}>
                     {getMonthLabel(month)}
@@ -345,149 +418,193 @@ export default function StudentFees() {
 
             {filteredFees.length === 0 ? (
               <div className="px-5 py-16 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-slate-400">
-                  <Wallet size={26} />
-                </div>
-                <h3 className="font-semibold">No fee records found</h3>
+                <BookOpen
+                  size={36}
+                  className="mx-auto text-slate-300"
+                />
+
+                <h4 className="mt-4 font-semibold text-slate-800 dark:text-white">
+                  No fee records found
+                </h4>
+
                 <p className="mt-2 text-sm text-slate-500">
-                  Your monthly fee records will appear here when added by the administration.
+                  Your monthly fee records will appear here when added by the admin.
                 </p>
               </div>
             ) : (
               <>
+                {/* Filter Summary */}
+                <div className="grid grid-cols-3 gap-3 border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div>
+                    <p className="text-xs text-slate-500">Fee</p>
+                    <p className="mt-1 font-bold text-slate-900 dark:text-white">
+                      {money(filteredTotal)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">Paid</p>
+                    <p className="mt-1 font-bold text-green-600">
+                      {money(filteredPaid)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">Due</p>
+                    <p className="mt-1 font-bold text-red-600">
+                      {money(filteredDue)}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Mobile Cards */}
-                <div className="divide-y divide-slate-800 md:hidden">
-                  {filteredFees.map((item) => (
-                    <div key={item._id} className="space-y-3 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">
-                            {getCourseName(item.course)}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {getMonthLabel(item.monthValue)}
-                          </p>
+                <div className="space-y-3 p-4 md:hidden">
+                  {filteredFees.map((item) => {
+                    const amounts = getAmounts(item);
+                    const status = getStatus(item);
+
+                    return (
+                      <div
+                        key={item._id}
+                        className="rounded-xl border border-slate-200 p-4 dark:border-slate-700"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="font-semibold text-slate-900 dark:text-white">
+                              {getCourseName(item.course)}
+                            </h4>
+
+                            <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                              <CalendarDays size={13} />
+                              {getMonthLabel(
+                                item.billingMonth || item.month
+                              )}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              status === "PAID"
+                                ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                                : status === "PARTIAL"
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                                  : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                            }`}
+                          >
+                            {status}
+                          </span>
                         </div>
 
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle[item.statusValue]}`}
-                        >
-                          {item.statusValue}
-                        </span>
-                      </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+                          <div>
+                            <p className="text-xs text-slate-500">Fee</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                              {money(amounts.fee)}
+                            </p>
+                          </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-lg bg-slate-950 p-2.5">
-                          <p className="text-[10px] text-slate-500">Fee</p>
-                          <p className="mt-1 text-sm font-semibold">
-                            {money(item.feeValue)}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-slate-950 p-2.5">
-                          <p className="text-[10px] text-slate-500">Paid</p>
-                          <p className="mt-1 text-sm font-semibold text-emerald-400">
-                            {money(item.paidValue)}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-slate-950 p-2.5">
-                          <p className="text-[10px] text-slate-500">Due</p>
-                          <p className="mt-1 text-sm font-semibold text-rose-400">
-                            {money(item.dueValue)}
-                          </p>
-                        </div>
-                      </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Paid</p>
+                            <p className="mt-1 text-sm font-semibold text-green-600">
+                              {money(amounts.paid)}
+                            </p>
+                          </div>
 
-                      <div className="flex flex-wrap justify-between gap-2 text-xs text-slate-500">
-                        <span>
-                          Payment: {item.paymentMethod || "Not specified"}
-                        </span>
-                        <span>
-                          {item.paymentDate || item.paidAt
-                            ? `Paid: ${new Date(item.paymentDate || item.paidAt!).toLocaleDateString()}`
-                            : "Payment date: —"}
-                        </span>
+                          <div>
+                            <p className="text-xs text-slate-500">Due</p>
+                            <p className="mt-1 text-sm font-semibold text-red-600">
+                              {money(amounts.due)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Desktop Table */}
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[850px] text-left text-sm">
-                    <thead className="bg-slate-950/70 text-xs uppercase tracking-wider text-slate-400">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-950/40">
                       <tr>
                         <th className="px-5 py-4">Month</th>
                         <th className="px-5 py-4">Course</th>
-                        <th className="px-5 py-4">Total Fee</th>
+                        <th className="px-5 py-4">Fee</th>
                         <th className="px-5 py-4">Paid</th>
                         <th className="px-5 py-4">Due</th>
                         <th className="px-5 py-4">Status</th>
-                        <th className="px-5 py-4">Payment Details</th>
                       </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-slate-800">
-                      {filteredFees.map((item) => (
-                        <tr key={item._id} className="transition hover:bg-slate-800/40">
-                          <td className="whitespace-nowrap px-5 py-4 font-medium">
-                            {getMonthLabel(item.monthValue)}
-                          </td>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {filteredFees.map((item) => {
+                        const amounts = getAmounts(item);
+                        const status = getStatus(item);
 
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              <BookOpen size={16} className="shrink-0 text-emerald-400" />
-                              <span>{getCourseName(item.course)}</span>
-                            </div>
-                          </td>
+                        return (
+                          <tr
+                            key={item._id}
+                            className="transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                          >
+                            <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-700 dark:text-slate-200">
+                              {getMonthLabel(
+                                item.billingMonth || item.month
+                              )}
+                            </td>
 
-                          <td className="whitespace-nowrap px-5 py-4 font-semibold">
-                            {money(item.feeValue)}
-                          </td>
+                            <td className="px-5 py-4 font-medium text-slate-900 dark:text-white">
+                              {getCourseName(item.course)}
+                            </td>
 
-                          <td className="whitespace-nowrap px-5 py-4 font-semibold text-emerald-400">
-                            {money(item.paidValue)}
-                          </td>
+                            <td className="whitespace-nowrap px-5 py-4">
+                              {money(amounts.fee)}
+                            </td>
 
-                          <td className="whitespace-nowrap px-5 py-4 font-semibold text-rose-400">
-                            {money(item.dueValue)}
-                          </td>
+                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-green-600">
+                              {money(amounts.paid)}
+                            </td>
 
-                          <td className="px-5 py-4">
-                            <span
-                              className={`rounded-full border px-3 py-1 text-[10px] font-bold ${statusStyle[item.statusValue]}`}
-                            >
-                              {item.statusValue}
-                            </span>
-                          </td>
+                            <td className="whitespace-nowrap px-5 py-4 font-semibold text-red-600">
+                              {money(amounts.due)}
+                            </td>
 
-                          <td className="px-5 py-4 text-xs text-slate-400">
-                            <div>{item.paymentMethod || "—"}</div>
-                            <div className="mt-1">
-                              {item.paymentDate || item.paidAt
-                                ? new Date(item.paymentDate || item.paidAt!).toLocaleDateString()
-                                : "No payment date"}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            <td className="px-5 py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  status === "PAID"
+                                    ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                                    : status === "PARTIAL"
+                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                                      : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                                }`}
+                              >
+                                {status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </>
             )}
-          </section>
+          </div>
 
-          {/* Payment Note */}
-          <div className="flex gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
-            <CreditCard className="mt-0.5 shrink-0 text-blue-400" size={20} />
+          {/* Payment Information */}
+          <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+            <CreditCard
+              size={20}
+              className="mt-0.5 shrink-0 text-indigo-600"
+            />
+
             <div>
-              <h3 className="text-sm font-semibold text-blue-300">
+              <h4 className="font-semibold text-indigo-900 dark:text-indigo-300">
                 Payment Information
-              </h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-400">
-                Your fee records and payment status are managed by the academy
-                administration. If a payment is missing or the amount looks
-                incorrect, please contact the administration.
+              </h4>
+
+              <p className="mt-1 text-sm text-indigo-800 dark:text-indigo-400">
+                For fee payment and payment confirmation, please contact the academy administration.
               </p>
             </div>
           </div>
