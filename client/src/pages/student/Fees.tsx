@@ -65,7 +65,6 @@ interface PaymentInfo {
 
 function getCourse(course: Fee["course"]): Course | null {
   if (!course || typeof course === "string") return null;
-
   return course as Course;
 }
 
@@ -74,7 +73,9 @@ function formatCurrency(value: number) {
 }
 
 function formatMonth(month?: string) {
-  if (!month) return "Unassigned";
+  if (!month || month === "UNASSIGNED") {
+    return "Unassigned";
+  }
 
   const [year, monthNumber] = month.split("-");
 
@@ -125,34 +126,28 @@ function formatDateTime(date?: string) {
 function getStatusLabel(status?: Fee["status"]) {
   if (status === "PAID") return "Paid";
   if (status === "PARTIAL") return "Partial";
-
-  return "Pending";
+  return "Unpaid";
 }
 
 function getStatusClass(status?: Fee["status"]) {
   if (status === "PAID") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 
   if (status === "PARTIAL") {
-    return "bg-amber-50 text-amber-700 border-amber-200";
+    return "border-amber-200 bg-amber-50 text-amber-700";
   }
 
-  return "bg-red-50 text-red-700 border-red-200";
+  return "border-red-200 bg-red-50 text-red-700";
 }
 
-function getPaymentStatusLabel(
-  status: PaymentRequestStatus
-) {
+function getPaymentStatusLabel(status: PaymentRequestStatus) {
   if (status === "APPROVED") return "Approved";
   if (status === "REJECTED") return "Rejected";
-
   return "Pending Verification";
 }
 
-function getPaymentStatusClass(
-  status: PaymentRequestStatus
-) {
+function getPaymentStatusClass(status: PaymentRequestStatus) {
   if (status === "APPROVED") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -162,6 +157,57 @@ function getPaymentStatusClass(
   }
 
   return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function calculateGroup(
+  month: string,
+  records: FeeWithMonthly[]
+): MonthlyGroup {
+  const totalFee = records.reduce(
+    (sum, fee) => sum + Number(fee.amount || 0),
+    0
+  );
+
+  const totalPaid = records.reduce(
+    (sum, fee) => sum + Number(fee.amountPaid || 0),
+    0
+  );
+
+  const totalDue = records.reduce(
+    (sum, fee) =>
+      sum +
+      Math.max(
+        Number(fee.amount || 0) -
+          Number(fee.amountPaid || 0),
+        0
+      ),
+    0
+  );
+
+  const sortedRecords = [...records].sort((a, b) => {
+    const courseA = getCourse(a.course)?.title || "";
+    const courseB = getCourse(b.course)?.title || "";
+
+    return courseA.localeCompare(courseB);
+  });
+
+  return {
+    month,
+    label:
+      month === "UNASSIGNED"
+        ? "Unassigned Fees"
+        : formatMonth(month),
+    records: sortedRecords,
+    totalFee,
+    totalPaid,
+    totalDue,
+  };
+}
+
+function getMonthlyStatus(group: MonthlyGroup) {
+  if (group.totalDue <= 0) return "Fully Paid";
+  if (group.totalPaid > 0) return "Partially Paid";
+  return "Unpaid";
 }
 
 export default function StudentFees() {
@@ -198,25 +244,19 @@ export default function StudentFees() {
   const [selectedFee, setSelectedFee] =
     useState<FeeWithMonthly | null>(null);
 
-  const [paymentAmount, setPaymentAmount] =
-    useState("");
-
-  const [senderNumber, setSenderNumber] =
-    useState("");
-
-  const [transactionId, setTransactionId] =
-    useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [senderNumber, setSenderNumber] = useState("");
+  const [transactionId, setTransactionId] = useState("");
 
   const [submittingPayment, setSubmittingPayment] =
     useState(false);
 
-  const [copied, setCopied] =
-    useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    loadFees();
-    loadPaymentInfo();
-    loadPaymentRequests();
+    void loadFees();
+    void loadPaymentInfo();
+    void loadPaymentRequests();
   }, []);
 
   async function loadFees() {
@@ -225,7 +265,6 @@ export default function StudentFees() {
       setError("");
 
       const response = await api.get("/fees/my");
-
       const payload = response.data?.data;
 
       const feeList = Array.isArray(payload?.fees)
@@ -238,16 +277,12 @@ export default function StudentFees() {
       const months = Array.from(
         new Set(
           feeList
-            .map(
-              (fee: FeeWithMonthly) =>
-                fee.billingMonth
-            )
+            .map((fee: FeeWithMonthly) => fee.billingMonth)
             .filter(Boolean)
         )
       ) as string[];
 
-      const initialOpen: Record<string, boolean> =
-        {};
+      const initialOpen: Record<string, boolean> = {};
 
       months.forEach((month) => {
         initialOpen[month] = true;
@@ -255,8 +290,7 @@ export default function StudentFees() {
 
       if (
         feeList.some(
-          (fee: FeeWithMonthly) =>
-            !fee.billingMonth
+          (fee: FeeWithMonthly) => !fee.billingMonth
         )
       ) {
         initialOpen.UNASSIGNED = true;
@@ -272,9 +306,7 @@ export default function StudentFees() {
 
   async function loadPaymentInfo() {
     try {
-      const response =
-        await api.get("/fees/payment-info");
-
+      const response = await api.get("/fees/payment-info");
       const payload = response.data?.data;
 
       setPaymentInfo({
@@ -284,9 +316,7 @@ export default function StudentFees() {
             : "",
       });
     } catch {
-      setPaymentInfo({
-        bkashNumber: "",
-      });
+      setPaymentInfo({ bkashNumber: "" });
     }
   }
 
@@ -306,14 +336,19 @@ export default function StudentFees() {
         ? payload.data
         : [];
 
-      setPaymentRequests(
-        list as PaymentRequestItem[]
-      );
+      setPaymentRequests(list as PaymentRequestItem[]);
     } catch {
       setPaymentRequests([]);
     } finally {
       setPaymentLoading(false);
     }
+  }
+
+  async function refreshAll() {
+    await Promise.all([
+      loadFees(),
+      loadPaymentRequests(),
+    ]);
   }
 
   async function copyBkashNumber() {
@@ -334,19 +369,15 @@ export default function StudentFees() {
     }
   }
 
-  function openPaymentModal(
-    fee: FeeWithMonthly
-  ) {
-    const amount = Math.max(
+  function openPaymentModal(fee: FeeWithMonthly) {
+    const due = Math.max(
       Number(fee.amount || 0) -
         Number(fee.amountPaid || 0),
       0
     );
 
     setSelectedFee(fee);
-    setPaymentAmount(
-      amount > 0 ? String(amount) : ""
-    );
+    setPaymentAmount(due > 0 ? String(due) : "");
     setSenderNumber("");
     setTransactionId("");
     setPaymentError("");
@@ -371,28 +402,15 @@ export default function StudentFees() {
 
       const amount = Number(paymentAmount);
 
-      if (
-        !Number.isFinite(amount) ||
-        amount <= 0
-      ) {
-        setPaymentError(
-          "Enter a valid payment amount."
-        );
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setPaymentError("Enter a valid payment amount.");
         return;
       }
 
-      const feeAmount = Number(
-        selectedFee.amount || 0
-      );
+      const feeAmount = Number(selectedFee.amount || 0);
+      const alreadyPaid = Number(selectedFee.amountPaid || 0);
 
-      const alreadyPaid = Number(
-        selectedFee.amountPaid || 0
-      );
-
-      const due = Math.max(
-        feeAmount - alreadyPaid,
-        0
-      );
+      const due = Math.max(feeAmount - alreadyPaid, 0);
 
       if (amount > due) {
         setPaymentError(
@@ -403,68 +421,69 @@ export default function StudentFees() {
         return;
       }
 
-      if (!senderNumber.trim()) {
+      const cleanSenderNumber = senderNumber
+        .trim()
+        .replace(/\s+/g, "");
+
+      if (!cleanSenderNumber) {
         setPaymentError(
           "Enter the bKash number you used to send the money."
         );
         return;
       }
 
-      if (!/^01[3-9]\d{8}$/.test(
-        senderNumber
-          .trim()
-          .replace(/\s+/g, "")
-      )) {
+      if (!/^01[3-9]\d{8}$/.test(cleanSenderNumber)) {
         setPaymentError(
           "Enter a valid Bangladeshi mobile number."
         );
         return;
       }
 
-      if (!transactionId.trim()) {
+      const cleanTransactionId =
+        transactionId.trim().toUpperCase();
+
+      if (!cleanTransactionId) {
         setPaymentError(
           "Enter your bKash Transaction ID."
         );
         return;
       }
 
-      await api.post(
-        "/fees/payment-requests",
-        {
-          feeId: selectedFee._id,
-          amount,
-          senderNumber:
-            senderNumber
-              .trim()
-              .replace(/\s+/g, ""),
-          transactionId:
-            transactionId.trim().toUpperCase(),
-        }
-      );
+      await api.post("/fees/payment-requests", {
+        feeId: selectedFee._id,
+        amount,
+        senderNumber: cleanSenderNumber,
+        transactionId: cleanTransactionId,
+      });
 
-      closePaymentModal();
+      // Reset modal directly because closePaymentModal
+      // prevents closing while submittingPayment is true.
+      setSelectedFee(null);
+      setPaymentAmount("");
+      setSenderNumber("");
+      setTransactionId("");
+      setPaymentError("");
 
-      await Promise.all([
-        loadFees(),
-        loadPaymentRequests(),
-      ]);
+      await refreshAll();
     } catch (err) {
-      setPaymentError(
-        getErrorMessage(err)
-      );
+      setPaymentError(getErrorMessage(err));
     } finally {
       setSubmittingPayment(false);
     }
   }
 
-  function getPendingRequestForFee(
-    feeId: string
-  ) {
-    return paymentRequests.find(
-      (request) =>
-        request.fee?._id === feeId &&
+  function getPendingRequestForFee(feeId: string) {
+    return paymentRequests.find((request) => {
+      const requestFeeId =
+        typeof request.fee === "string"
+          ? request.fee
+          : request.fee?._id;
+
+      return (
+        requestFeeId === feeId &&
         request.status === "PENDING"
-    );
+      );
+    });
   }
 
   const courseOptions = useMemo(() => {
@@ -476,18 +495,13 @@ export default function StudentFees() {
       if (course?._id) {
         map.set(
           course._id,
-          course.title ||
-            course.subject ||
-            "Course"
+          course.title || course.subject || "Course"
         );
       }
     });
 
     return Array.from(map.entries()).map(
-      ([id, title]) => ({
-        id,
-        title,
-      })
+      ([id, title]) => ({ id, title })
     );
   }, [fees]);
 
@@ -495,26 +509,20 @@ export default function StudentFees() {
     return Array.from(
       new Set(
         fees
-          .map(
-            (fee) => fee.billingMonth
-          )
+          .map((fee) => fee.billingMonth)
           .filter(Boolean) as string[]
       )
-    ).sort((a, b) =>
-      b.localeCompare(a)
-    );
+    ).sort((a, b) => b.localeCompare(a));
   }, [fees]);
 
   const overallTotals = useMemo(() => {
     const totalFee = fees.reduce(
-      (sum, fee) =>
-        sum + Number(fee.amount || 0),
+      (sum, fee) => sum + Number(fee.amount || 0),
       0
     );
 
     const totalPaid = fees.reduce(
-      (sum, fee) =>
-        sum + Number(fee.amountPaid || 0),
+      (sum, fee) => sum + Number(fee.amountPaid || 0),
       0
     );
 
@@ -529,23 +537,44 @@ export default function StudentFees() {
       0
     );
 
-    return {
-      totalFee,
-      totalPaid,
-      totalDue,
-    };
+    return { totalFee, totalPaid, totalDue };
+  }, [fees]);
+
+  // All months are used for the quick overview.
+  // This keeps the overview visible even when filters are active.
+  const allMonthlyGroups = useMemo(() => {
+    const grouped = new Map<string, FeeWithMonthly[]>();
+
+    fees.forEach((fee) => {
+      const month = fee.billingMonth || "UNASSIGNED";
+
+      if (!grouped.has(month)) {
+        grouped.set(month, []);
+      }
+
+      grouped.get(month)!.push(fee);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([month, records]) =>
+        calculateGroup(month, records)
+      )
+      .sort((a, b) => {
+        if (a.month === "UNASSIGNED") return 1;
+        if (b.month === "UNASSIGNED") return -1;
+
+        return b.month.localeCompare(a.month);
+      });
   }, [fees]);
 
   const filteredFees = useMemo(() => {
     return fees.filter((fee) => {
       const monthMatch =
         selectedMonth === "ALL" ||
-        (fee.billingMonth ||
-          "UNASSIGNED") === selectedMonth;
+        (fee.billingMonth || "UNASSIGNED") ===
+          selectedMonth;
 
-      const course = getCourse(
-        fee.course
-      );
+      const course = getCourse(fee.course);
 
       const courseMatch =
         selectedCourse === "ALL" ||
@@ -553,160 +582,60 @@ export default function StudentFees() {
 
       return monthMatch && courseMatch;
     });
-  }, [
-    fees,
-    selectedMonth,
-    selectedCourse,
-  ]);
+  }, [fees, selectedMonth, selectedCourse]);
 
-  const monthlyGroups =
-    useMemo<MonthlyGroup[]>(() => {
-      const grouped = new Map<
-        string,
-        FeeWithMonthly[]
-      >();
+  const monthlyGroups = useMemo<MonthlyGroup[]>(() => {
+    const grouped = new Map<string, FeeWithMonthly[]>();
 
-      filteredFees.forEach((fee) => {
-        const month =
-          fee.billingMonth ||
-          "UNASSIGNED";
+    filteredFees.forEach((fee) => {
+      const month = fee.billingMonth || "UNASSIGNED";
 
-        if (!grouped.has(month)) {
-          grouped.set(month, []);
-        }
+      if (!grouped.has(month)) {
+        grouped.set(month, []);
+      }
 
-        grouped
-          .get(month)!
-          .push(fee);
-      });
+      grouped.get(month)!.push(fee);
+    });
 
-      return Array.from(
-        grouped.entries()
+    return Array.from(grouped.entries())
+      .map(([month, records]) =>
+        calculateGroup(month, records)
       )
-        .map(([month, records]) => {
-          const totalFee =
-            records.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.amount || 0
-                ),
-              0
-            );
+      .sort((a, b) => {
+        if (a.month === "UNASSIGNED") return 1;
+        if (b.month === "UNASSIGNED") return -1;
 
-          const totalPaid =
-            records.reduce(
-              (sum, fee) =>
-                sum +
-                Number(
-                  fee.amountPaid || 0
-                ),
-              0
-            );
-
-          const totalDue =
-            records.reduce(
-              (sum, fee) =>
-                sum +
-                Math.max(
-                  Number(
-                    fee.amount || 0
-                  ) -
-                    Number(
-                      fee.amountPaid ||
-                        0
-                    ),
-                  0
-                ),
-              0
-            );
-
-          return {
-            month,
-            label:
-              month === "UNASSIGNED"
-                ? "Unassigned Fees"
-                : formatMonth(month),
-            records: records.sort(
-              (a, b) => {
-                const courseA =
-                  getCourse(a.course)
-                    ?.title || "";
-
-                const courseB =
-                  getCourse(b.course)
-                    ?.title || "";
-
-                return courseA.localeCompare(
-                  courseB
-                );
-              }
-            ),
-            totalFee,
-            totalPaid,
-            totalDue,
-          };
-        })
-        .sort((a, b) => {
-          if (
-            a.month === "UNASSIGNED"
-          )
-            return 1;
-
-          if (
-            b.month === "UNASSIGNED"
-          )
-            return -1;
-
-          return b.month.localeCompare(
-            a.month
-          );
-        });
-    }, [filteredFees]);
+        return b.month.localeCompare(a.month);
+      });
+  }, [filteredFees]);
 
   const filteredTotals = useMemo(() => {
-    const totalFee =
-      filteredFees.reduce(
-        (sum, fee) =>
-          sum +
-          Number(fee.amount || 0),
-        0
-      );
+    const totalFee = filteredFees.reduce(
+      (sum, fee) => sum + Number(fee.amount || 0),
+      0
+    );
 
-    const totalPaid =
-      filteredFees.reduce(
-        (sum, fee) =>
-          sum +
-          Number(
-            fee.amountPaid || 0
-          ),
-        0
-      );
+    const totalPaid = filteredFees.reduce(
+      (sum, fee) => sum + Number(fee.amountPaid || 0),
+      0
+    );
 
-    const totalDue =
-      filteredFees.reduce(
-        (sum, fee) =>
-          sum +
-          Math.max(
-            Number(fee.amount || 0) -
-              Number(
-                fee.amountPaid || 0
-              ),
-            0
-          ),
-        0
-      );
+    const totalDue = filteredFees.reduce(
+      (sum, fee) =>
+        sum +
+        Math.max(
+          Number(fee.amount || 0) -
+            Number(fee.amountPaid || 0),
+          0
+        ),
+      0
+    );
 
-    return {
-      totalFee,
-      totalPaid,
-      totalDue,
-    };
+    return { totalFee, totalPaid, totalDue };
   }, [filteredFees]);
 
   const displayedTotals =
-    selectedMonth === "ALL" &&
-    selectedCourse === "ALL"
+    selectedMonth === "ALL" && selectedCourse === "ALL"
       ? overallTotals
       : filteredTotals;
 
@@ -719,16 +648,24 @@ export default function StudentFees() {
         )
       : 0;
 
-  const pendingPaymentCount =
-    paymentRequests.filter(
-      (request) =>
-        request.status === "PENDING"
-    ).length;
+  const pendingPaymentCount = paymentRequests.filter(
+    (request) => request.status === "PENDING"
+  ).length;
 
   function toggleMonth(month: string) {
     setOpenMonths((current) => ({
       ...current,
       [month]: !current[month],
+    }));
+  }
+
+  function selectOverviewMonth(month: string) {
+    setSelectedMonth(month);
+    setSelectedCourse("ALL");
+
+    setOpenMonths((current) => ({
+      ...current,
+      [month]: true,
     }));
   }
 
@@ -811,15 +748,729 @@ export default function StudentFees() {
               </p>
 
               <p className="font-semibold">
-                {fees.length} monthly record
-                {fees.length !== 1 ? "s" : ""}
+                {fees.length} record{fees.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* bKash Payment */}
+      {/* Overall Summary */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-slate-100 p-3">
+              <Wallet className="h-5 w-5 text-slate-700" />
+            </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Total Fee
+            </span>
+          </div>
+
+          <p className="mt-5 text-2xl font-bold text-slate-950">
+            {formatCurrency(displayedTotals.totalFee)}
+          </p>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Across monthly records
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-emerald-50 p-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Paid
+            </span>
+          </div>
+
+          <p className="mt-5 text-2xl font-bold text-emerald-700">
+            {formatCurrency(displayedTotals.totalPaid)}
+          </p>
+
+          <p className="mt-1 text-sm text-slate-500">
+            {paidPercentage}% payment completed
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-red-50 p-3">
+              <Clock3 className="h-5 w-5 text-red-600" />
+            </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Due / Unpaid
+            </span>
+          </div>
+
+          <p className="mt-5 text-2xl font-bold text-red-700">
+            {formatCurrency(displayedTotals.totalDue)}
+          </p>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Remaining payment
+          </p>
+        </div>
+
+        <div className="card-premium p-5">
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-brand-gold/10 p-3">
+              <CreditCard className="h-5 w-5 text-brand-gold" />
+            </div>
+
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Progress
+            </span>
+          </div>
+
+          <p className="mt-5 text-2xl font-bold text-slate-950">
+            {paidPercentage}%
+          </p>
+
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-brand-gold transition-all duration-500"
+              style={{
+                width: `${Math.min(paidPercentage, 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Monthly Overview */}
+      <section>
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+              Quick Overview
+            </p>
+
+            <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+              Month-wise Payment Summary
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Select any month to see its detailed fee statement.
+            </p>
+          </div>
+
+          {selectedMonth !== "ALL" && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMonth("ALL");
+                setSelectedCourse("ALL");
+              }}
+              className="self-start rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              View All Months
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {allMonthlyGroups.map((group) => {
+            const status = getMonthlyStatus(group);
+            const percentage =
+              group.totalFee > 0
+                ? Math.round(
+                    (group.totalPaid / group.totalFee) * 100
+                  )
+                : 0;
+
+            const isSelected =
+              selectedMonth === group.month;
+
+            return (
+              <button
+                key={group.month}
+                type="button"
+                onClick={() =>
+                  selectOverviewMonth(group.month)
+                }
+                className={`rounded-2xl border p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${
+                  isSelected
+                    ? "border-brand-gold bg-brand-gold/5 shadow-md"
+                    : "border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.04)]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-brand-navyDark p-3 text-brand-gold">
+                      <CalendarDays className="h-5 w-5" />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Billing Month
+                      </p>
+
+                      <h3 className="mt-1 font-bold text-slate-950">
+                        {group.label}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+                      group.totalDue <= 0
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : group.totalPaid > 0
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-red-200 bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Fee
+                    </p>
+
+                    <p className="mt-1 text-sm font-bold text-slate-950">
+                      {formatCurrency(group.totalFee)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                      Paid
+                    </p>
+
+                    <p className="mt-1 text-sm font-bold text-emerald-700">
+                      {formatCurrency(group.totalPaid)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">
+                      Due
+                    </p>
+
+                    <p className="mt-1 text-sm font-bold text-red-700">
+                      {formatCurrency(group.totalDue)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-500">
+                      Payment progress
+                    </span>
+
+                    <span className="font-bold text-slate-700">
+                      {percentage}%
+                    </span>
+                  </div>
+
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-brand-gold transition-all"
+                      style={{
+                        width: `${Math.min(percentage, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between text-xs font-semibold text-brand-navyDark">
+                  <span>View details</span>
+                  <span>→</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Filters */}
+      <section className="card-premium p-5 sm:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+            Filter Statement
+          </p>
+
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">
+            View by month or course
+          </h2>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="label-field">
+              Billing Month
+            </label>
+
+            <select
+              value={selectedMonth}
+              onChange={(event) =>
+                setSelectedMonth(event.target.value)
+              }
+              className="input-field"
+            >
+              <option value="ALL">All Months</option>
+
+              {monthOptions.map((month) => (
+                <option key={month} value={month}>
+                  {formatMonth(month)}
+                </option>
+              ))}
+
+              {fees.some((fee) => !fee.billingMonth) && (
+                <option value="UNASSIGNED">
+                  Unassigned Fees
+                </option>
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="label-field">
+              Course
+            </label>
+
+            <select
+              value={selectedCourse}
+              onChange={(event) =>
+                setSelectedCourse(event.target.value)
+              }
+              className="input-field"
+            >
+              <option value="ALL">All Courses</option>
+
+              {courseOptions.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* Detailed Monthly Statement */}
+      <section>
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+              Detailed Monthly Statement
+            </p>
+
+            <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+              Month → Course → Fee → Paid → Due
+            </h2>
+          </div>
+
+          <p className="text-sm text-slate-500">
+            {filteredFees.length} record
+            {filteredFees.length !== 1 ? "s" : ""} shown
+          </p>
+        </div>
+
+        {!monthlyGroups.length ? (
+          <div className="card-premium p-10 text-center">
+            <FileText className="mx-auto h-10 w-10 text-slate-300" />
+
+            <h3 className="mt-4 text-lg font-semibold text-slate-900">
+              No records for this filter
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Try selecting another month or course.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {monthlyGroups.map((group) => {
+              const isOpen = openMonths[group.month] !== false;
+
+              return (
+                <div
+                  key={group.month}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.05)]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleMonth(group.month)}
+                    className="flex w-full flex-col gap-5 p-5 text-left transition hover:bg-slate-50 sm:p-6"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-gold">
+                          <CalendarDays className="h-5 w-5" />
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Billing Month
+                          </p>
+
+                          <h3 className="mt-1 text-xl font-bold text-slate-950">
+                            {group.label}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 p-2 text-slate-500">
+                        {isOpen ? (
+                          <ChevronUp className="h-5 w-5" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                          Fee
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-slate-950 sm:text-base">
+                          {formatCurrency(group.totalFee)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                          Paid
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-emerald-700 sm:text-base">
+                          {formatCurrency(group.totalPaid)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                          Due
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-red-700 sm:text-base">
+                          {formatCurrency(group.totalDue)}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="border-t border-slate-200">
+                      {/* Desktop table */}
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full min-w-[980px]">
+                          <thead>
+                            <tr className="bg-slate-50 text-left">
+                              {[
+                                "Course",
+                                "Fee",
+                                "Paid",
+                                "Due",
+                                "Due Date",
+                                "Status",
+                                "Payment",
+                              ].map((heading) => (
+                                <th
+                                  key={heading}
+                                  className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"
+                                >
+                                  {heading}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+
+                          <tbody className="divide-y divide-slate-100">
+                            {group.records.map((fee) => {
+                              const course = getCourse(fee.course);
+                              const amount = Number(fee.amount || 0);
+                              const paid = Number(fee.amountPaid || 0);
+                              const due = Math.max(amount - paid, 0);
+
+                              const pendingRequest =
+                                getPendingRequestForFee(fee._id);
+
+                              return (
+                                <tr
+                                  key={fee._id}
+                                  className="transition hover:bg-slate-50/70"
+                                >
+                                  <td className="px-6 py-5">
+                                    <p className="font-semibold text-slate-900">
+                                      {course?.title || "Course"}
+                                    </p>
+
+                                    {course?.subject && (
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        {course.subject}
+                                      </p>
+                                    )}
+                                  </td>
+
+                                  <td className="px-6 py-5 font-semibold text-slate-900">
+                                    {formatCurrency(amount)}
+                                  </td>
+
+                                  <td className="px-6 py-5 font-semibold text-emerald-700">
+                                    {formatCurrency(paid)}
+                                  </td>
+
+                                  <td className="px-6 py-5 font-semibold text-red-700">
+                                    {formatCurrency(due)}
+                                  </td>
+
+                                  <td className="px-6 py-5 text-sm text-slate-600">
+                                    {formatDate(fee.dueDate)}
+                                  </td>
+
+                                  <td className="px-6 py-5">
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
+                                        fee.status
+                                      )}`}
+                                    >
+                                      {getStatusLabel(fee.status)}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-6 py-5">
+                                    {due <= 0 ? (
+                                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Fully Paid
+                                      </span>
+                                    ) : pendingRequest ? (
+                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                                        <Clock3 className="h-3.5 w-3.5" />
+                                        Verification Pending
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openPaymentModal(fee)
+                                        }
+                                        className="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-pink-700"
+                                      >
+                                        <CreditCard className="h-4 w-4" />
+                                        Pay via bKash
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile cards */}
+                      <div className="divide-y divide-slate-100 md:hidden">
+                        {group.records.map((fee) => {
+                          const course = getCourse(fee.course);
+                          const amount = Number(fee.amount || 0);
+                          const paid = Number(fee.amountPaid || 0);
+                          const due = Math.max(amount - paid, 0);
+
+                          const pendingRequest =
+                            getPendingRequestForFee(fee._id);
+
+                          return (
+                            <div key={fee._id} className="p-5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-slate-950">
+                                    {course?.title || "Course"}
+                                  </p>
+
+                                  {course?.subject && (
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {course.subject}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <span
+                                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusClass(
+                                    fee.status
+                                  )}`}
+                                >
+                                  {getStatusLabel(fee.status)}
+                                </span>
+                              </div>
+
+                              <div className="mt-5 grid grid-cols-3 gap-3">
+                                <div className="rounded-xl bg-slate-50 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Fee
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-950">
+                                    {formatCurrency(amount)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-emerald-50 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                                    Paid
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-emerald-700">
+                                    {formatCurrency(paid)}
+                                  </p>
+                                </div>
+
+                                <div className="rounded-xl bg-red-50 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">
+                                    Due
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-red-700">
+                                    {formatCurrency(due)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500">
+                                <span>Due date</span>
+
+                                <span className="font-medium text-slate-700">
+                                  {formatDate(fee.dueDate)}
+                                </span>
+                              </div>
+
+                              <div className="mt-4">
+                                {due <= 0 ? (
+                                  <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Fully Paid
+                                  </div>
+                                ) : pendingRequest ? (
+                                  <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                                    <Clock3 className="h-4 w-4" />
+                                    Payment Verification Pending
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openPaymentModal(fee)
+                                    }
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-pink-700"
+                                  >
+                                    <CreditCard className="h-4 w-4" />
+                                    Pay via bKash
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Course Summary */}
+      {summary?.courseSummary &&
+        summary.courseSummary.length > 0 && (
+          <section>
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
+                Course Breakdown
+              </p>
+
+              <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+                Course-wise Fee Summary
+              </h2>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {summary.courseSummary.map((item, index) => (
+                <div
+                  key={
+                    item.courseId ||
+                    item.course?._id ||
+                    `course-${index}`
+                  }
+                  className="card-premium p-5"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Course
+                      </p>
+
+                      <h3 className="mt-1 font-semibold text-slate-950">
+                        {item.course?.title ||
+                          item.course?.subject ||
+                          "Course"}
+                      </h3>
+
+                      {item.course?.classLevel && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {item.course.classLevel}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl bg-brand-gold/10 p-3">
+                      <CreditCard className="h-5 w-5 text-brand-gold" />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Fee
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-slate-950">
+                        {formatCurrency(item.totalFee)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Paid
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-emerald-700">
+                        {formatCurrency(item.totalPaid)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Due
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-red-700">
+                        {formatCurrency(item.totalDue)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+      {/* bKash Payment - Bottom Section */}
       <section className="overflow-hidden rounded-[2rem] border border-pink-100 bg-white shadow-[0_15px_50px_rgba(15,23,42,0.06)]">
         <div className="bg-gradient-to-r from-pink-600 to-pink-500 px-6 py-6 text-white sm:px-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -862,8 +1513,7 @@ export default function StudentFees() {
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="rounded-2xl border border-pink-100 bg-pink-50 px-5 py-4">
                 <p className="text-2xl font-bold tracking-wide text-pink-700">
-                  {paymentInfo.bkashNumber ||
-                    "Not configured"}
+                  {paymentInfo.bkashNumber || "Not configured"}
                 </p>
               </div>
 
@@ -890,7 +1540,7 @@ export default function StudentFees() {
 
             <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 p-4">
               <p className="text-sm font-semibold text-amber-900">
-                Payment instructions
+                Payment Instructions
               </p>
 
               <ol className="mt-2 space-y-1 text-sm leading-6 text-amber-800">
@@ -901,7 +1551,7 @@ export default function StudentFees() {
                   2. Keep your sender bKash number and TrxID.
                 </li>
                 <li>
-                  3. Submit the payment request below.
+                  3. Submit the payment request from your monthly fee record.
                 </li>
                 <li>
                   4. Admin will verify the transaction before approving it.
@@ -926,7 +1576,7 @@ export default function StudentFees() {
         </div>
       </section>
 
-      {/* Payment History */}
+      {/* bKash Payment History - Bottom */}
       <section>
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -941,13 +1591,8 @@ export default function StudentFees() {
 
           <button
             type="button"
-            onClick={() =>
-              Promise.all([
-                loadFees(),
-                loadPaymentRequests(),
-              ])
-            }
-            disabled={paymentLoading}
+            onClick={refreshAll}
+            disabled={paymentLoading || loading}
             className="self-start rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Refresh
@@ -993,31 +1638,22 @@ export default function StudentFees() {
                           <Clock3 className="mr-1.5 h-3.5 w-3.5" />
                         )}
 
-                        {getPaymentStatusLabel(
-                          request.status
-                        )}
+                        {getPaymentStatusLabel(request.status)}
                       </span>
 
                       {request.fee?.billingMonth && (
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                          {formatMonth(
-                            request.fee.billingMonth
-                          )}
+                          {formatMonth(request.fee.billingMonth)}
                         </span>
                       )}
                     </div>
 
                     <h3 className="mt-3 text-lg font-bold text-slate-950">
-                      {formatCurrency(
-                        request.amount
-                      )}
+                      {formatCurrency(request.amount)}
                     </h3>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Submitted{" "}
-                      {formatDateTime(
-                        request.createdAt
-                      )}
+                      Submitted {formatDateTime(request.createdAt)}
                     </p>
                   </div>
 
@@ -1050,15 +1686,8 @@ export default function StudentFees() {
                       <p className="mt-1 text-sm font-bold text-red-700">
                         {formatCurrency(
                           Math.max(
-                            Number(
-                              request.fee?.amount ||
-                                0
-                            ) -
-                              Number(
-                                request.fee
-                                  ?.amountPaid ||
-                                  0
-                              ),
+                            Number(request.fee?.amount || 0) -
+                              Number(request.fee?.amountPaid || 0),
                             0
                           )
                         )}
@@ -1067,8 +1696,7 @@ export default function StudentFees() {
                   </div>
                 </div>
 
-                {request.status ===
-                  "REJECTED" &&
+                {request.status === "REJECTED" &&
                   request.rejectionReason && (
                     <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-red-600">
@@ -1086,737 +1714,6 @@ export default function StudentFees() {
         )}
       </section>
 
-      {/* Overall cards */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Total Fee */}
-        <div className="card-premium p-5">
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-slate-100 p-3">
-              <Wallet className="h-5 w-5 text-slate-700" />
-            </div>
-
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Total Fee
-            </span>
-          </div>
-
-          <p className="mt-5 text-2xl font-bold text-slate-950">
-            {formatCurrency(
-              displayedTotals.totalFee
-            )}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Across monthly records
-          </p>
-        </div>
-
-        {/* Paid */}
-        <div className="card-premium p-5">
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-emerald-50 p-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            </div>
-
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Paid
-            </span>
-          </div>
-
-          <p className="mt-5 text-2xl font-bold text-emerald-700">
-            {formatCurrency(
-              displayedTotals.totalPaid
-            )}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            {paidPercentage}% payment completed
-          </p>
-        </div>
-
-        {/* Due / Unpaid */}
-        <div className="card-premium p-5">
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-red-50 p-3">
-              <Clock3 className="h-5 w-5 text-red-600" />
-            </div>
-
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Due / Unpaid
-            </span>
-          </div>
-
-          <p className="mt-5 text-2xl font-bold text-red-700">
-            {formatCurrency(
-              displayedTotals.totalDue
-            )}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Remaining payment
-          </p>
-        </div>
-
-        {/* Progress */}
-        <div className="card-premium p-5">
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-brand-gold/10 p-3">
-              <CreditCard className="h-5 w-5 text-brand-gold" />
-            </div>
-
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Progress
-            </span>
-          </div>
-
-          <p className="mt-5 text-2xl font-bold text-slate-950">
-            {paidPercentage}%
-          </p>
-
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-brand-gold transition-all duration-500"
-              style={{
-                width: `${Math.min(
-                  paidPercentage,
-                  100
-                )}%`,
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Filters */}
-      <section className="card-premium p-5 sm:p-6">
-        <div className="mb-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
-            Filter Statement
-          </p>
-
-          <h2 className="mt-1 text-xl font-semibold text-slate-950">
-            View by month or course
-          </h2>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="label-field">
-              Billing Month
-            </label>
-
-            <select
-              value={selectedMonth}
-              onChange={(event) =>
-                setSelectedMonth(
-                  event.target.value
-                )
-              }
-              className="input-field"
-            >
-              <option value="ALL">
-                All Months
-              </option>
-
-              {monthOptions.map(
-                (month) => (
-                  <option
-                    key={month}
-                    value={month}
-                  >
-                    {formatMonth(month)}
-                  </option>
-                )
-              )}
-
-              {fees.some(
-                (fee) =>
-                  !fee.billingMonth
-              ) && (
-                <option value="UNASSIGNED">
-                  Unassigned Fees
-                </option>
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label className="label-field">
-              Course
-            </label>
-
-            <select
-              value={selectedCourse}
-              onChange={(event) =>
-                setSelectedCourse(
-                  event.target.value
-                )
-              }
-              className="input-field"
-            >
-              <option value="ALL">
-                All Courses
-              </option>
-
-              {courseOptions.map(
-                (course) => (
-                  <option
-                    key={course.id}
-                    value={course.id}
-                  >
-                    {course.title}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      {/* Monthly statement */}
-      <section>
-        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
-              Monthly Statement
-            </p>
-
-            <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-              Month → Course → Fee → Paid → Due
-            </h2>
-          </div>
-
-          <p className="text-sm text-slate-500">
-            {filteredFees.length} record
-            {filteredFees.length !== 1
-              ? "s"
-              : ""}{" "}
-            shown
-          </p>
-        </div>
-
-        {!monthlyGroups.length ? (
-          <div className="card-premium p-10 text-center">
-            <FileText className="mx-auto h-10 w-10 text-slate-300" />
-
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">
-              No records for this filter
-            </h3>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Try selecting another month or course.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {monthlyGroups.map(
-              (group) => {
-                const isOpen =
-                  openMonths[
-                    group.month
-                  ] !== false;
-
-                return (
-                  <div
-                    key={group.month}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.05)]"
-                  >
-                    {/* Month header */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        toggleMonth(
-                          group.month
-                        )
-                      }
-                      className="flex w-full flex-col gap-5 p-5 text-left transition hover:bg-slate-50 sm:p-6"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-navyDark text-brand-gold">
-                            <CalendarDays className="h-5 w-5" />
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                              Billing Month
-                            </p>
-
-                            <h3 className="mt-1 text-xl font-bold text-slate-950">
-                              {group.label}
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="rounded-lg border border-slate-200 p-2 text-slate-500">
-                          {isOpen ? (
-                            <ChevronUp className="h-5 w-5" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5" />
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                            Fee
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-slate-950 sm:text-base">
-                            {formatCurrency(
-                              group.totalFee
-                            )}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                            Paid
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-emerald-700 sm:text-base">
-                            {formatCurrency(
-                              group.totalPaid
-                            )}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                            Due
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-red-700 sm:text-base">
-                            {formatCurrency(
-                              group.totalDue
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Month records */}
-                    {isOpen && (
-                      <div className="border-t border-slate-200">
-                        {/* Desktop */}
-                        <div className="hidden overflow-x-auto md:block">
-                          <table className="w-full min-w-[980px]">
-                            <thead>
-                              <tr className="bg-slate-50 text-left">
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Course
-                                </th>
-
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Fee
-                                </th>
-
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Paid
-                                </th>
-
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Due
-                                </th>
-
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Due Date
-                                </th>
-
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Status
-                                </th>
-
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                  Payment
-                                </th>
-                              </tr>
-                            </thead>
-
-                            <tbody className="divide-y divide-slate-100">
-                              {group.records.map(
-                                (fee) => {
-                                  const course =
-                                    getCourse(
-                                      fee.course
-                                    );
-
-                                  const amount =
-                                    Number(
-                                      fee.amount ||
-                                        0
-                                    );
-
-                                  const paid =
-                                    Number(
-                                      fee.amountPaid ||
-                                        0
-                                    );
-
-                                  const due =
-                                    Math.max(
-                                      amount -
-                                        paid,
-                                      0
-                                    );
-
-                                  const pendingRequest =
-                                    getPendingRequestForFee(
-                                      fee._id
-                                    );
-
-                                  return (
-                                    <tr
-                                      key={
-                                        fee._id
-                                      }
-                                      className="transition hover:bg-slate-50/70"
-                                    >
-                                      <td className="px-6 py-5">
-                                        <div>
-                                          <p className="font-semibold text-slate-900">
-                                            {course?.title ||
-                                              "Course"}
-                                          </p>
-
-                                          {course?.subject && (
-                                            <p className="mt-1 text-xs text-slate-500">
-                                              {
-                                                course.subject
-                                              }
-                                            </p>
-                                          )}
-                                        </div>
-                                      </td>
-
-                                      <td className="px-6 py-5 font-semibold text-slate-900">
-                                        {formatCurrency(
-                                          amount
-                                        )}
-                                      </td>
-
-                                      <td className="px-6 py-5 font-semibold text-emerald-700">
-                                        {formatCurrency(
-                                          paid
-                                        )}
-                                      </td>
-
-                                      <td className="px-6 py-5 font-semibold text-red-700">
-                                        {formatCurrency(
-                                          due
-                                        )}
-                                      </td>
-
-                                      <td className="px-6 py-5 text-sm text-slate-600">
-                                        {formatDate(
-                                          fee.dueDate
-                                        )}
-                                      </td>
-
-                                      <td className="px-6 py-5">
-                                        <span
-                                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
-                                            fee.status
-                                          )}`}
-                                        >
-                                          {getStatusLabel(
-                                            fee.status
-                                          )}
-                                        </span>
-                                      </td>
-
-                                      <td className="px-6 py-5">
-                                        {due <=
-                                        0 ? (
-                                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-                                            <CheckCircle2 className="h-4 w-4" />
-                                            Fully Paid
-                                          </span>
-                                        ) : pendingRequest ? (
-                                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-                                            <Clock3 className="h-3.5 w-3.5" />
-                                            Verification Pending
-                                          </span>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              openPaymentModal(
-                                                fee
-                                              )
-                                            }
-                                            className="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-pink-700"
-                                          >
-                                            <CreditCard className="h-4 w-4" />
-                                            Pay via bKash
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                }
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Mobile */}
-                        <div className="divide-y divide-slate-100 md:hidden">
-                          {group.records.map(
-                            (fee) => {
-                              const course =
-                                getCourse(
-                                  fee.course
-                                );
-
-                              const amount =
-                                Number(
-                                  fee.amount ||
-                                    0
-                                );
-
-                              const paid =
-                                Number(
-                                  fee.amountPaid ||
-                                    0
-                                );
-
-                              const due =
-                                Math.max(
-                                  amount -
-                                    paid,
-                                  0
-                                );
-
-                              const pendingRequest =
-                                getPendingRequestForFee(
-                                  fee._id
-                                );
-
-                              return (
-                                <div
-                                  key={
-                                    fee._id
-                                  }
-                                  className="p-5"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="font-semibold text-slate-950">
-                                        {course?.title ||
-                                          "Course"}
-                                      </p>
-
-                                      {course?.subject && (
-                                        <p className="mt-1 text-xs text-slate-500">
-                                          {
-                                            course.subject
-                                          }
-                                        </p>
-                                      )}
-                                    </div>
-
-                                    <span
-                                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusClass(
-                                        fee.status
-                                      )}`}
-                                    >
-                                      {getStatusLabel(
-                                        fee.status
-                                      )}
-                                    </span>
-                                  </div>
-
-                                  <div className="mt-5 grid grid-cols-3 gap-3">
-                                    <div className="rounded-xl bg-slate-50 p-3">
-                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                        Fee
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-bold text-slate-950">
-                                        {formatCurrency(
-                                          amount
-                                        )}
-                                      </p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-emerald-50 p-3">
-                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
-                                        Paid
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-bold text-emerald-700">
-                                        {formatCurrency(
-                                          paid
-                                        )}
-                                      </p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-red-50 p-3">
-                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">
-                                        Due
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-bold text-red-700">
-                                        {formatCurrency(
-                                          due
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500">
-                                    <span>
-                                      Due date
-                                    </span>
-
-                                    <span className="font-medium text-slate-700">
-                                      {formatDate(
-                                        fee.dueDate
-                                      )}
-                                    </span>
-                                  </div>
-
-                                  <div className="mt-4">
-                                    {due <=
-                                    0 ? (
-                                      <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Fully Paid
-                                      </div>
-                                    ) : pendingRequest ? (
-                                      <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                                        <Clock3 className="h-4 w-4" />
-                                        Payment Verification Pending
-                                      </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          openPaymentModal(
-                                            fee
-                                          )
-                                        }
-                                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-pink-700"
-                                      >
-                                        <CreditCard className="h-4 w-4" />
-                                        Pay via bKash
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Course summary */}
-      {summary?.courseSummary &&
-        summary.courseSummary.length > 0 && (
-          <section>
-            <div className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-gold">
-                Course Breakdown
-              </p>
-
-              <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-                Course-wise fee summary
-              </h2>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {summary.courseSummary.map(
-                (item, index) => (
-                  <div
-                    key={
-                      item.courseId ||
-                      item.course?._id ||
-                      `course-${index}`
-                    }
-                    className="card-premium p-5"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                          Course
-                        </p>
-
-                        <h3 className="mt-1 font-semibold text-slate-950">
-                          {item.course?.title ||
-                            item.course?.subject ||
-                            "Course"}
-                        </h3>
-
-                        {item.course
-                          ?.classLevel && (
-                          <p className="mt-1 text-xs text-slate-500">
-                            {
-                              item.course
-                                .classLevel
-                            }
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="rounded-xl bg-brand-gold/10 p-3">
-                        <CreditCard className="h-5 w-5 text-brand-gold" />
-                      </div>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-3 gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                          Fee
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold text-slate-950">
-                          {formatCurrency(
-                            item.totalFee
-                          )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                          Paid
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold text-emerald-700">
-                          {formatCurrency(
-                            item.totalPaid
-                          )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                          Due
-                        </p>
-
-                        <p className="mt-1 text-sm font-bold text-red-700">
-                          {formatCurrency(
-                            item.totalDue
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          </section>
-        )}
-
       {/* Payment Modal */}
       {selectedFee && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -1833,9 +1730,7 @@ export default function StudentFees() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    {getCourse(
-                      selectedFee.course
-                    )?.title ||
+                    {getCourse(selectedFee.course)?.title ||
                       "Fee Payment"}
                   </p>
                 </div>
@@ -1852,7 +1747,6 @@ export default function StudentFees() {
             </div>
 
             <div className="space-y-5 px-6 py-6 sm:px-7">
-              {/* bKash number */}
               <div className="rounded-2xl border border-pink-100 bg-pink-50 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-pink-600">
                   Send Money To
@@ -1860,8 +1754,7 @@ export default function StudentFees() {
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <p className="text-2xl font-bold tracking-wide text-pink-700">
-                    {paymentInfo.bkashNumber ||
-                      "Not configured"}
+                    {paymentInfo.bkashNumber || "Not configured"}
                   </p>
 
                   {paymentInfo.bkashNumber && (
@@ -1880,7 +1773,6 @@ export default function StudentFees() {
                 </div>
               </div>
 
-              {/* Fee information */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl bg-slate-50 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -1888,12 +1780,7 @@ export default function StudentFees() {
                   </p>
 
                   <p className="mt-1 text-sm font-bold text-slate-900">
-                    {formatCurrency(
-                      Number(
-                        selectedFee.amount ||
-                          0
-                      )
-                    )}
+                    {formatCurrency(Number(selectedFee.amount || 0))}
                   </p>
                 </div>
 
@@ -1904,10 +1791,7 @@ export default function StudentFees() {
 
                   <p className="mt-1 text-sm font-bold text-emerald-700">
                     {formatCurrency(
-                      Number(
-                        selectedFee.amountPaid ||
-                          0
-                      )
+                      Number(selectedFee.amountPaid || 0)
                     )}
                   </p>
                 </div>
@@ -1920,14 +1804,8 @@ export default function StudentFees() {
                   <p className="mt-1 text-sm font-bold text-red-700">
                     {formatCurrency(
                       Math.max(
-                        Number(
-                          selectedFee.amount ||
-                            0
-                        ) -
-                          Number(
-                            selectedFee.amountPaid ||
-                              0
-                          ),
+                        Number(selectedFee.amount || 0) -
+                          Number(selectedFee.amountPaid || 0),
                         0
                       )
                     )}
@@ -1935,7 +1813,6 @@ export default function StudentFees() {
                 </div>
               </div>
 
-              {/* Amount */}
               <div>
                 <label className="label-field">
                   Payment Amount
@@ -1947,36 +1824,25 @@ export default function StudentFees() {
                   step="1"
                   value={paymentAmount}
                   onChange={(event) =>
-                    setPaymentAmount(
-                      event.target.value
-                    )
+                    setPaymentAmount(event.target.value)
                   }
                   className="input-field"
                   placeholder="Enter amount"
-                  disabled={
-                    submittingPayment
-                  }
+                  disabled={submittingPayment}
                 />
 
                 <p className="mt-1.5 text-xs text-slate-500">
                   Maximum payable now:{" "}
                   {formatCurrency(
                     Math.max(
-                      Number(
-                        selectedFee.amount ||
-                          0
-                      ) -
-                        Number(
-                          selectedFee.amountPaid ||
-                            0
-                        ),
+                      Number(selectedFee.amount || 0) -
+                        Number(selectedFee.amountPaid || 0),
                       0
                     )
                   )}
                 </p>
               </div>
 
-              {/* Sender number */}
               <div>
                 <label className="label-field">
                   Sender bKash Number
@@ -1987,20 +1853,15 @@ export default function StudentFees() {
                   inputMode="numeric"
                   value={senderNumber}
                   onChange={(event) =>
-                    setSenderNumber(
-                      event.target.value
-                    )
+                    setSenderNumber(event.target.value)
                   }
                   className="input-field"
                   placeholder="01XXXXXXXXX"
                   maxLength={11}
-                  disabled={
-                    submittingPayment
-                  }
+                  disabled={submittingPayment}
                 />
               </div>
 
-              {/* Transaction ID */}
               <div>
                 <label className="label-field">
                   bKash Transaction ID
@@ -2016,13 +1877,10 @@ export default function StudentFees() {
                   }
                   className="input-field uppercase"
                   placeholder="Example: 8N7A6B5C4D"
-                  disabled={
-                    submittingPayment
-                  }
+                  disabled={submittingPayment}
                 />
               </div>
 
-              {/* Error */}
               {paymentError && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4">
                   <div className="flex gap-3">
@@ -2035,7 +1893,6 @@ export default function StudentFees() {
                 </div>
               )}
 
-              {/* Warning */}
               <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
                   Important
@@ -2044,12 +1901,11 @@ export default function StudentFees() {
                 <p className="mt-1 text-sm leading-6 text-amber-800">
                   Make sure the amount, sender number and
                   Transaction ID exactly match your bKash
-                  transaction. Your payment will remain
-                  pending until an administrator verifies it.
+                  transaction. Your payment will remain pending
+                  until an administrator verifies it.
                 </p>
               </div>
 
-              {/* Actions */}
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
