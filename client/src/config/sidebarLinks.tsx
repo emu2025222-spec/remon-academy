@@ -1,3 +1,4 @@
+
 import {
   LayoutDashboard,
   User,
@@ -15,6 +16,8 @@ import {
   MessageSquare,
   Settings,
   Activity,
+  ClipboardCheck,
+  FileBarChart,
 } from "lucide-react";
 
 import { SidebarLink } from "../layouts/DashboardLayout";
@@ -25,6 +28,7 @@ export const studentLinks: SidebarLink[] = [
   { to: "/student/courses", label: "My Courses", icon: BookOpen },
   { to: "/student/schedule", label: "Class Schedule", icon: CalendarDays },
   { to: "/student/attendance", label: "Attendance", icon: CalendarCheck },
+  { to: "/student/exams", label: "Examinations", icon: ClipboardCheck },
   { to: "/student/results", label: "Results", icon: Award },
   { to: "/student/notices", label: "Notices", icon: Bell },
   { to: "/student/assignments", label: "Assignments", icon: ClipboardList },
@@ -38,6 +42,10 @@ export const adminLinks: SidebarLink[] = [
   { to: "/admin/courses", label: "Courses", icon: BookOpen },
   { to: "/admin/teachers", label: "Teachers", icon: GraduationCap },
   { to: "/admin/attendance", label: "Attendance", icon: CalendarCheck },
+
+  { to: "/admin/exams", label: "Manage Exams", icon: ClipboardCheck },
+  { to: "/admin/exams/results", label: "MCQ Exam Results", icon: FileBarChart },
+
   { to: "/admin/results", label: "Results", icon: Award },
   { to: "/admin/notices", label: "Notices", icon: Bell },
   { to: "/admin/assignments", label: "Assignments", icon: ClipboardList },

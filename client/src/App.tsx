@@ -1,10 +1,13 @@
+
 import { Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+
 import { PublicLayout } from "./layouts/PublicLayout";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { studentLinks, adminLinks } from "./config/sidebarLinks";
 
+// Public Pages
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Founder from "./pages/Founder";
@@ -23,6 +26,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 
+// Student Pages
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentProfile from "./pages/student/Profile";
 import StudentMyCourses from "./pages/student/MyCourses";
@@ -33,7 +37,9 @@ import StudentNotices from "./pages/student/Notices";
 import StudentAssignments from "./pages/student/Assignments";
 import StudentFees from "./pages/student/Fees";
 import StudentChangePassword from "./pages/student/ChangePassword";
+import StudentExams from "./pages/student/Exams";
 
+// Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminStudents from "./pages/admin/Students";
 import AdminCourses from "./pages/admin/Courses";
@@ -48,77 +54,34 @@ import AdminGallery from "./pages/admin/Gallery";
 import AdminMessages from "./pages/admin/Messages";
 import AdminSettings from "./pages/admin/Settings";
 import AdminOnlineStudents from "./pages/admin/OnlineStudents";
+import AdminExams from "./pages/admin/Exams";
+import ExamResults from "./pages/admin/ExamResults";
 
 export default function App() {
   return (
     <AnimatePresence mode="wait">
       <Routes>
-        {/* =====================================================
-            PUBLIC SITE
-        ===================================================== */}
+        {/* ================= PUBLIC SITE ================= */}
 
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/founder" element={<Founder />} />
 
-          <Route
-            path="/about"
-            element={<About />}
-          />
+          <Route path="/courses" element={<Courses />} />
+          <Route path="/courses/:id" element={<CourseDetails />} />
 
-          <Route
-            path="/founder"
-            element={<Founder />}
-          />
+          <Route path="/teachers" element={<Teachers />} />
+          <Route path="/results" element={<Results />} />
 
-          <Route
-            path="/courses"
-            element={<Courses />}
-          />
+          <Route path="/notices" element={<Notices />} />
+          <Route path="/notices/:id" element={<NoticeDetails />} />
 
-          <Route
-            path="/courses/:id"
-            element={<CourseDetails />}
-          />
+          <Route path="/gallery" element={<Gallery />} />
+          <Route path="/contact" element={<Contact />} />
 
-          <Route
-            path="/teachers"
-            element={<Teachers />}
-          />
-
-          <Route
-            path="/results"
-            element={<Results />}
-          />
-
-          <Route
-            path="/notices"
-            element={<Notices />}
-          />
-
-          <Route
-            path="/notices/:id"
-            element={<NoticeDetails />}
-          />
-
-          <Route
-            path="/gallery"
-            element={<Gallery />}
-          />
-
-          <Route
-            path="/contact"
-            element={<Contact />}
-          />
-
-          <Route
-            path="/login"
-            element={<Login />}
-          />
-
-          <Route
-            path="/register"
-            element={<Register />}
-          />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
           <Route
             path="/forgot-password"
@@ -130,20 +93,10 @@ export default function App() {
             element={<ResetPassword />}
           />
 
-          <Route
-            path="/admin/login"
-            element={<AdminLogin />}
-          />
-
-          <Route
-            path="*"
-            element={<NotFound />}
-          />
+          <Route path="/admin/login" element={<AdminLogin />} />
         </Route>
 
-        {/* =====================================================
-            STUDENT DASHBOARD
-        ===================================================== */}
+        {/* ================= STUDENT DASHBOARD ================= */}
 
         <Route element={<ProtectedRoute role="STUDENT" />}>
           <Route
@@ -203,12 +156,16 @@ export default function App() {
               path="/student/change-password"
               element={<StudentChangePassword />}
             />
+
+            {/* STUDENT EXAMINATIONS */}
+            <Route
+              path="/student/exams"
+              element={<StudentExams />}
+            />
           </Route>
         </Route>
 
-        {/* =====================================================
-            ADMIN DASHBOARD
-        ===================================================== */}
+        {/* ================= ADMIN DASHBOARD ================= */}
 
         <Route element={<ProtectedRoute role="ADMIN" />}>
           <Route
@@ -279,9 +236,17 @@ export default function App() {
               element={<AdminMessages />}
             />
 
-            {/* =================================================
-                LIVE ONLINE STUDENTS
-            ================================================= */}
+            {/* EXAM MANAGEMENT */}
+            <Route
+              path="/admin/exams"
+              element={<AdminExams />}
+            />
+
+            {/* EXAM RESULTS DASHBOARD */}
+            <Route
+              path="/admin/exams/results"
+              element={<ExamResults />}
+            />
 
             <Route
               path="/admin/online-students"
@@ -294,6 +259,10 @@ export default function App() {
             />
           </Route>
         </Route>
+
+        {/* ================= 404 PAGE ================= */}
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>
   );

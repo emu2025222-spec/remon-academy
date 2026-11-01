@@ -21,6 +21,7 @@ import contactRoutes from "./routes/contact.routes";
 import settingsRoutes from "./routes/settings.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
+import examRoutes from "./routes/exam.routes";
 
 const app: Application = express();
 
@@ -35,6 +36,7 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
+app.use("/api/exams", examRoutes);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
