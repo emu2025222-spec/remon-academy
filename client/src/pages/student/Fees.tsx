@@ -10,23 +10,7 @@ import {
   CreditCard,
 } from "lucide-react";
 
-const api = {
-  async get(path: string) {
-    const response = await fetch(`/api${path}`, { credentials: "include" });
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw Object.assign(new Error(data?.message || response.statusText), {
-        response: { data },
-      });
-    }
-
-    return { data };
-  },
-};
-
-const getErrorMessage = (error: any) =>
-  error?.response?.data?.message || error?.message || "An unexpected error occurred.";
+import { api, getErrorMessage } from "../../services/api";
 
 type Course = {
   _id?: string;
