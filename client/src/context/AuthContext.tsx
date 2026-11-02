@@ -6,6 +6,7 @@ import {
   ReactNode,
   useCallback,
 } from "react";
+
 import { api, getErrorMessage } from "../services/api";
 import { UserRole } from "../types";
 
@@ -24,9 +25,15 @@ interface AuthContextValue {
   refresh: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined
+);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,44 +49,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
-  // Keep the student's login session active.
+  /*
+   * STUDENT + ADMIN HEARTBEAT
+   *
+   * Every 30 seconds.
+   * Session cookie identifies the exact browser/device.
+   */
   useEffect(() => {
-    if (!user || user.role !== "STUDENT") {
-      return;
-    }
+    if (!user) return;
 
     let active = true;
+    let sending = false;
 
     const sendHeartbeat = async () => {
-      if (!active) return;
+      if (!active || sending) return;
+
+      sending = true;
 
       try {
         await api.post("/auth/heartbeat");
-      } catch {
-        // Do not force logout here.
-        // The existing auth/session flow will handle authentication
-        // if the session is actually invalid.
+      } catch (error) {
+        // Network failure will not automatically log out the user.
+        console.warn("Heartbeat failed:", error);
+      } finally {
+        sending = false;
       }
     };
 
-    // Mark the student active immediately.
-    sendHeartbeat();
+    // First heartbeat immediately after login/refresh.
+    void sendHeartbeat();
 
-    // Then keep updating lastActiveAt every 20 seconds.
-    const interval = window.setInterval(() => {
-      sendHeartbeat();
-    }, 20_000);
+    const intervalId = window.setInterval(() => {
+      void sendHeartbeat();
+    }, 30_000);
+
+    // Update activity when the user returns to the tab.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void sendHeartbeat();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
 
     return () => {
       active = false;
-      window.clearInterval(interval);
+      window.clearInterval(intervalId);
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
+      );
     };
   }, [user]);
 
-  async function login(identifier: string, password: string) {
+  async function login(
+    identifier: string,
+    password: string
+  ) {
     try {
       const res = await api.post("/auth/login", {
         identifier,
@@ -87,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       setUser({
-        email: identifier,
+        email: res.data.data.profile?.email || identifier,
         role: res.data.data.role,
         profile: res.data.data.profile,
       });
@@ -96,7 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function adminLogin(email: string, password: string) {
+  async function adminLogin(
+    email: string,
+    password: string
+  ) {
     try {
       const res = await api.post("/auth/admin/login", {
         email,
@@ -141,7 +177,9 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
 
   if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error(
+      "useAuth must be used within AuthProvider"
+    );
   }
 
   return ctx;

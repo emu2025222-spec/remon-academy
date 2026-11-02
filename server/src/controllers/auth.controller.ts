@@ -43,6 +43,14 @@ function setSessionCookie(res: Response, sessionId: string) {
   });
 }
 
+function clearAuthCookie(res: Response) {
+  res.clearCookie(env.cookieName, {
+    httpOnly: true,
+    secure: env.nodeEnv === "production",
+    sameSite: env.nodeEnv === "production" ? "none" : "lax",
+  });
+}
+
 function clearSessionCookie(res: Response) {
   res.clearCookie(sessionCookieName, {
     httpOnly: true,
@@ -82,28 +90,8 @@ async function createLoginSession(
   const sessionId = generateSessionId();
   const now = new Date();
 
-  /*
-   * For students, close older online sessions.
-   * This prevents the same student from appearing
-   * multiple times because of an old browser/tab session.
-   */
-  if (role === "STUDENT") {
-    await LoginSession.updateMany(
-      {
-        user: userId,
-        role: "STUDENT",
-        isOnline: true,
-      },
-      {
-        $set: {
-          isOnline: false,
-          logoutAt: now,
-          lastActiveAt: now,
-        },
-      }
-    );
-  }
-
+  // প্রতিটি Login-এর জন্য নতুন session তৈরি হবে।
+  // অন্য Device-এর session বন্ধ করা হবে না।
   await LoginSession.create({
     user: userId,
     role,
@@ -138,8 +126,10 @@ export const registerStudent = asyncHandler(
       course,
     } = req.body;
 
+    const normalizedEmail = String(email).toLowerCase().trim();
+
     const existing = await User.findOne({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
     });
 
     if (existing) {
@@ -152,47 +142,63 @@ export const registerStudent = asyncHandler(
     const passwordHash = await hashPassword(password);
 
     const user = await User.create({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       passwordHash,
       role: "STUDENT",
     });
 
-    const studentId = await generateUniqueStudentId();
+    try {
+      const studentId = await generateUniqueStudentId();
 
-    const student = await Student.create({
-      user: user._id,
-      studentId,
-      fullName,
-      phone,
-      dateOfBirth,
-      gender,
-      address,
-      class: className,
-      group,
-      course: course || undefined,
-    });
+      const student = await Student.create({
+        user: user._id,
+        studentId,
+        fullName,
+        phone,
+        dateOfBirth,
+        gender,
+        address,
+        class: className,
+        group,
+        course: course || undefined,
+      });
 
-    const token = signToken({
-      userId: String(user._id),
-      role: "STUDENT",
-    });
+      const token = signToken({
+        userId: String(user._id),
+        role: "STUDENT",
+      });
 
-    setAuthCookie(res, token);
+      const sessionId = await createLoginSession(
+        req,
+        String(user._id),
+        "STUDENT",
+        String(student._id)
+      );
 
-    return success(
-      res,
-      {
-        token,
-        student: {
-          id: student._id,
-          studentId: student.studentId,
-          fullName: student.fullName,
-          email: user.email,
+      setAuthCookie(res, token);
+      setSessionCookie(res, sessionId);
+
+      return success(
+        res,
+        {
+          token,
+          role: "STUDENT",
+          profile: student,
+          student: {
+            id: student._id,
+            studentId: student.studentId,
+            fullName: student.fullName,
+            email: user.email,
+          },
         },
-      },
-      "Registration successful",
-      201
-    );
+        "Registration successful",
+        201
+      );
+    } catch (error) {
+      await Student.deleteOne({ user: user._id });
+      await User.deleteOne({ _id: user._id });
+      throw error;
+    }
   }
 );
 
@@ -226,38 +232,28 @@ export const login = asyncHandler(
       role: user.role,
     });
 
-    setAuthCookie(res, token);
-
     let profile: unknown = null;
-
-    /* -------------------------
-       STUDENT LOGIN
-    ------------------------- */
 
     if (user.role === "STUDENT") {
       const student = await Student.findOne({
         user: user._id,
       }).populate("course", "title");
 
+      if (!student) {
+        throw new ApiError(404, "Student profile not found");
+      }
+
       profile = student;
 
-      if (student) {
-        const sessionId = await createLoginSession(
-          req,
-          String(user._id),
-          "STUDENT",
-          String(student._id)
-        );
+      const sessionId = await createLoginSession(
+        req,
+        String(user._id),
+        "STUDENT",
+        String(student._id)
+      );
 
-        setSessionCookie(res, sessionId);
-      }
-    }
-
-    /* -------------------------
-       ADMIN LOGIN
-    ------------------------- */
-
-    else {
+      setSessionCookie(res, sessionId);
+    } else {
       profile = await Admin.findOne({
         user: user._id,
       });
@@ -270,6 +266,8 @@ export const login = asyncHandler(
 
       setSessionCookie(res, sessionId);
     }
+
+    setAuthCookie(res, token);
 
     return success(
       res,
@@ -292,15 +290,12 @@ export const adminLogin = asyncHandler(
     const { email, password } = req.body;
 
     const user = await User.findOne({
-      email: email.toLowerCase(),
+      email: email.toLowerCase().trim(),
       role: "ADMIN",
     }).select("+passwordHash");
 
     if (!user) {
-      throw new ApiError(
-        401,
-        "Invalid admin credentials"
-      );
+      throw new ApiError(401, "Invalid admin credentials");
     }
 
     assertActive(user.isActive);
@@ -308,10 +303,7 @@ export const adminLogin = asyncHandler(
     const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
-      throw new ApiError(
-        401,
-        "Invalid admin credentials"
-      );
+      throw new ApiError(401, "Invalid admin credentials");
     }
 
     user.lastLoginAt = new Date();
@@ -322,14 +314,13 @@ export const adminLogin = asyncHandler(
       role: "ADMIN",
     });
 
-    setAuthCookie(res, token);
-
     const sessionId = await createLoginSession(
       req,
       String(user._id),
       "ADMIN"
     );
 
+    setAuthCookie(res, token);
     setSessionCookie(res, sessionId);
 
     const profile = await Admin.findOne({
@@ -340,7 +331,7 @@ export const adminLogin = asyncHandler(
       res,
       {
         token,
-        role: user.role,
+        role: "ADMIN",
         profile,
       },
       "Admin login successful"
@@ -352,71 +343,40 @@ export const adminLogin = asyncHandler(
    HEARTBEAT
 ========================================================= */
 
-/**
- * Student frontend calls this every 20 seconds.
- *
- * Normally the session cookie identifies the exact session.
- *
- * Production fallback:
- * If the session cookie is unavailable because of
- * cross-origin/browser cookie restrictions, we use the
- * authenticated user ID and find the latest online
- * student session.
- */
 export const heartbeat = asyncHandler(
   async (req: Request, res: Response) => {
     if (!req.auth) {
-      throw new ApiError(
-        401,
-        "Not authenticated"
-      );
+      throw new ApiError(401, "Not authenticated");
+    }
+
+    const sessionId = req.cookies?.[sessionCookieName];
+
+    if (!sessionId) {
+      throw new ApiError(401, "Session cookie missing");
     }
 
     const now = new Date();
 
-    const sessionId =
-      req.cookies?.[sessionCookieName];
-
-    let session = null;
-
-    /* -------------------------
-       1. Try exact session cookie
-    ------------------------- */
-
-    if (sessionId) {
-      session = await LoginSession.findOne({
+    const session = await LoginSession.findOneAndUpdate(
+      {
         sessionId,
-        user: req.auth.userId,
-        isOnline: true,
-      });
-    }
-
-    /* -------------------------
-       2. Production fallback
-    ------------------------- */
-
-    if (!session) {
-      session = await LoginSession.findOne({
         user: req.auth.userId,
         role: req.auth.role,
         isOnline: true,
-      }).sort({
-        loginAt: -1,
-      });
-    }
+      },
+      {
+        $set: {
+          lastActiveAt: now,
+        },
+      },
+      {
+        new: true,
+      }
+    );
 
     if (!session) {
-      throw new ApiError(
-        401,
-        "Active session not found"
-      );
+      throw new ApiError(401, "Active session not found");
     }
-
-    session.lastActiveAt = now;
-    session.isOnline = true;
-    session.logoutAt = undefined;
-
-    await session.save();
 
     return success(
       res,
@@ -435,19 +395,16 @@ export const heartbeat = asyncHandler(
 
 export const logout = asyncHandler(
   async (req: Request, res: Response) => {
-    const sessionId =
-      req.cookies?.[sessionCookieName];
-
+    const sessionId = req.cookies?.[sessionCookieName];
     const now = new Date();
-
-    /* -------------------------
-       Mark current session offline
-    ------------------------- */
 
     if (sessionId) {
       await LoginSession.updateOne(
         {
           sessionId,
+          ...(req.auth?.userId
+            ? { user: req.auth.userId }
+            : {}),
           isOnline: true,
         },
         {
@@ -460,36 +417,7 @@ export const logout = asyncHandler(
       );
     }
 
-    /* -------------------------
-       Fallback:
-       Mark user's online sessions offline.
-    ------------------------- */
-
-    else if (req.auth?.userId) {
-      await LoginSession.updateMany(
-        {
-          user: req.auth.userId,
-          isOnline: true,
-        },
-        {
-          $set: {
-            isOnline: false,
-            logoutAt: now,
-            lastActiveAt: now,
-          },
-        }
-      );
-    }
-
-    res.clearCookie(env.cookieName, {
-      httpOnly: true,
-      secure: env.nodeEnv === "production",
-      sameSite:
-        env.nodeEnv === "production"
-          ? "none"
-          : "lax",
-    });
-
+    clearAuthCookie(res);
     clearSessionCookie(res);
 
     return success(
@@ -507,21 +435,13 @@ export const logout = asyncHandler(
 export const me = asyncHandler(
   async (req: Request, res: Response) => {
     if (!req.auth) {
-      throw new ApiError(
-        401,
-        "Not authenticated"
-      );
+      throw new ApiError(401, "Not authenticated");
     }
 
-    const user = await User.findById(
-      req.auth.userId
-    );
+    const user = await User.findById(req.auth.userId);
 
     if (!user) {
-      throw new ApiError(
-        404,
-        "User not found"
-      );
+      throw new ApiError(404, "User not found");
     }
 
     let profile: unknown = null;
@@ -536,14 +456,11 @@ export const me = asyncHandler(
       });
     }
 
-    return success(
-      res,
-      {
-        email: user.email,
-        role: user.role,
-        profile,
-      }
-    );
+    return success(res, {
+      email: user.email,
+      role: user.role,
+      profile,
+    });
   }
 );
 
@@ -556,7 +473,7 @@ export const forgotPassword = asyncHandler(
     const { email } = req.body;
 
     const user = await User.findOne({
-      email: email.toLowerCase(),
+      email: email.toLowerCase().trim(),
     });
 
     if (!user) {
@@ -567,9 +484,7 @@ export const forgotPassword = asyncHandler(
       );
     }
 
-    const rawToken = crypto
-      .randomBytes(32)
-      .toString("hex");
+    const rawToken = crypto.randomBytes(32).toString("hex");
 
     user.resetPasswordToken = crypto
       .createHash("sha256")
@@ -629,9 +544,7 @@ export const resetPassword = asyncHandler(
       );
     }
 
-    user.passwordHash =
-      await hashPassword(password);
-
+    user.passwordHash = await hashPassword(password);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
 
