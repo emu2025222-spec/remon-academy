@@ -241,9 +241,11 @@ function downloadResultPDF(review: Review) {
 
           .question {
             border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 16px;
+            border-radius: 6px;
+            padding: 9px 10px;
+            margin: 0 0 9px;
+            /* Keep a question together when it fits, but allow long questions to flow. */
+            break-inside: avoid-page;
             page-break-inside: avoid;
           }
 
@@ -251,22 +253,26 @@ function downloadResultPDF(review: Review) {
             display: flex;
             justify-content: space-between;
             border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 8px;
+            padding-bottom: 5px;
+            font-size: 12px;
           }
 
           .question-text {
             font-weight: bold;
             white-space: pre-wrap;
-            margin: 14px 0;
+            overflow-wrap: anywhere;
+            margin: 8px 0;
+            font-size: 12px;
           }
 
           .option {
-            padding: 8px 10px;
-            margin: 6px 0;
+            padding: 5px 7px;
+            margin: 3px 0;
             border: 1px solid #e2e8f0;
-            border-radius: 5px;
-            font-size: 13px;
+            border-radius: 4px;
+            font-size: 11px;
             white-space: pre-wrap;
+            overflow-wrap: anywhere;
           }
 
           .correct {
@@ -283,9 +289,9 @@ function downloadResultPDF(review: Review) {
 
           .answer-summary {
             background: #f8fafc;
-            padding: 8px 12px;
-            margin-top: 12px;
-            font-size: 12px;
+            padding: 6px 9px;
+            margin-top: 7px;
+            font-size: 11px;
           }
 
           .answer-summary p {
@@ -302,18 +308,96 @@ function downloadResultPDF(review: Review) {
           }
 
           @media print {
+            html,
             body {
+              width: 100%;
+              margin: 0;
               padding: 0;
+              font-size: 11px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .header {
+              padding-bottom: 9px;
+              margin-bottom: 12px;
+            }
+
+            .academy {
+              font-size: 21px;
+            }
+
+            h1 {
+              font-size: 17px;
+              margin: 7px 0 3px;
+            }
+
+            .summary {
+              gap: 6px;
+              margin: 10px 0;
+            }
+
+            .summary-card {
+              padding: 7px 5px;
+            }
+
+            .summary-card strong {
+              font-size: 16px;
+            }
+
+            .status {
+              padding: 6px;
+              margin-bottom: 10px;
+            }
+
+            h2 {
+              font-size: 15px;
+              margin: 10px 0 7px;
             }
 
             .question {
+              margin-bottom: 8px;
+              padding: 8px;
+              /* Multiple questions can share a page; only avoid splitting a fitting question. */
+              break-inside: avoid-page;
+              page-break-inside: avoid;
+            }
+
+            .question-heading,
+            .option,
+            .answer-summary {
               break-inside: avoid;
+            }
+
+            .question-text {
+              margin: 6px 0;
+            }
+
+            .option {
+              padding: 4px 6px;
+              margin: 3px 0;
+              font-size: 10px;
+            }
+
+            .answer-summary {
+              padding: 5px 7px;
+              margin-top: 6px;
+              font-size: 10px;
+            }
+
+            .answer-summary p {
+              margin: 2px 0;
+            }
+
+            .footer {
+              margin-top: 12px;
+              padding-top: 7px;
             }
           }
 
           @page {
             size: A4;
-            margin: 15mm;
+            margin: 10mm;
           }
         </style>
       </head>
