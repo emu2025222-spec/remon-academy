@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 
 import { Student } from "../models/Student";
@@ -10,7 +11,55 @@ import { Notice } from "../models/Notice";
 import { LoginSession } from "../models/LoginSession";
 
 import { asyncHandler } from "../utils/asyncHandler";
+import { ApiError } from "../utils/ApiError";
 import { success } from "../utils/apiResponse";
+
+/* =========================================================
+   SESSION CONFIGURATION
+========================================================= */
+
+const SESSION_TIMEOUT_MS = 90 * 1000;
+const BANGLADESH_OFFSET_MS = 6 * 60 * 60 * 1000;
+
+/* =========================================================
+   BANGLADESH DATE HELPERS
+========================================================= */
+
+function getBangladeshDayRange(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new ApiError(
+      400,
+      "Invalid date format. Use YYYY-MM-DD"
+    );
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  const startTimestamp =
+    Date.UTC(year, month - 1, day) - BANGLADESH_OFFSET_MS;
+
+  const start = new Date(startTimestamp);
+
+  // Reject impossible dates such as 2026-02-31.
+  const check = new Date(
+    Date.UTC(year, month - 1, day)
+  );
+
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day
+  ) {
+    throw new ApiError(400, "Invalid calendar date");
+  }
+
+  return {
+    start,
+    end: new Date(
+      startTimestamp + 24 * 60 * 60 * 1000
+    ),
+  };
+}
 
 /* =========================================================
    PUBLIC STATS
@@ -99,9 +148,7 @@ export const adminDashboardStats = asyncHandler(
       courseWiseStudents,
       studentGrowth,
     ] = await Promise.all([
-      /* =========================
-         STUDENTS
-      ========================= */
+      /* STUDENTS */
 
       Student.countDocuments(),
 
@@ -109,21 +156,15 @@ export const adminDashboardStats = asyncHandler(
         isActive: true,
       }),
 
-      /* =========================
-         COURSES
-      ========================= */
+      /* COURSES */
 
       Course.countDocuments(),
 
-      /* =========================
-         TEACHERS
-      ========================= */
+      /* TEACHERS */
 
       Teacher.countDocuments(),
 
-      /* =========================
-         FEES
-      ========================= */
+      /* FEES */
 
       Fee.countDocuments({
         status: {
@@ -131,9 +172,7 @@ export const adminDashboardStats = asyncHandler(
         },
       }),
 
-      /* =========================
-         TODAY ATTENDANCE
-      ========================= */
+      /* TODAY ATTENDANCE */
 
       Attendance.countDocuments({
         date: {
@@ -142,26 +181,20 @@ export const adminDashboardStats = asyncHandler(
         },
       }),
 
-      /* =========================
-         CONTACT MESSAGES
-      ========================= */
+      /* CONTACT MESSAGES */
 
       ContactMessage.countDocuments({
         isRead: false,
       }),
 
-      /* =========================
-         LATEST NOTICES
-      ========================= */
+      /* LATEST NOTICES */
 
       Notice.find()
         .sort("-date")
         .limit(5)
         .lean(),
 
-      /* =========================
-         OVERALL FEE SUMMARY
-      ========================= */
+      /* OVERALL FEE SUMMARY */
 
       Fee.aggregate([
         {
@@ -197,9 +230,7 @@ export const adminDashboardStats = asyncHandler(
         },
       ]),
 
-      /* =========================
-         MONTHLY FEE COLLECTION
-      ========================= */
+      /* MONTHLY FEE COLLECTION */
 
       Fee.aggregate([
         {
@@ -294,9 +325,7 @@ export const adminDashboardStats = asyncHandler(
         },
       ]),
 
-      /* =========================
-         COURSE-WISE STUDENTS
-      ========================= */
+      /* COURSE-WISE STUDENTS */
 
       Student.aggregate([
         {
@@ -381,9 +410,7 @@ export const adminDashboardStats = asyncHandler(
         },
       ]),
 
-      /* =========================
-         STUDENT GROWTH
-      ========================= */
+      /* STUDENT GROWTH */
 
       Student.aggregate([
         {
@@ -425,17 +452,13 @@ export const adminDashboardStats = asyncHandler(
         totalRecords: 0,
       };
 
-    const inactiveStudents =
-      Math.max(
-        totalStudents -
-          activeStudents,
-        0
-      );
+    const inactiveStudents = Math.max(
+      totalStudents - activeStudents,
+      0
+    );
 
     return success(res, {
-      /* =========================
-         EXISTING DASHBOARD STATS
-      ========================= */
+      /* EXISTING DASHBOARD STATS */
 
       totalStudents,
       activeStudents,
@@ -446,18 +469,14 @@ export const adminDashboardStats = asyncHandler(
       newMessages,
       latestNotices,
 
-      /* =========================
-         STUDENT STATUS
-      ========================= */
+      /* STUDENT STATUS */
 
       studentStatus: {
         active: activeStudents,
         inactive: inactiveStudents,
       },
 
-      /* =========================
-         FEE OVERVIEW
-      ========================= */
+      /* FEE OVERVIEW */
 
       feeOverview: {
         totalFee: Number(
@@ -477,63 +496,49 @@ export const adminDashboardStats = asyncHandler(
         ),
       },
 
-      /* =========================
-         MONTHLY FEES
-      ========================= */
+      /* MONTHLY FEES */
 
-      monthlyFees:
-        monthlyFees.map(
-          (item) => ({
-            month: item._id,
+      monthlyFees: monthlyFees.map(
+        (item) => ({
+          month: item._id,
 
-            totalFee: Number(
-              item.totalFee || 0
-            ),
+          totalFee: Number(
+            item.totalFee || 0
+          ),
 
-            paid: Number(
-              item.paid || 0
-            ),
+          paid: Number(
+            item.paid || 0
+          ),
 
-            due: Number(
-              item.due || 0
-            ),
-          })
-        ),
+          due: Number(
+            item.due || 0
+          ),
+        })
+      ),
 
-      /* =========================
-         COURSE-WISE STUDENTS
-      ========================= */
+      /* COURSE-WISE STUDENTS */
 
-      courseWiseStudents:
-        courseWiseStudents.map(
-          (item) => ({
-            courseId: item._id,
+      courseWiseStudents: courseWiseStudents.map(
+        (item) => ({
+          courseId: item._id,
 
-            courseName:
-              item.courseName,
+          courseName: item.courseName,
 
-            students: Number(
-              item.students || 0
-            ),
-          })
-        ),
+          students: Number(
+            item.students || 0
+          ),
+        })
+      ),
 
-      /* =========================
-         STUDENT GROWTH
-      ========================= */
+      /* STUDENT GROWTH */
 
-      studentGrowth:
-        studentGrowth.map(
-          (item) => ({
-            year:
-              item._id.year,
-
-            month:
-              item._id.month,
-
-            count: item.count,
-          })
-        ),
+      studentGrowth: studentGrowth.map(
+        (item) => ({
+          year: item._id.year,
+          month: item._id.month,
+          count: item.count,
+        })
+      ),
     });
   }
 );
@@ -543,47 +548,37 @@ export const adminDashboardStats = asyncHandler(
 ========================================================= */
 
 /**
- * Returns currently active student sessions.
+ * Student is online if:
  *
- * A student is considered online when:
+ * - role = STUDENT
+ * - isOnline = true
+ * - lastActiveAt is within 90 seconds
  *
- * 1. role = STUDENT
- * 2. isOnline = true
- * 3. lastActiveAt is within the last 60 seconds
+ * Each device is a separate session.
  *
- * If the browser is closed without logout,
- * the session automatically becomes offline
- * after the 60-second threshold.
+ * Multiple sessions of one student are counted as:
+ * - One unique student
+ * - Multiple online devices
  */
 
 export const onlineStudents = asyncHandler(
-  async (
-    req: Request,
-    res: Response
-  ) => {
+  async (req: Request, res: Response) => {
     const now = new Date();
 
-    const onlineThreshold =
-      new Date(
-        now.getTime() -
-          60 * 1000
-      );
+    const cutoff = new Date(
+      now.getTime() - SESSION_TIMEOUT_MS
+    );
 
-    /* =========================
-       MARK STALE STUDENTS OFFLINE
-    ========================= */
+    /* MARK EXPIRED STUDENT SESSIONS OFFLINE */
 
     await LoginSession.updateMany(
       {
         role: "STUDENT",
-
         isOnline: true,
-
         lastActiveAt: {
-          $lt: onlineThreshold,
+          $lt: cutoff,
         },
       },
-
       {
         $set: {
           isOnline: false,
@@ -591,96 +586,100 @@ export const onlineStudents = asyncHandler(
       }
     );
 
-    /* =========================
-       GET CURRENTLY ONLINE
-    ========================= */
+    /* FETCH ACTIVE STUDENT SESSIONS */
 
-    const sessions =
-      await LoginSession.find({
-        role: "STUDENT",
-
-        isOnline: true,
-
-        lastActiveAt: {
-          $gte: onlineThreshold,
-        },
+    const sessions = await LoginSession.find({
+      role: "STUDENT",
+      isOnline: true,
+      lastActiveAt: {
+        $gte: cutoff,
+      },
+    })
+      .populate(
+        "student",
+        "studentId fullName phone class group courses course profilePhoto isActive"
+      )
+      .populate(
+        "user",
+        "email"
+      )
+      .sort({
+        lastActiveAt: -1,
       })
-        .populate(
-          "student",
-          "studentId fullName phone class group courses course profilePhoto isActive"
+      .lean();
+
+    /* FORMAT DEVICE SESSIONS */
+
+    const students = sessions.map(
+      (session: any) => {
+        const student = session.student;
+        const user = session.user;
+
+        return {
+          sessionId: session.sessionId,
+
+          studentObjectId:
+            student?._id || null,
+
+          studentId:
+            student?.studentId || "N/A",
+
+          fullName:
+            student?.fullName || "Unknown Student",
+
+          email:
+            user?.email || "",
+
+          phone:
+            student?.phone || "",
+
+          class:
+            student?.class || "",
+
+          group:
+            student?.group || "",
+
+          profilePhoto:
+            student?.profilePhoto || "",
+
+          loginAt:
+            session.loginAt,
+
+          lastActiveAt:
+            session.lastActiveAt,
+
+          isOnline: true,
+
+          userAgent:
+            session.userAgent || "",
+
+          ipAddress:
+            session.ipAddress || "",
+        };
+      }
+    );
+
+    /* COUNT UNIQUE STUDENTS */
+
+    const uniqueStudentIds = new Set(
+      students
+        .map((student) =>
+          String(student.studentObjectId || "")
         )
-        .sort({
-          lastActiveAt: -1,
-        })
-        .lean();
-
-    /* =========================
-       FORMAT RESPONSE
-    ========================= */
-
-    const students =
-      sessions.map(
-        (session) => {
-          const student =
-            session.student as
-              | {
-                  _id?: unknown;
-                  studentId?: string;
-                  fullName?: string;
-                  phone?: string;
-                  class?: string;
-                  group?: string;
-                  profilePhoto?: string;
-                  isActive?: boolean;
-                }
-              | null
-              | undefined;
-
-          return {
-            sessionId:
-              session.sessionId,
-
-            studentId:
-              student?.studentId ||
-              "N/A",
-
-            fullName:
-              student?.fullName ||
-              "Unknown Student",
-
-            phone:
-              student?.phone || "",
-
-            class:
-              student?.class || "",
-
-            group:
-              student?.group || "",
-
-            profilePhoto:
-              student?.profilePhoto ||
-              "",
-
-            loginAt:
-              session.loginAt,
-
-            lastActiveAt:
-              session.lastActiveAt,
-
-            isOnline: true,
-
-            userAgent:
-              session.userAgent ||
-              "",
-          };
-        }
-      );
+        .filter(Boolean)
+    );
 
     return success(res, {
       online: true,
 
-      count:
-        students.length,
+      // Keep count for compatibility with existing clients.
+      count: students.length,
+
+      // Unique students, not device sessions.
+      onlineStudentCount: uniqueStudentIds.size,
+
+      // Each browser/device session.
+      onlineDeviceCount: students.length,
 
       students,
 
@@ -694,148 +693,201 @@ export const onlineStudents = asyncHandler(
 ========================================================= */
 
 /**
- * Returns recent login sessions.
+ * Includes ADMIN and STUDENT login sessions.
  *
- * This includes both:
+ * Default limit: 50
+ * Maximum limit: 200
  *
- * - STUDENT
- * - ADMIN
+ * Optional query:
  *
- * Default: latest 50 sessions
- *
- * Maximum: 200 sessions
+ * ?limit=100
+ * ?date=2026-11-02
+ * ?from=2026-11-01&to=2026-11-02
  */
 
 export const loginHistory = asyncHandler(
-  async (
-    req: Request,
-    res: Response
-  ) => {
-    const limitParam =
-      Number(
-        req.query.limit || 50
-      );
+  async (req: Request, res: Response) => {
+    const limitParam = Number(
+      req.query.limit || 50
+    );
 
-    const limit =
-      Math.min(
-        Math.max(
-          limitParam,
-          1
-        ),
-        200
-      );
+    const limit = Math.min(
+      Math.max(
+        Number.isFinite(limitParam)
+          ? limitParam
+          : 50,
+        1
+      ),
+      200
+    );
 
-    const sessions =
-      await LoginSession.find()
-        .populate(
-          "student",
-          "studentId fullName phone class group profilePhoto"
-        )
-        .populate(
-          "user",
-          "email role lastLoginAt"
-        )
-        .sort({
-          loginAt: -1,
-        })
-        .limit(limit)
-        .lean();
+    const date = String(
+      req.query.date || ""
+    );
 
-    const now = Date.now();
+    const from = String(
+      req.query.from || ""
+    );
 
-    const onlineThreshold =
-      now -
-      60 * 1000;
+    const to = String(
+      req.query.to || ""
+    );
 
-    const history =
-      sessions.map(
-        (session) => {
-          const student =
-            session.student as
-              | {
-                  studentId?: string;
-                  fullName?: string;
-                  phone?: string;
-                  class?: string;
-                  group?: string;
-                  profilePhoto?: string;
-                }
-              | null
-              | undefined;
+    const filter: Record<string, any> = {};
 
-          const user =
-            session.user as
-              | {
-                  email?: string;
-                  role?: string;
-                }
-              | null
-              | undefined;
+    /* DATE FILTER */
 
-          const isCurrentlyOnline =
-            session.isOnline === true &&
-            session.lastActiveAt.getTime() >=
-              onlineThreshold;
+    if (date) {
+      const range = getBangladeshDayRange(date);
 
-          return {
-            sessionId:
-              session.sessionId,
+      filter.loginAt = {
+        $gte: range.start,
+        $lt: range.end,
+      };
+    } else if (from || to) {
+      if (!from || !to) {
+        throw new ApiError(
+          400,
+          "Both from and to dates are required"
+        );
+      }
 
-            role:
-              session.role,
+      const startRange =
+        getBangladeshDayRange(from);
 
-            email:
-              user?.email || "",
+      const endRange =
+        getBangladeshDayRange(to);
 
-            studentId:
-              student?.studentId || "",
+      if (startRange.start > endRange.start) {
+        throw new ApiError(
+          400,
+          "From date cannot be after to date"
+        );
+      }
 
-            fullName:
-              student?.fullName ||
-              "Admin",
+      filter.loginAt = {
+        $gte: startRange.start,
+        $lt: endRange.end,
+      };
+    }
 
-            phone:
-              student?.phone || "",
+    /* MARK EXPIRED SESSIONS OFFLINE */
 
-            class:
-              student?.class || "",
+    const now = new Date();
 
-            group:
-              student?.group || "",
+    const cutoff = new Date(
+      now.getTime() - SESSION_TIMEOUT_MS
+    );
 
-            profilePhoto:
-              student?.profilePhoto ||
-              "",
+    await LoginSession.updateMany(
+      {
+        isOnline: true,
+        lastActiveAt: {
+          $lt: cutoff,
+        },
+      },
+      {
+        $set: {
+          isOnline: false,
+        },
+      }
+    );
 
-            loginAt:
-              session.loginAt,
+    /* FETCH HISTORY */
 
-            lastActiveAt:
-              session.lastActiveAt,
+    const sessions = await LoginSession.find(filter)
+      .populate(
+        "student",
+        "studentId fullName phone class group profilePhoto"
+      )
+      .populate(
+        "user",
+        "email role lastLoginAt"
+      )
+      .sort({
+        loginAt: -1,
+      })
+      .limit(limit)
+      .lean();
 
-            logoutAt:
-              session.logoutAt ||
-              null,
+    /* FORMAT HISTORY */
 
-            isOnline:
-              isCurrentlyOnline,
+    const history = sessions.map(
+      (session: any) => {
+        const student = session.student;
+        const user = session.user;
 
-            userAgent:
-              session.userAgent ||
-              "",
+        const currentlyOnline =
+          session.isOnline === true &&
+          session.lastActiveAt instanceof Date &&
+          session.lastActiveAt.getTime() >= cutoff.getTime();
 
-            ipAddress:
-              session.ipAddress ||
-              "",
-          };
-        }
-      );
+        return {
+          sessionId:
+            session.sessionId,
+
+          role:
+            session.role,
+
+          email:
+            user?.email || "",
+
+          studentId:
+            student?.studentId || "",
+
+          fullName:
+            student?.fullName ||
+            (session.role === "ADMIN"
+              ? "Admin"
+              : "Unknown Student"),
+
+          phone:
+            student?.phone || "",
+
+          class:
+            student?.class || "",
+
+          group:
+            student?.group || "",
+
+          profilePhoto:
+            student?.profilePhoto || "",
+
+          loginAt:
+            session.loginAt,
+
+          lastActiveAt:
+            session.lastActiveAt,
+
+          logoutAt:
+            session.logoutAt || null,
+
+          isOnline:
+            currentlyOnline,
+
+          userAgent:
+            session.userAgent || "",
+
+          ipAddress:
+            session.ipAddress || "",
+        };
+      }
+    );
 
     return success(res, {
-      count:
-        history.length,
+      count: history.length,
+
+      limit,
+
+      date: date || null,
+
+      from: from || null,
+
+      to: to || null,
 
       history,
+
+      checkedAt: now,
     });
   }
 );
@@ -850,39 +902,36 @@ export const studentGrowthChart =
       req: Request,
       res: Response
     ) => {
-      const results =
-        await Student.aggregate([
-          {
-            $group: {
-              _id: {
-                year: {
-                  $year:
-                    "$createdAt",
-                },
-
-                month: {
-                  $month:
-                    "$createdAt",
-                },
+      const results = await Student.aggregate([
+        {
+          $group: {
+            _id: {
+              year: {
+                $year: "$createdAt",
               },
 
-              count: {
-                $sum: 1,
+              month: {
+                $month: "$createdAt",
               },
             },
-          },
 
-          {
-            $sort: {
-              "_id.year": 1,
-              "_id.month": 1,
+            count: {
+              $sum: 1,
             },
           },
+        },
 
-          {
-            $limit: 12,
+        {
+          $sort: {
+            "_id.year": 1,
+            "_id.month": 1,
           },
-        ]);
+        },
+
+        {
+          $limit: 12,
+        },
+      ]);
 
       return success(
         res,
