@@ -805,12 +805,20 @@ export default function AdminDashboard() {
                     item.isOnline ??
                     false;
 
-                  const userName =
-                    item.student?.fullName ||
-                    item.user?.name ||
-                    item.student?.email ||
-                    item.user?.email ||
-                    "Unknown User";
+                  const getLoginUserName = (item: LoginHistoryItem) => {
+  return (
+    item.student?.fullName ||
+    item.user?.name ||
+    item.student?.studentId ||
+    item.student?.email ||
+    item.user?.email ||
+    (typeof item.user === "string" ? item.user : "") ||
+    item.student?._id ||
+    item.user?._id ||
+    item._id ||
+    "Unknown User"
+  );
+};
 
                   const userEmail =
                     item.student?.email ||
@@ -825,7 +833,7 @@ export default function AdminDashboard() {
                     >
                       <td className="px-5 py-4">
                         <p className="text-xs font-bold text-[#17233f]">
-                          {userName}
+                          {getLoginUserName(item)}
                         </p>
                         <p className="mt-1 text-[10px] text-slate-400">
                           {userEmail}
