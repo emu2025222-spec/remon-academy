@@ -74,7 +74,7 @@ function getStudentIdentifier(student: any): string {
   );
 }
 
-export default function ResultsPdfActions({
+export  function ResultsPdfActions({
   mode,
   results,
 }: Props) {
