@@ -28,7 +28,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 import { useToast } from "../../components/Toast";
-import { ResultsPdfActions } from "../../components/ResultsPdfActions";
+import ResultsPdfActions from "../../components/ResultsPdfActions";
 
 interface FormState {
   student: string;

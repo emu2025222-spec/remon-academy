@@ -1,138 +1,182 @@
-import { useMemo, useState } from "react";
-import { Download, FileDown, Users } from "lucide-react";
+
+import { useState } from "react";
+import { FileText, Download, Users, User } from "lucide-react";
+
+import { api } from "../services/api";
+import type { ResultPdfRecord } from "../utils/resultPdf";
 
 import {
-  ResultPdfRecord,
-  downloadAllStudentMarksheetsPdf,
   downloadStudentMarksheetPdf,
-  getResultStudentGroups,
+  downloadAllStudentMarksheetsPdf,
 } from "../utils/resultPdf";
+
+import {
+  downloadAdminCombinedReport,
+} from "../utils/adminCombinedReportPdf";
 
 interface Props {
   mode: "student" | "admin";
   results: ResultPdfRecord[];
 }
 
-export function ResultsPdfActions({
+export default function ResultsPdfActions({
   mode,
   results,
 }: Props) {
+  const [loading, setLoading] = useState(false);
+
   const [selectedStudent, setSelectedStudent] =
     useState("");
 
-  const students = useMemo(
-    () => getResultStudentGroups(results),
-    [results]
+  const students = Array.from(
+    new Map(
+      results.map((result) => {
+        const student = result.student as any;
+
+        const id =
+          typeof student === "object"
+            ? student?._id || student?.studentId
+            : student;
+
+        const name =
+          typeof student === "object"
+            ? student?.fullName || "Unknown Student"
+            : "Unknown Student";
+
+        return [String(id || ""), { id: String(id || ""), name }];
+      })
+    ).values()
   );
 
-  if (mode === "student") {
-    if (!results.length) {
-      return null;
+  const selectedResults = selectedStudent
+    ? results.filter((result) => {
+        const student = result.student as any;
+
+        const id =
+          typeof student === "object"
+            ? student?._id || student?.studentId
+            : student;
+
+        return String(id || "") === selectedStudent;
+      })
+    : [];
+
+  async function handleCombinedReport() {
+    if (loading) return;
+
+    setLoading(true);
+
+    try {
+      const [feeResponse, paymentResponse] =
+        await Promise.all([
+          api.get("/fees", {
+            params: {
+              page: 1,
+              limit: 1000,
+            },
+          }),
+          api.get("/fees/payment-requests"),
+        ]);
+
+      const feePayload = feeResponse.data?.data;
+
+      const fees = Array.isArray(feePayload)
+        ? feePayload
+        : Array.isArray(feePayload?.data)
+        ? feePayload.data
+        : [];
+
+      const paymentPayload = paymentResponse.data?.data;
+
+      const paymentRequests = Array.isArray(paymentPayload)
+        ? paymentPayload
+        : Array.isArray(paymentPayload?.data)
+        ? paymentPayload.data
+        : [];
+
+      downloadAdminCombinedReport({
+        results,
+        fees,
+        paymentRequests,
+      });
+    } catch (error) {
+      console.error("Combined report error:", error);
+      window.alert(
+        "Could not load fee or payment information. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    return (
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() =>
-            downloadStudentMarksheetPdf(results)
-          }
-          className="inline-flex items-center gap-2 rounded-xl bg-brand-navyDark px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
-        >
-          <FileDown className="h-4 w-4 text-brand-goldLight" />
-          Download My Complete Marksheet
-        </button>
-      </div>
-    );
   }
 
-  if (!results.length) {
+  // Student PDF: keep the existing individual marksheet action.
+  if (mode === "student") {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40">
-        No result records available for PDF generation.
-      </div>
+      <button
+        type="button"
+        onClick={() => downloadStudentMarksheetPdf(results)}
+        disabled={!results.length}
+        className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
+      >
+        <Download className="h-4 w-4" />
+        Download My Complete Marksheet
+      </button>
     );
   }
-
-  const selectedGroup = students.find(
-    (student) => student.id === selectedStudent
-  );
 
   return (
-    <section className="card space-y-4 p-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-goldLight/15 text-brand-gold">
-          <FileDown className="h-5 w-5" />
-        </div>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => downloadAllStudentMarksheetsPdf(results)}
+          disabled={!results.length}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        >
+          <Users className="h-4 w-4" />
+          Download All Marksheets
+        </button>
 
-        <div>
-          <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-            PDF Marksheet Center
-          </h3>
-
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {students.length} students · {results.length} result records
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={handleCombinedReport}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
+        >
+          <FileText className="h-4 w-4" />
+          {loading ? "Preparing Report..." : "Download Combined Report PDF"}
+        </button>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={selectedStudent}
+          onChange={(event) =>
+            setSelectedStudent(event.target.value)
+          }
+          className="min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        >
+          <option value="">Select a student for individual PDF</option>
+
+          {students.map((student) => (
+            <option key={student.id} value={student.id}>
+              {student.name}
+            </option>
+          ))}
+        </select>
+
         <button
           type="button"
           onClick={() =>
-            downloadAllStudentMarksheetsPdf(results)
+            downloadStudentMarksheetPdf(selectedResults)
           }
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-navyDark px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          disabled={!selectedResults.length}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
-          <Users className="h-4 w-4 text-brand-goldLight" />
-          Download All Students PDF
+          <User className="h-4 w-4" />
+          Download Individual PDF
         </button>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
-          <select
-            value={selectedStudent}
-            onChange={(event) =>
-              setSelectedStudent(event.target.value)
-            }
-            className="input-field min-w-0 flex-1"
-          >
-            <option value="">
-              Select a student
-            </option>
-
-            {students.map((student) => (
-              <option
-                key={student.id}
-                value={student.id}
-              >
-                {student.name} ({student.studentId})
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            disabled={!selectedGroup}
-            onClick={() => {
-              if (selectedGroup) {
-                downloadStudentMarksheetPdf(
-                  selectedGroup.records
-                );
-              }
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            <Download className="h-4 w-4" />
-            Individual PDF
-          </button>
-        </div>
       </div>
-
-      <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-        Combined PDF contains a separate marksheet for each student.
-        Current Result History filters will apply to these downloads.
-        Clear filters to include every student's result.
-      </p>
-    </section>
+    </div>
   );
 }
