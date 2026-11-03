@@ -284,82 +284,7 @@ export default function Home() {
         🎃 Halloween Special · Learn something extraordinary today
       </div>
 
-      {/* CUSTOM HOME NAVIGATION */}
-      <nav className="relative z-50 border-b border-[#211b16]/10 bg-[#f5f0e8]">
-        <div className="container-page flex h-[76px] items-center justify-between">
-          <Link to="/" className="flex items-center gap-3" onClick={closeMenu}>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#211b16] text-orange-400">
-              <GraduationCap className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="font-display text-lg font-black tracking-tight">
-                REMON<span className="text-orange-600">.</span>
-              </p>
-              <p className="text-[8px] font-bold uppercase tracking-[0.25em] text-stone-500">
-                Academy · Est. 2026
-              </p>
-            </div>
-          </Link>
-
-          <div className="hidden items-center gap-8 md:flex">
-            {[
-              ["Home", "/"],
-              ["Courses", "/courses"],
-              ["About", "/about"],
-              ["Teachers", "/teachers"],
-              ["Notices", "/notices"],
-            ].map(([label, path]) => (
-              <Link
-                key={path}
-                to={path}
-                className="text-xs font-bold text-stone-600 transition hover:text-orange-600"
-              >
-                {label}
-              </Link>
-            ))}
-            <Link
-              to="/register"
-              className="rounded-lg bg-[#211b16] px-5 py-3 text-xs font-bold text-white transition hover:bg-orange-600"
-            >
-              Get Started <ArrowUpRight className="ml-1 inline h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setMobileMenu(!mobileMenu)}
-            className="rounded-lg border border-stone-300 p-2 md:hidden"
-            aria-label="Toggle navigation"
-          >
-            {mobileMenu ? <X /> : <Menu />}
-          </button>
-        </div>
-
-        {mobileMenu && (
-          <div className="absolute left-0 right-0 top-full border-b border-stone-200 bg-[#f5f0e8] p-5 shadow-xl md:hidden">
-            <div className="flex flex-col gap-4">
-              {[
-                ["Home", "/"],
-                ["Courses", "/courses"],
-                ["About", "/about"],
-                ["Teachers", "/teachers"],
-                ["Notices", "/notices"],
-                ["Contact", "/contact"],
-                ["Register", "/register"],
-              ].map(([label, path]) => (
-                <Link
-                  key={path}
-                  to={path}
-                  onClick={closeMenu}
-                  className="border-b border-stone-200 pb-3 text-sm font-bold"
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-      </nav>
+    
 
       {/* HERO */}
       <HalloweenHero />
@@ -697,44 +622,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* FOUNDER */}
-      <section className="overflow-hidden bg-[#211b16] py-20 text-white sm:py-28">
-        <div className="container-page">
-          <div className="grid gap-10 lg:grid-cols-[.65fr_1.35fr] lg:items-center">
-            <div>
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500 text-[#211b16]">
-                <Quote className="h-8 w-8" />
-              </div>
-              <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-orange-400">
-                Founder's Message
-              </p>
-            </div>
-
-            <div>
-              <blockquote className="font-display text-2xl font-bold leading-[1.4] tracking-tight sm:text-3xl lg:text-4xl">
-                “Every student has potential. Our responsibility is to
-                create the environment, guidance and discipline that
-                helps that potential become real.”
-              </blockquote>
-              <div className="mt-8 flex flex-wrap items-center justify-between gap-5 border-t border-white/10 pt-6">
-                <div>
-                  <p className="font-display text-lg font-black">Emon Islam</p>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
-                    Founder & CEO
-                  </p>
-                </div>
-                <Link
-                  to="/founder"
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-5 py-3 text-xs font-bold transition hover:border-orange-400 hover:bg-orange-500 hover:text-[#211b16]"
-                >
-                  Meet the Founder <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
+    
       {/* NOTICES */}
       {notices.length > 0 && (
         <section className="py-20 sm:py-28">
