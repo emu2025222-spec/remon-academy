@@ -1,4 +1,3 @@
-
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ResultPdfRecord } from "./resultPdf";
@@ -6,11 +5,9 @@ import type { ResultPdfRecord } from "./resultPdf";
 interface ReportFee {
   _id?: string;
   student?: any;
-  course?: any;
   billingMonth?: string;
   amount?: number;
   amountPaid?: number;
-  dueDate?: string;
   paymentDate?: string;
   paymentMethod?: string;
   transactionId?: string;
@@ -24,8 +21,6 @@ interface ReportPaymentRequest {
   transactionId?: string;
   status?: string;
   createdAt?: string;
-  reviewedAt?: string;
-  rejectionReason?: string;
   student?: any;
   fee?: any;
 }
@@ -36,37 +31,83 @@ interface Props {
   paymentRequests: ReportPaymentRequest[];
 }
 
-function money(value: number) {
-  return `BDT ${Number(value || 0).toLocaleString("en-BD")}`;
+interface StudentGroup {
+  key: string;
+  name: string;
+  id: string;
+  results: ResultPdfRecord[];
+  fees: ReportFee[];
+  payments: ReportPaymentRequest[];
 }
 
-function studentName(student: any) {
-  if (!student) return "Unknown Student";
+const C = {
+  navy: [15, 23, 42] as [number, number, number],
+  blue: [30, 64, 110] as [number, number, number],
+  gold: [194, 151, 67] as [number, number, number],
+  light: [245, 247, 251] as [number, number, number],
+  muted: [105, 116, 135] as [number, number, number],
+  border: [220, 225, 233] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
+  green: [22, 120, 82] as [number, number, number],
+  red: [180, 55, 55] as [number, number, number],
+};
 
+const num = (value: any): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const money = (value: number): string =>
+  `BDT ${num(value).toLocaleString("en-BD")}`;
+
+const getId = (value: any): string => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+
+  return String(
+    value._id ||
+    value.id ||
+    value.studentId ||
+    ""
+  );
+};
+
+const getKey = (student: any): string => {
+  return (
+    getId(student) ||
+    String(
+      student?.fullName ||
+      student?.name ||
+      student ||
+      "unknown"
+    )
+  ).toLowerCase();
+};
+
+const getName = (student: any): string => {
+  if (!student) return "Unknown Student";
   if (typeof student === "string") return student;
 
   return (
     student.fullName ||
     student.name ||
+    student.studentName ||
     "Unknown Student"
   );
-}
+};
 
-function studentId(student: any) {
+const getStudentId = (student: any): string => {
   if (!student || typeof student === "string") return "-";
 
-  return student.studentId || student._id || "-";
-}
+  return String(
+    student.studentId ||
+    student._id ||
+    student.id ||
+    "-"
+  );
+};
 
-function getStudentKey(student: any) {
-  if (!student) return "unknown";
-
-  if (typeof student === "string") return student;
-
-  return String(student._id || student.studentId || student.fullName || "unknown");
-}
-
-function formatDate(value?: string | Date) {
+const dateText = (value?: string | Date): string => {
   if (!value) return "-";
 
   const date = new Date(value);
@@ -78,35 +119,63 @@ function formatDate(value?: string | Date) {
     month: "short",
     year: "numeric",
   });
-}
+};
 
-function getResultStudent(result: ResultPdfRecord) {
-  return result.student;
-}
+const getPaymentStudent = (
+  payment: ReportPaymentRequest
+) => {
+  if (payment.student) return payment.student;
 
-function getResultSummary(results: ResultPdfRecord[]) {
-  const groups = new Map<string, {
-    name: string;
-    id: string;
-    results: ResultPdfRecord[];
-  }>();
+  if (payment.fee && typeof payment.fee === "object") {
+    return payment.fee.student;
+  }
 
-  results.forEach((result) => {
-    const student = getResultStudent(result);
-    const key = getStudentKey(student);
+  return null;
+};
 
-    if (!groups.has(key)) {
-      groups.set(key, {
-        name: studentName(student),
-        id: studentId(student),
+function buildStudents(
+  results: ResultPdfRecord[],
+  fees: ReportFee[],
+  payments: ReportPaymentRequest[]
+): StudentGroup[] {
+  const map = new Map<string, StudentGroup>();
+
+  const ensure = (student: any) => {
+    const key = getKey(student);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        name: getName(student),
+        id: getStudentId(student),
         results: [],
+        fees: [],
+        payments: [],
       });
     }
 
-    groups.get(key)!.results.push(result);
+    const item = map.get(key)!;
+
+    if (item.name === "Unknown Student") {
+      item.name = getName(student);
+    }
+
+    if (item.id === "-") {
+      item.id = getStudentId(student);
+    }
+
+    return item;
+  };
+
+  results.forEach((r) => ensure(r.student).results.push(r));
+  fees.forEach((f) => ensure(f.student).fees.push(f));
+
+  payments.forEach((p) => {
+    const student = getPaymentStudent(p);
+    if (student) ensure(student).payments.push(p);
   });
 
-  return Array.from(groups.values()).sort((a, b) =>
+  return [...map.values()].sort((a, b) =>
     a.name.localeCompare(b.name)
   );
 }
@@ -116,8 +185,8 @@ export function downloadAdminCombinedReport({
   fees,
   paymentRequests,
 }: Props) {
-  if (!results.length && !fees.length) {
-    alert("No result or fee records found.");
+  if (!results.length && !fees.length && !paymentRequests.length) {
+    window.alert("No report data found.");
     return;
   }
 
@@ -128,347 +197,472 @@ export function downloadAdminCombinedReport({
     compress: true,
   });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 12;
 
-  const students = getResultSummary(results);
+  const students = buildStudents(
+    results,
+    fees,
+    paymentRequests
+  );
 
   const totalFee = fees.reduce(
-    (sum, fee) => sum + Number(fee.amount || 0),
+    (sum, f) => sum + num(f.amount),
     0
   );
 
   const totalPaid = fees.reduce(
-    (sum, fee) => sum + Number(fee.amountPaid || 0),
+    (sum, f) => sum + num(f.amountPaid),
     0
   );
 
-  const totalDue = Math.max(0, totalFee - totalPaid);
+  const totalDue = fees.reduce(
+    (sum, f) =>
+      sum + Math.max(0, num(f.amount) - num(f.amountPaid)),
+    0
+  );
 
-  const reportDate = formatDate(new Date());
+  const today = dateText(new Date());
 
-  function header(title: string, subtitle: string) {
+  // ---------------------------------------------
+  // PAGE HEADER
+  // ---------------------------------------------
+
+  function drawHeader(
+    title: string,
+    subtitle: string
+  ) {
+    doc.setFillColor(...C.navy);
+    doc.rect(0, 0, W, 35, "F");
+
+    doc.setFillColor(...C.gold);
+    doc.rect(0, 35, W, 1.3, "F");
+
+    doc.setTextColor(...C.white);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(17);
-    doc.setTextColor(15, 23, 42);
-    doc.text("REMON ACADEMY", 14, 16);
+    doc.text("REMON ACADEMY", M, 13);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(220, 226, 237);
+    doc.text("LEARN. GROW. ACHIEVE.", M, 19);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.text(title, 14, 23);
+    doc.setTextColor(...C.gold);
+    doc.text(title.toUpperCase(), M, 27);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text(subtitle, 14, 29);
-    doc.text(`Report Date: ${reportDate}`, pageWidth - 14, 29, {
+    doc.setFontSize(7);
+    doc.setTextColor(220, 226, 237);
+    doc.text(subtitle, W - M, 27, {
       align: "right",
     });
 
-    doc.setDrawColor(200, 205, 215);
-    doc.line(14, 33, pageWidth - 14, 33);
-  }
-
-  function footer() {
-    const pageCount = doc.getNumberOfPages();
-
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(120);
-
-      doc.text(
-        `REMON ACADEMY | ADMIN REPORT | Page ${i} of ${pageCount}`,
-        pageWidth / 2,
-        pageHeight - 5,
-        { align: "center" }
-      );
-    }
-  }
-
-  // ==========================================
-  // MODEL TEST RESULTS
-  // 20 STUDENTS PER PAGE
-  // ==========================================
-
-  const resultPages = Math.max(1, Math.ceil(students.length / 20));
-
-  for (let page = 0; page < resultPages; page++) {
-    if (page > 0) doc.addPage();
-
-    header(
-      "MODEL TEST RESULT REPORT",
-      `Students: ${students.length} | Maximum 20 students per page`
-    );
-
-    const pageStudents = students.slice(page * 20, page * 20 + 20);
-
-    const body = pageStudents.map((student, index) => {
-      const resultText = student.results.map((result) => {
-        return `${result.subject}: ${result.obtainedMarks}/${result.totalMarks}`;
-      }).join("\n");
-
-      const averageGpa = student.results.length
-        ? student.results.reduce(
-            (sum, result) => sum + Number(result.gpa || 0),
-            0
-          ) / student.results.length
-        : 0;
-
-      const averageMarks = student.results.length
-        ? student.results.reduce(
-            (sum, result) =>
-              sum +
-              (Number(result.totalMarks) > 0
-                ? (Number(result.obtainedMarks) / Number(result.totalMarks)) * 100
-                : 0),
-            0
-          ) / student.results.length
-        : 0;
-
-      return [
-        String(page * 20 + index + 1),
-        student.name,
-        student.id,
-        resultText || "-",
-        `${averageMarks.toFixed(1)}%`,
-        averageGpa.toFixed(2),
-      ];
-    });
-
-    autoTable(doc, {
-      startY: 39,
-      head: [[
-        "SL",
-        "Student Name",
-        "Student ID",
-        "Subject-wise Marks",
-        "Avg. Marks",
-        "Avg. GPA",
-      ]],
-      body,
-      theme: "grid",
-      margin: { left: 10, right: 10, bottom: 12 },
-      styles: {
-        font: "helvetica",
-        fontSize: 7,
-        cellPadding: 2,
-        overflow: "linebreak",
-        valign: "middle",
-        lineColor: [210, 215, 223],
-        lineWidth: 0.15,
-      },
-      headStyles: {
-        fillColor: [15, 23, 42],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        fontSize: 7,
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250],
-      },
-      columnStyles: {
-        0: { cellWidth: 9, halign: "center" },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 73 },
-        4: { cellWidth: 20, halign: "center" },
-        5: { cellWidth: 17, halign: "center" },
-      },
-      pageBreak: "avoid",
-      rowPageBreak: "avoid",
-    });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(90);
+    doc.setTextColor(...C.muted);
+    doc.setFontSize(7);
     doc.text(
-      `Result page ${page + 1} of ${resultPages}`,
-      pageWidth - 14,
-      pageHeight - 12,
+      `Generated: ${today}`,
+      W - M,
+      41,
       { align: "right" }
     );
   }
 
-  // ==========================================
-  // FINANCIAL SUMMARY
-  // ==========================================
+  // ---------------------------------------------
+  // SECTION TITLE
+  // ---------------------------------------------
 
-  doc.addPage();
+  function drawSectionTitle(
+    title: string,
+    description: string,
+    y: number
+  ) {
+    doc.setFillColor(...C.light);
+    doc.roundedRect(M, y, W - M * 2, 13, 2, 2, "F");
 
-  header(
-    "STUDENT FEE SUMMARY",
-    "Monthly fee records and payment overview"
-  );
+    doc.setFillColor(...C.gold);
+    doc.roundedRect(M, y, 2, 13, 1, 1, "F");
 
-  autoTable(doc, {
-    startY: 40,
-    head: [["Total Fee", "Total Paid", "Total Due", "Fee Records"]],
-    body: [[
-      money(totalFee),
-      money(totalPaid),
-      money(totalDue),
-      String(fees.length),
-    ]],
-    theme: "grid",
-    styles: {
-      font: "helvetica",
-      fontSize: 10,
-      cellPadding: 5,
-      halign: "center",
-    },
-    headStyles: {
-      fillColor: [15, 23, 42],
-      textColor: [255, 255, 255],
-    },
-  });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.navy);
+    doc.text(title, M + 6, y + 5.5);
 
-  const feeBody = fees.map((fee, index) => {
-    const amount = Number(fee.amount || 0);
-    const paid = Number(fee.amountPaid || 0);
-    const due = Math.max(0, amount - paid);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...C.muted);
+    doc.text(description, M + 6, y + 10);
 
-    return [
-      String(index + 1),
-      studentName(fee.student),
-      studentId(fee.student),
-      fee.billingMonth || "-",
-      money(amount),
-      money(paid),
-      money(due),
-      fee.status || (due <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING"),
-    ];
-  });
+    return y + 19;
+  }
 
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable?.finalY + 10 || 75,
-    head: [[
-      "SL",
-      "Student",
-      "Student ID",
-      "Month",
-      "Fee",
-      "Paid",
-      "Due",
-      "Status",
-    ]],
-    body: feeBody,
-    theme: "grid",
-    showHead: "everyPage",
-    margin: { left: 10, right: 10, top: 12, bottom: 15 },
+  // ---------------------------------------------
+  // SUMMARY CARDS
+  // ---------------------------------------------
+
+  function drawSummaryCards(
+    cards: { label: string; value: string }[],
+    y: number
+  ) {
+    const gap = 4;
+    const cardWidth = (W - M * 2 - gap * (cards.length - 1)) /
+      cards.length;
+
+    cards.forEach((card, i) => {
+      const x = M + i * (cardWidth + gap);
+
+      doc.setFillColor(...C.light);
+      doc.roundedRect(x, y, cardWidth, 20, 2, 2, "F");
+
+      doc.setDrawColor(...C.border);
+      doc.roundedRect(x, y, cardWidth, 20, 2, 2, "S");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.muted);
+      doc.text(card.label, x + 4, y + 7);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.navy);
+      doc.text(card.value, x + 4, y + 15);
+    });
+
+    return y + 26;
+  }
+
+  // ---------------------------------------------
+  // TABLE DEFAULT STYLE
+  // ---------------------------------------------
+
+  const tableTheme = {
+    theme: "grid" as const,
     styles: {
       font: "helvetica",
       fontSize: 7,
-      cellPadding: 2,
-      overflow: "linebreak",
-      valign: "middle",
+      cellPadding: 2.2,
+      overflow: "linebreak" as const,
+      valign: "middle" as const,
+      textColor: C.navy,
+      lineColor: C.border,
+      lineWidth: 0.15,
     },
     headStyles: {
-      fillColor: [15, 23, 42],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
+      fillColor: C.navy,
+      textColor: C.white,
+      fontStyle: "bold" as const,
+      fontSize: 7,
+      cellPadding: 2.7,
     },
-    columnStyles: {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 38 },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 25 },
-      5: { cellWidth: 25 },
-      6: { cellWidth: 25 },
-      7: { cellWidth: 22 },
+    alternateRowStyles: {
+      fillColor: C.light,
     },
-  });
+    margin: {
+      left: M,
+      right: M,
+      bottom: 17,
+      top: 43,
+    },
+    showHead: "everyPage" as const,
+  };
 
-  // ==========================================
-  // PAYMENT REQUEST HISTORY
-  // ==========================================
+  // ---------------------------------------------
+  // RESULT REPORT
+  // ---------------------------------------------
 
-  doc.addPage();
-
-  header(
-    "BKASH PAYMENT REQUEST HISTORY",
-    `Total payment requests: ${paymentRequests.length}`
+  const resultStudents = students.filter(
+    (s) => s.results.length > 0
   );
 
-  const paymentBody = paymentRequests.map((request, index) => [
-    String(index + 1),
-    studentName(request.student),
-    studentId(request.student),
-    money(Number(request.amount || 0)),
-    request.senderNumber || "-",
-    request.transactionId || "-",
-    request.status || "-",
-    formatDate(request.createdAt),
-  ]);
+  if (resultStudents.length) {
+    drawHeader(
+      "Academic Performance Report",
+      `${resultStudents.length} Students`
+    );
 
-  autoTable(doc, {
-    startY: 40,
-    head: [[
-      "SL",
-      "Student",
-      "Student ID",
-      "Amount",
-      "Sender",
-      "Transaction ID",
-      "Status",
-      "Submitted",
-    ]],
-    body: paymentBody,
-    theme: "grid",
-    showHead: "everyPage",
-    margin: { left: 9, right: 9, top: 12, bottom: 25 },
-    styles: {
-      font: "helvetica",
-      fontSize: 6.5,
-      cellPadding: 2,
-      overflow: "linebreak",
-      valign: "middle",
-    },
-    headStyles: {
-      fillColor: [15, 23, 42],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-    },
-    columnStyles: {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 34 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 22 },
-      4: { cellWidth: 24 },
-      5: { cellWidth: 35 },
-      6: { cellWidth: 22 },
-      7: { cellWidth: 25 },
-    },
-  });
+    let y = drawSectionTitle(
+      "MODEL TEST RESULTS",
+      "Student-wise academic performance overview",
+      46
+    );
 
-  // ==========================================
-  // SIGNATURE AREA ON LAST PAGE
-  // ==========================================
+    y = drawSummaryCards(
+      [
+        {
+          label: "Students",
+          value: String(resultStudents.length),
+        },
+        {
+          label: "Result Records",
+          value: String(results.length),
+        },
+        {
+          label: "Report Date",
+          value: today,
+        },
+      ],
+      y
+    );
 
-  const lastPage = doc.getNumberOfPages();
-  doc.setPage(lastPage);
+    const body = resultStudents.map((student, index) => {
+      const subjectDetails = student.results.map((r) => {
+        const subject = r.subject || "Subject";
 
-  let signatureY = pageHeight - 28;
+        return `${subject}: ${num(r.obtainedMarks)}/${num(
+          r.totalMarks
+        )}`;
+      });
 
-  doc.setDrawColor(80, 80, 80);
-  doc.setLineWidth(0.3);
+      const avgGpa =
+        student.results.reduce(
+          (sum, r) => sum + num(r.gpa),
+          0
+        ) / student.results.length;
 
-  doc.line(18, signatureY, 75, signatureY);
-  doc.line(pageWidth - 75, signatureY, pageWidth - 18, signatureY);
+      const avgMarks =
+        student.results.reduce((sum, r) => {
+          const total = num(r.totalMarks);
+          if (!total) return sum;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(60);
+          return sum + (num(r.obtainedMarks) / total) * 100;
+        }, 0) / student.results.length;
 
-  doc.text("Prepared By", 46, signatureY + 5, { align: "center" });
-  doc.text("Authorized Signature", pageWidth - 46, signatureY + 5, {
-    align: "center",
-  });
+      return [
+        String(index + 1),
+        student.name,
+        student.id,
+        subjectDetails.join("\n"),
+        `${avgMarks.toFixed(1)}%`,
+        avgGpa.toFixed(2),
+      ];
+    });
 
-  footer();
+    autoTable(doc, {
+      ...tableTheme,
+      startY: y,
+      head: [[
+        "#",
+        "Student Name",
+        "Student ID",
+        "Subject-wise Marks",
+        "Average",
+        "GPA",
+      ]],
+      body,
+      pageBreak: "auto",
+      rowPageBreak: "auto",
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 23 },
+        3: { cellWidth: 78 },
+        4: { cellWidth: 19, halign: "center" },
+        5: { cellWidth: 15, halign: "center" },
+      },
+      didDrawPage: () => {
+        if (doc.getCurrentPageInfo().pageNumber > 1) {
+          drawHeader(
+            "Academic Performance Report",
+            "Continued"
+          );
+        }
+      },
+    });
+  }
 
-  doc.save(`REMON-Academy-Combined-Admin-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
+  // ---------------------------------------------
+  // FEE REPORT
+  // ---------------------------------------------
+
+  if (fees.length) {
+    doc.addPage();
+
+    drawHeader(
+      "Financial Report",
+      `${fees.length} Fee Records`
+    );
+
+    let y = drawSectionTitle(
+      "STUDENT FEE SUMMARY",
+      "Monthly fee collection and outstanding balance",
+      46
+    );
+
+    y = drawSummaryCards(
+      [
+        {
+          label: "Total Fee",
+          value: money(totalFee),
+        },
+        {
+          label: "Total Paid",
+          value: money(totalPaid),
+        },
+        {
+          label: "Outstanding Due",
+          value: money(totalDue),
+        },
+      ],
+      y
+    );
+
+    const feeBody = fees.map((fee, index) => {
+      const amount = num(fee.amount);
+      const paid = num(fee.amountPaid);
+      const due = Math.max(0, amount - paid);
+
+      const status =
+        fee.status ||
+        (due <= 0
+          ? "PAID"
+          : paid > 0
+          ? "PARTIAL"
+          : "PENDING");
+
+      return [
+        String(index + 1),
+        getName(fee.student),
+        getStudentId(fee.student),
+        fee.billingMonth || "-",
+        money(amount),
+        money(paid),
+        money(due),
+        status,
+      ];
+    });
+
+    autoTable(doc, {
+      ...tableTheme,
+      startY: y,
+      head: [[
+        "#",
+        "Student",
+        "Student ID",
+        "Month",
+        "Fee",
+        "Paid",
+        "Due",
+        "Status",
+      ]],
+      body: feeBody,
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 23 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 25 },
+        6: { cellWidth: 25 },
+        7: { cellWidth: 19, halign: "center" },
+      },
+    });
+  }
+
+  // ---------------------------------------------
+  // PAYMENT REQUEST REPORT
+  // ---------------------------------------------
+
+  if (paymentRequests.length) {
+    doc.addPage();
+
+    drawHeader(
+      "Payment Verification Report",
+      `${paymentRequests.length} Requests`
+    );
+
+    const y = drawSectionTitle(
+      "BKASH PAYMENT REQUEST HISTORY",
+      "Submitted transactions and verification status",
+      46
+    );
+
+    const paymentBody = paymentRequests.map((p, index) => {
+      const student = getPaymentStudent(p);
+
+      return [
+        String(index + 1),
+        getName(student),
+        getStudentId(student),
+        money(num(p.amount)),
+        p.senderNumber || "-",
+        p.transactionId || "-",
+        p.status || "PENDING",
+        dateText(p.createdAt),
+      ];
+    });
+
+    autoTable(doc, {
+      ...tableTheme,
+      startY: y,
+      head: [[
+        "#",
+        "Student",
+        "Student ID",
+        "Amount",
+        "Sender",
+        "Transaction ID",
+        "Status",
+        "Date",
+      ]],
+      body: paymentBody,
+      styles: {
+        ...tableTheme.styles,
+        fontSize: 6.5,
+      },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 21 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 24 },
+        5: { cellWidth: 39 },
+        6: { cellWidth: 22 },
+        7: { cellWidth: 20 },
+      },
+    });
+  }
+
+  // ---------------------------------------------
+  // PROFESSIONAL FOOTER
+  // ---------------------------------------------
+
+  const pageCount = doc.getNumberOfPages();
+
+  for (let page = 1; page <= pageCount; page++) {
+    doc.setPage(page);
+
+    doc.setDrawColor(...C.gold);
+    doc.setLineWidth(0.35);
+    doc.line(M, H - 12, W - M, H - 12);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...C.muted);
+
+    doc.text(
+      "REMON ACADEMY  |  OFFICIAL ADMIN REPORT",
+      M,
+      H - 7
+    );
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...C.navy);
+
+    doc.text(
+      `PAGE ${page} / ${pageCount}`,
+      W - M,
+      H - 7,
+      { align: "right" }
+    );
+  }
+
+  const filename =
+    `REMON-Academy-Combined-Report-${new Date()
+      .toISOString()
+      .slice(0, 10)}.pdf`;
+
+  doc.save(filename);
 }
