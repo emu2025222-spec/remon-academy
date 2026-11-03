@@ -1,6 +1,10 @@
-
 import { useState } from "react";
-import { FileText, Download, Users, User } from "lucide-react";
+import {
+  FileText,
+  Download,
+  Users,
+  User,
+} from "lucide-react";
 
 import { api } from "../services/api";
 import type { ResultPdfRecord } from "../utils/resultPdf";
@@ -19,6 +23,57 @@ interface Props {
   results: ResultPdfRecord[];
 }
 
+function extractArray(
+  payload: any,
+  possibleKeys: string[],
+  depth = 0
+): any[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object" || depth > 5) {
+    return [];
+  }
+
+  for (const key of possibleKeys) {
+    if (Array.isArray(payload[key])) {
+      return payload[key];
+    }
+  }
+
+  for (const key of ["data", "result", "results"]) {
+    if (payload[key] && typeof payload[key] === "object") {
+      const found = extractArray(
+        payload[key],
+        possibleKeys,
+        depth + 1
+      );
+
+      if (found.length > 0) {
+        return found;
+      }
+    }
+  }
+
+  return [];
+}
+
+function getStudentIdentifier(student: any): string {
+  if (!student) return "";
+
+  if (typeof student === "string") {
+    return student;
+  }
+
+  return String(
+    student._id ||
+    student.id ||
+    student.studentId ||
+    ""
+  );
+}
+
 export default function ResultsPdfActions({
   mode,
   results,
@@ -33,31 +88,32 @@ export default function ResultsPdfActions({
       results.map((result) => {
         const student = result.student as any;
 
-        const id =
-          typeof student === "object"
-            ? student?._id || student?.studentId
-            : student;
+        const id = getStudentIdentifier(student);
 
         const name =
           typeof student === "object"
-            ? student?.fullName || "Unknown Student"
+            ? student?.fullName ||
+              student?.name ||
+              "Unknown Student"
             : "Unknown Student";
 
-        return [String(id || ""), { id: String(id || ""), name }];
+        return [
+          id,
+          {
+            id,
+            name,
+          },
+        ];
       })
     ).values()
-  );
+  ).filter((student) => student.id);
 
   const selectedResults = selectedStudent
     ? results.filter((result) => {
-        const student = result.student as any;
-
-        const id =
-          typeof student === "object"
-            ? student?._id || student?.studentId
-            : student;
-
-        return String(id || "") === selectedStudent;
+        return (
+          getStudentIdentifier(result.student) ===
+          selectedStudent
+        );
       })
     : [];
 
@@ -67,32 +123,45 @@ export default function ResultsPdfActions({
     setLoading(true);
 
     try {
-      const [feeResponse, paymentResponse] =
-        await Promise.all([
-          api.get("/fees", {
-            params: {
-              page: 1,
-              limit: 1000,
-            },
-          }),
-          api.get("/fees/payment-requests"),
-        ]);
+      // ==========================================
+      // LOAD ALL FEE RECORDS
+      // ==========================================
 
-      const feePayload = feeResponse.data?.data;
+      const feeResponse = await api.get("/fees", {
+        params: {
+          page: 1,
+          limit: 1000,
+        },
+      });
 
-      const fees = Array.isArray(feePayload)
-        ? feePayload
-        : Array.isArray(feePayload?.data)
-        ? feePayload.data
-        : [];
+      const fees = extractArray(
+        feeResponse.data,
+        ["fees", "data", "items", "records"]
+      );
 
-      const paymentPayload = paymentResponse.data?.data;
+      // ==========================================
+      // LOAD PAYMENT REQUEST HISTORY
+      // ==========================================
 
-      const paymentRequests = Array.isArray(paymentPayload)
-        ? paymentPayload
-        : Array.isArray(paymentPayload?.data)
-        ? paymentPayload.data
-        : [];
+      const paymentResponse = await api.get(
+        "/fees/payment-requests"
+      );
+
+      const paymentRequests = extractArray(
+        paymentResponse.data,
+        [
+          "paymentRequests",
+          "requests",
+          "payments",
+          "data",
+          "items",
+          "records",
+        ]
+      );
+
+      // ==========================================
+      // GENERATE COMBINED PDF
+      // ==========================================
 
       downloadAdminCombinedReport({
         results,
@@ -100,21 +169,31 @@ export default function ResultsPdfActions({
         paymentRequests,
       });
     } catch (error) {
-      console.error("Combined report error:", error);
+      console.error(
+        "Combined report error:",
+        error
+      );
+
       window.alert(
-        "Could not load fee or payment information. Please try again."
+        "Could not load fee or payment information. Please check the API and try again."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  // Student PDF: keep the existing individual marksheet action.
+  // ==========================================
+  // STUDENT MODE
+  // Keep the original individual PDF.
+  // ==========================================
+
   if (mode === "student") {
     return (
       <button
         type="button"
-        onClick={() => downloadStudentMarksheetPdf(results)}
+        onClick={() =>
+          downloadStudentMarksheetPdf(results)
+        }
         disabled={!results.length}
         className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
       >
@@ -124,18 +203,28 @@ export default function ResultsPdfActions({
     );
   }
 
+  // ==========================================
+  // ADMIN MODE
+  // ==========================================
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
+        {/* OLD ALL MARKSHEETS PDF */}
+
         <button
           type="button"
-          onClick={() => downloadAllStudentMarksheetsPdf(results)}
+          onClick={() =>
+            downloadAllStudentMarksheetsPdf(results)
+          }
           disabled={!results.length}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
           <Users className="h-4 w-4" />
           Download All Marksheets
         </button>
+
+        {/* NEW COMBINED REPORT PDF */}
 
         <button
           type="button"
@@ -144,9 +233,16 @@ export default function ResultsPdfActions({
           className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
         >
           <FileText className="h-4 w-4" />
-          {loading ? "Preparing Report..." : "Download Combined Report PDF"}
+
+          {loading
+            ? "Preparing Report..."
+            : "Download Combined Report PDF"}
         </button>
       </div>
+
+      {/* ====================================== */}
+      {/* OLD INDIVIDUAL PDF */}
+      {/* ====================================== */}
 
       <div className="flex flex-wrap items-center gap-2">
         <select
@@ -156,10 +252,15 @@ export default function ResultsPdfActions({
           }
           className="min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
         >
-          <option value="">Select a student for individual PDF</option>
+          <option value="">
+            Select a student for individual PDF
+          </option>
 
           {students.map((student) => (
-            <option key={student.id} value={student.id}>
+            <option
+              key={student.id}
+              value={student.id}
+            >
               {student.name}
             </option>
           ))}
@@ -168,7 +269,9 @@ export default function ResultsPdfActions({
         <button
           type="button"
           onClick={() =>
-            downloadStudentMarksheetPdf(selectedResults)
+            downloadStudentMarksheetPdf(
+              selectedResults
+            )
           }
           disabled={!selectedResults.length}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
