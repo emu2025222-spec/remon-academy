@@ -69,28 +69,28 @@ export default function Home() {
     api
       .get("/dashboard/public-stats")
       .then((r) => setStats(r.data.data))
-      .catch(() => {});
+      .catch(() => { });
 
     api
       .get("/courses/public")
       .then((r) =>
         setCourses((r.data.data || []).slice(0, 3))
       )
-      .catch(() => {});
+      .catch(() => { });
 
     api
       .get("/teachers/public")
       .then((r) =>
         setTeachers((r.data.data || []).slice(0, 3))
       )
-      .catch(() => {});
+      .catch(() => { });
 
     api
       .get("/notices/public")
       .then((r) =>
         setNotices((r.data.data || []).slice(0, 3))
       )
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const features = [
@@ -153,6 +153,114 @@ export default function Home() {
 
   return (
     <main className="relative isolate overflow-hidden bg-[#070711] text-white selection:bg-violet-500/40">
+
+      {/* HALLOWEEN SPECIAL - HOMEPAGE ONLY */}
+
+      <section className="relative isolate overflow-hidden border-b border-orange-400/20 bg-[#100b18] px-4 py-8 sm:py-12">
+
+        {/* Background Effects */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-20 top-0 h-64 w-64 rounded-full bg-orange-600/15 blur-[100px]" />
+          <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-purple-600/20 blur-[100px]" />
+
+          <div className="absolute left-[10%] top-8 animate-bounce text-2xl opacity-30">
+            🦇
+          </div>
+          <div className="absolute right-[15%] top-12 animate-pulse text-3xl opacity-40">
+            🦇
+          </div>
+          <div className="absolute bottom-8 left-[45%] animate-pulse text-xl opacity-30">
+            ✨
+          </div>
+        </div>
+
+        <div className="container-page relative z-10">
+          <div className="relative overflow-hidden rounded-[2rem] border border-orange-400/20 bg-gradient-to-br from-[#251127] via-[#17101f] to-[#0b1020] p-7 shadow-[0_25px_80px_rgba(0,0,0,.4)] sm:p-12">
+
+            <div className="grid items-center gap-8 md:grid-cols-[1.2fr_.8fr]">
+
+              {/* Left Content */}
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-orange-400/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[.25em] text-orange-300">
+                  🎃 Halloween Special · REMON Academy
+                </div>
+
+                <h2 className="mt-6 font-display text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
+                  A little spooky,
+                  <span className="block bg-gradient-to-r from-orange-300 via-amber-400 to-purple-400 bg-clip-text text-transparent">
+                    a lot of learning.
+                  </span>
+                </h2>
+
+                <p className="mt-5 max-w-xl text-sm leading-8 text-slate-300 sm:text-base">
+                  This Halloween, let curiosity shine brighter than the moon.
+                  Keep learning, keep exploring and make every lesson a little more magical!
+                </p>
+
+                <div className="mt-7 flex flex-wrap gap-3">
+                  <Link
+                    to="/courses"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition hover:-translate-y-1 hover:shadow-orange-500/40"
+                  >
+                    Explore Courses
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+
+                  <Link
+                    to="/notices"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition hover:border-orange-300/50 hover:bg-white/10"
+                  >
+                    Academy Updates
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+
+                <p className="mt-7 text-[10px] font-semibold uppercase tracking-[.25em] text-orange-200/60">
+                  Learn · Grow · Achieve · Have a Spooky Day
+                </p>
+              </div>
+
+              {/* Right Halloween Artwork */}
+              <div className="relative mx-auto flex w-full max-w-sm items-center justify-center py-5">
+
+                <div className="absolute h-64 w-64 rounded-full bg-orange-500/20 blur-[65px]" />
+
+                <div className="relative text-center">
+
+                  <div className="animate-[float_4s_ease-in-out_infinite] text-[125px] leading-none drop-shadow-[0_0_35px_rgba(249,115,22,.45)] sm:text-[160px]">
+                    🎃
+                  </div>
+
+                  <div className="mt-4 flex justify-center gap-5 text-3xl">
+                    <span className="animate-bounce">👻</span>
+                    <span className="animate-pulse">🕸️</span>
+                    <span className="animate-bounce [animation-delay:300ms]">🦇</span>
+                  </div>
+
+                  <div className="mt-5 inline-block rounded-full border border-orange-300/20 bg-black/30 px-5 py-2 text-xs font-bold tracking-[.2em] text-orange-200">
+                    HAPPY HALLOWEEN
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <style>
+        {`
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0) rotate(-3deg);
+      }
+      50% {
+        transform: translateY(-14px) rotate(3deg);
+      }
+    }
+  `}
+      </style>
 
       {/* ============================================================
           GLOBAL BACKGROUND
