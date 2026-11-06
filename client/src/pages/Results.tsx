@@ -1,9 +1,9 @@
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  Award,
   BarChart3,
   CheckCircle2,
   GraduationCap,
@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Trophy,
   RefreshCw,
+  Sparkles,
+  Heart,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../services/api";
@@ -149,7 +151,9 @@ export default function Results() {
     };
   };
 
-  const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSearch = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
 
     setError("");
@@ -176,7 +180,9 @@ export default function Results() {
     }
 
     if (new Date(publication.publishAt).getTime() > currentTime) {
-      setError("This result has not been published yet. Please wait for the countdown.");
+      setError(
+        "This result has not been published yet. Please wait for the countdown."
+      );
       return;
     }
 
@@ -193,7 +199,6 @@ export default function Results() {
 
       const data = response.data?.data;
 
-      // Supports both an array response and an object containing results.
       const resultList = Array.isArray(data)
         ? data
         : Array.isArray(data?.results)
@@ -206,7 +211,9 @@ export default function Results() {
       setSearched(true);
 
       if (resultList.length === 0) {
-        setError("No result found for this Roll Number and examination.");
+        setError(
+          "No result found for this Roll Number and examination."
+        );
       }
     } catch (err: any) {
       setSearched(true);
@@ -226,13 +233,13 @@ export default function Results() {
   return (
     <main className="overflow-hidden bg-[#f5f3ee] text-[#111827] dark:bg-[#080c14] dark:text-white">
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-[#101722] py-20 text-white sm:py-24 lg:py-28">
+      {/* HERO SECTION */}
+      <section className="relative overflow-hidden bg-[#101722] py-16 text-white sm:py-20 lg:py-24">
         <div className="pointer-events-none absolute right-[-150px] top-[-160px] h-[430px] w-[430px] rounded-full border border-brand-gold/[0.08]" />
         <div className="pointer-events-none absolute bottom-[-180px] left-[-130px] h-[380px] w-[380px] rounded-full border border-white/[0.04]" />
 
         <div className="container-page relative">
-          <div className="grid gap-12 lg:grid-cols-[0.65fr_1.35fr] lg:items-end">
+          <div className="grid gap-10 lg:grid-cols-[0.65fr_1.35fr] lg:items-end">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -271,59 +278,21 @@ export default function Results() {
         </div>
       </section>
 
-      {/* SECURITY STRIP */}
-      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="container-page grid md:grid-cols-3">
-          <div className="flex items-center gap-4 border-b border-slate-200 px-2 py-7 dark:border-slate-800 md:border-b-0 md:border-r md:px-8">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
-              <LockKeyhole className="h-5 w-5 text-brand-gold" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
-                Privacy
-              </p>
-              <p className="mt-1 text-sm font-semibold">
-                Private student records
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 border-b border-slate-200 px-2 py-7 dark:border-slate-800 md:border-b-0 md:border-r md:px-8">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
-              <BarChart3 className="h-5 w-5 text-brand-gold" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
-                Performance
-              </p>
-              <p className="mt-1 text-sm font-semibold">
-                Detailed academic progress
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 px-2 py-7 md:px-8">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
-              <ShieldCheck className="h-5 w-5 text-brand-gold" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
-                Secure Access
-              </p>
-              <p className="mt-1 text-sm font-semibold">
-                Public result lookup
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* PUBLIC RESULT SEARCH */}
-      <section className="bg-[#f5f3ee] py-20 dark:bg-[#080c14] sm:py-24 lg:py-28">
+      {/* RESULT PORTAL - NOW AT THE TOP */}
+      <section
+        id="result-search"
+        className="bg-[#f5f3ee] px-0 py-14 dark:bg-[#080c14] sm:py-20 lg:py-24"
+      >
         <div className="container-page">
           <div className="mx-auto max-w-4xl">
 
-            <div className="mb-8 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="mb-8 text-center"
+            >
               <div className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
                 <Search className="h-4 w-4" />
                 Public Result Search
@@ -334,24 +303,36 @@ export default function Results() {
               </h2>
 
               <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-500">
-                Enter your student Roll Number and select an examination
-                to view your published result.
+                Your academic journey, just one search away.
+                Enter your Roll Number and select your examination.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="bg-[#101722] px-6 py-6 text-white sm:px-9">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center border border-brand-gold/40 bg-brand-gold/[0.08]">
-                    <GraduationCap className="h-6 w-6 text-brand-gold" />
+            <motion.div
+              initial={{ opacity: 0, y: 25 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.55 }}
+              className="overflow-hidden border border-slate-200 bg-white shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="relative overflow-hidden bg-[#101722] px-6 py-7 text-white sm:px-9">
+                <div className="pointer-events-none absolute right-[-40px] top-[-70px] h-48 w-48 rounded-full border border-brand-gold/10" />
+
+                <div className="relative flex items-center gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center border border-brand-gold/40 bg-brand-gold/[0.08]">
+                    <GraduationCap className="h-7 w-7 text-brand-gold" />
                   </div>
+
                   <div>
                     <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
                       REMON Academy
                     </p>
-                    <h3 className="mt-1 font-display text-xl font-bold">
+                    <h3 className="mt-1 font-display text-2xl font-bold">
                       Result Portal
                     </h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Official Academic Result Verification
+                    </p>
                   </div>
                 </div>
               </div>
@@ -369,9 +350,12 @@ export default function Results() {
                   <input
                     type="text"
                     value={rollNumber}
-                    onChange={(event) =>
-                      setRollNumber(event.target.value)
-                    }
+                    onChange={(event) => {
+                      setRollNumber(event.target.value);
+                      setError("");
+                      setResults([]);
+                      setSearched(false);
+                    }}
                     placeholder="Enter your Roll Number"
                     className="w-full border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     autoComplete="off"
@@ -409,6 +393,12 @@ export default function Results() {
                   {!loading && publications.length === 0 && (
                     <p className="mt-2 text-xs text-slate-400">
                       No examination schedules are currently available.
+                    </p>
+                  )}
+
+                  {loading && (
+                    <p className="mt-2 text-xs text-slate-400">
+                      Loading examinations...
                     </p>
                   )}
                 </div>
@@ -504,11 +494,16 @@ export default function Results() {
                   publication time.
                 </p>
               </form>
-            </div>
+            </motion.div>
 
             {/* RESULT OUTPUT */}
             {searched && results.length > 0 && (
-              <div className="mt-10">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mt-10"
+              >
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-gold">
@@ -528,7 +523,7 @@ export default function Results() {
                   </span>
                 </div>
 
-                <div className="overflow-hidden border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div className="overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-100 dark:bg-slate-800">
@@ -570,14 +565,130 @@ export default function Results() {
                 </div>
 
                 <div className="mt-4 flex items-center gap-3 border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                  <Trophy className="h-5 w-5 text-brand-gold" />
+                  <Trophy className="h-5 w-5 shrink-0 text-brand-gold" />
                   <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                     This result has been retrieved from the academy's
                     published examination records.
                   </p>
                 </div>
+
+                {/* FUNNY AND MOTIVATIONAL MESSAGE */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="relative mt-6 overflow-hidden border border-brand-gold/30 bg-[#101722] p-6 text-center text-white sm:p-9"
+                >
+                  <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full border border-brand-gold/10" />
+                  <div className="pointer-events-none absolute -bottom-16 -left-12 h-44 w-44 rounded-full border border-white/5" />
+
+                  <div className="relative">
+                    <div className="flex items-center justify-center gap-3">
+                      <Sparkles className="h-5 w-5 text-brand-gold" />
+                      <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
+                        A Little Message For You
+                      </span>
+                      <Sparkles className="h-5 w-5 text-brand-gold" />
+                    </div>
+
+                    <div className="mt-6 text-4xl">
+                      😎 🎓 ✨
+                    </div>
+
+                    <h3 className="mt-4 font-display text-2xl font-bold sm:text-3xl">
+                      Well Done, Superstar!
+                    </h3>
+
+                    <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-300">
+                      Marks are just numbers, but your potential is
+                      unlimited! Keep learning, keep growing, and never
+                      stop believing in yourself.
+                    </p>
+
+                    <div className="mx-auto my-6 h-px max-w-24 bg-brand-gold/40" />
+
+                    <p className="text-sm font-semibold leading-7 text-brand-gold sm:text-base">
+                      রেজাল্ট ভালো হয়েছে? তাহলে আজকে একটু ট্রিট দাও!
+                      <br />
+                      আর আশানুরূপ হয়নি? চিন্তা নেই, পরের পরীক্ষায়
+                      বইয়ের সাথে একটু বেশি বন্ধুত্ব করো! 😂
+                    </p>
+
+                    <p className="mt-4 text-xs leading-6 text-slate-400">
+                      Remember: One exam does not define your future.
+                      Your hard work and determination do.
+                    </p>
+
+                    <div className="mt-6 flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-400">
+                      <Heart className="h-3.5 w-3.5 text-brand-gold" />
+                      REMON Academy · Learn. Grow. Achieve.
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* NO RESULT MESSAGE */}
+            {searched && results.length === 0 && error && (
+              <div className="mt-6 border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-900">
+                <div className="text-3xl">🤔</div>
+                <h3 className="mt-3 font-display text-xl font-bold">
+                  Result Not Found!
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Don't worry! Double-check your Roll Number and
+                  examination name, then try again.
+                </p>
               </div>
             )}
+
+          </div>
+        </div>
+      </section>
+
+      {/* SECURITY STRIP - MOVED BELOW RESULT PORTAL */}
+      <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="container-page grid md:grid-cols-3">
+          <div className="flex items-center gap-4 border-b border-slate-200 px-2 py-7 dark:border-slate-800 md:border-b-0 md:border-r md:px-8">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
+              <LockKeyhole className="h-5 w-5 text-brand-gold" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
+                Privacy
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                Private student records
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 border-b border-slate-200 px-2 py-7 dark:border-slate-800 md:border-b-0 md:border-r md:px-8">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
+              <BarChart3 className="h-5 w-5 text-brand-gold" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
+                Performance
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                Detailed academic progress
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 px-2 py-7 md:px-8">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
+              <ShieldCheck className="h-5 w-5 text-brand-gold" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
+                Secure Access
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                Public result lookup
+              </p>
+            </div>
           </div>
         </div>
       </section>
