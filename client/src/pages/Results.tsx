@@ -250,12 +250,7 @@ export default function Results() {
                 <span className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
                   Academic Performance
                 </span>
-              </div>
-
-              <p className="mt-6 max-w-xs text-sm leading-7 text-slate-400">
-                A secure space where students can review their academic
-                performance, marks and progress.
-              </p>
+              </div>        
             </motion.div>
 
             <motion.div
