@@ -1,3 +1,4 @@
+
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -92,6 +93,13 @@ const groupResultsByStudent = (
   }));
 };
 
+/*
+==================================================
+ORIGINAL ADMIN MARKSHEET LAYOUT
+==================================================
+Admin All Marksheets-এর আগের layout অপরিবর্তিত।
+*/
+
 const drawStudentMarksheet = (
   doc: jsPDF,
   student: StudentGroup
@@ -122,7 +130,6 @@ const drawStudentMarksheet = (
       ? (obtainedMarks / totalMarks) * 100
       : 0;
 
-  // Academy header
   doc.setFillColor(13, 27, 48);
   doc.rect(0, 0, pageWidth, 43, "F");
 
@@ -145,7 +152,6 @@ const drawStudentMarksheet = (
     align: "center",
   });
 
-  // Student details
   doc.setTextColor(25, 35, 50);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -164,24 +170,14 @@ const drawStudentMarksheet = (
   doc.text(`Class: ${student.className}`, 14, 82);
   doc.text(`Group: ${student.groupName}`, 14, 89);
 
-  // Summary cards
   const summaryY = 99;
   const cardGap = 4;
   const cardWidth = (pageWidth - 28 - cardGap * 2) / 3;
 
   const summaries = [
-    {
-      label: "TOTAL MARKS",
-      value: String(totalMarks),
-    },
-    {
-      label: "OBTAINED MARKS",
-      value: String(obtainedMarks),
-    },
-    {
-      label: "AVERAGE GPA",
-      value: averageGpa.toFixed(2),
-    },
+    { label: "TOTAL MARKS", value: String(totalMarks) },
+    { label: "OBTAINED MARKS", value: String(obtainedMarks) },
+    { label: "AVERAGE GPA", value: averageGpa.toFixed(2) },
   ];
 
   summaries.forEach((item, index) => {
@@ -200,7 +196,6 @@ const drawStudentMarksheet = (
     doc.text(item.value, x + 4, summaryY + 16);
   });
 
-  // Result table
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(25, 35, 50);
@@ -252,7 +247,6 @@ const drawStudentMarksheet = (
     },
   });
 
-  // Overall percentage and footer
   const finalY =
     (doc as jsPDF & { lastAutoTable?: { finalY: number } })
       .lastAutoTable?.finalY || 145;
@@ -283,6 +277,319 @@ const drawStudentMarksheet = (
   );
 };
 
+/*
+==================================================
+STUDENT SINGLE-PAGE MARKSHEET
+==================================================
+
+এখানে autoTable ব্যবহার করা হয়নি।
+নিজস্ব compact table drawing ব্যবহার করা হয়েছে,
+যাতে autoTable অতিরিক্ত page তৈরি করতে না পারে।
+*/
+
+const drawSinglePageStudentMarksheet = (
+  doc: jsPDF,
+  student: StudentGroup
+) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const margin = 10;
+  const contentWidth = pageWidth - margin * 2;
+
+  const totalMarks = student.records.reduce(
+    (sum, item) => sum + Number(item.totalMarks || 0),
+    0
+  );
+
+  const obtainedMarks = student.records.reduce(
+    (sum, item) => sum + Number(item.obtainedMarks || 0),
+    0
+  );
+
+  const gpaValues = student.records
+    .map((item) => Number(item.gpa))
+    .filter(Number.isFinite);
+
+  const averageGpa = gpaValues.length
+    ? gpaValues.reduce((sum, value) => sum + value, 0) /
+      gpaValues.length
+    : 0;
+
+  const percentage =
+    totalMarks > 0
+      ? (obtainedMarks / totalMarks) * 100
+      : 0;
+
+  // Header
+  doc.setFillColor(13, 27, 48);
+  doc.rect(0, 0, pageWidth, 38, "F");
+
+  doc.setTextColor(218, 181, 105);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(21);
+  doc.text("REMON ACADEMY", pageWidth / 2, 14, {
+    align: "center",
+  });
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.text("ACADEMIC PERFORMANCE REPORT", pageWidth / 2, 22, {
+    align: "center",
+  });
+
+  doc.setFontSize(7);
+  doc.setTextColor(220, 225, 232);
+  doc.text("COMPLETE EXAMINATION MARKSHEET", pageWidth / 2, 29, {
+    align: "center",
+  });
+
+  // Student information
+  let y = 46;
+
+  doc.setTextColor(25, 35, 50);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("STUDENT INFORMATION", margin, y);
+
+  doc.setDrawColor(190, 155, 85);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y + 3, pageWidth - margin, y + 3);
+
+  y += 11;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(70, 78, 90);
+
+  doc.text(`Name: ${student.name}`, margin, y);
+  doc.text(`Student ID: ${student.studentId}`, pageWidth / 2, y);
+
+  y += 7;
+
+  doc.text(`Class: ${student.className}`, margin, y);
+  doc.text(`Group: ${student.groupName}`, pageWidth / 2, y);
+
+  // Summary
+  y += 7;
+
+  const cardGap = 3;
+  const cardWidth = (contentWidth - cardGap * 2) / 3;
+
+  const summaries = [
+    { label: "TOTAL MARKS", value: String(totalMarks) },
+    { label: "OBTAINED MARKS", value: String(obtainedMarks) },
+    { label: "AVERAGE GPA", value: averageGpa.toFixed(2) },
+  ];
+
+  summaries.forEach((item, index) => {
+    const x = margin + index * (cardWidth + cardGap);
+
+    doc.setFillColor(246, 247, 249);
+    doc.roundedRect(x, y, cardWidth, 17, 1.5, 1.5, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6);
+    doc.setTextColor(110, 115, 125);
+    doc.text(item.label, x + 3, y + 6);
+
+    doc.setFontSize(11);
+    doc.setTextColor(25, 35, 50);
+    doc.text(item.value, x + 3, y + 13);
+  });
+
+  y += 25;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(25, 35, 50);
+  doc.text("EXAMINATION RESULTS", margin, y);
+
+  y += 5;
+
+  // Table configuration
+  const columns = [
+    { title: "Examination", width: 43 },
+    { title: "Subject", width: 39 },
+    { title: "Date", width: 25 },
+    { title: "Marks", width: 27 },
+    { title: "Grade", width: 23 },
+    { title: "GPA", width: 17 },
+  ];
+
+  const tableWidth = columns.reduce(
+    (sum, column) => sum + column.width,
+    0
+  );
+
+  // Scale columns to available page width
+  const columnScale = contentWidth / tableWidth;
+
+  columns.forEach((column) => {
+    column.width *= columnScale;
+  });
+
+  const headerHeight = 7;
+
+  // Keep space for overall percentage and footer.
+  const footerSpace = 15;
+  const availableTableHeight =
+    pageHeight - y - footerSpace - headerHeight;
+
+  const rowCount = student.records.length;
+
+  const rowHeight =
+    rowCount > 0
+      ? availableTableHeight / rowCount
+      : 4;
+
+  /*
+   * Font size adapts to the available row height.
+   * No result records are intentionally removed.
+   */
+  const bodyFontSize = Math.max(
+    0.8,
+    Math.min(7, rowHeight * 2.15)
+  );
+
+  const headerFontSize = Math.max(
+    3,
+    Math.min(7, bodyFontSize + 1)
+  );
+
+  // Table header
+  doc.setFillColor(13, 27, 48);
+  doc.rect(margin, y, contentWidth, headerHeight, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(headerFontSize);
+
+  let x = margin;
+
+  columns.forEach((column) => {
+    doc.text(
+      column.title,
+      x + column.width / 2,
+      y + headerHeight * 0.65,
+      { align: "center" }
+    );
+
+    x += column.width;
+  });
+
+  y += headerHeight;
+
+  // Result rows
+  student.records.forEach((item, index) => {
+    const rowY = y + index * rowHeight;
+
+    if (index % 2 === 0) {
+      doc.setFillColor(247, 248, 250);
+      doc.rect(margin, rowY, contentWidth, rowHeight, "F");
+    }
+
+    doc.setDrawColor(225, 228, 233);
+    doc.setLineWidth(0.08);
+    doc.rect(margin, rowY, contentWidth, rowHeight);
+
+    const values = [
+      item.examName || "N/A",
+      item.subject || "N/A",
+      formatDate(item.examDate),
+      `${item.obtainedMarks}/${item.totalMarks}`,
+      item.grade || "N/A",
+      Number(item.gpa || 0).toFixed(2),
+    ];
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(bodyFontSize);
+    doc.setTextColor(45, 52, 63);
+
+    let cellX = margin;
+
+    values.forEach((value, cellIndex) => {
+      const column = columns[cellIndex];
+
+      const text = String(value).replace(/\s+/g, " ").trim();
+
+      // Single-line text prevents wrapping from increasing row height.
+      const maxTextWidth = Math.max(0.5, column.width - 2);
+      const displayText = doc.getTextWidth(text) <= maxTextWidth
+        ? text
+        : doc.splitTextToSize(text, maxTextWidth)[0] || "";
+
+      const safeText = displayText.length > 0
+        ? displayText
+        : text.substring(0, 1);
+
+      const textY = rowY + rowHeight / 2 + bodyFontSize * 0.12;
+
+      doc.text(
+        safeText,
+        cellX + column.width / 2,
+        textY,
+        { align: "center" }
+      );
+
+      cellX += column.width;
+    });
+  });
+
+  // Vertical table lines
+  let lineX = margin;
+
+  columns.forEach((column) => {
+    lineX += column.width;
+
+    doc.setDrawColor(225, 228, 233);
+    doc.setLineWidth(0.08);
+    doc.line(
+      lineX,
+      y,
+      lineX,
+      y + rowCount * rowHeight
+    );
+  });
+
+  const tableEndY = y + rowCount * rowHeight;
+
+  // Overall percentage
+  const noteY = Math.min(
+    tableEndY + 5,
+    pageHeight - 11
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(25, 35, 50);
+
+  doc.text(
+    `Overall Percentage: ${percentage.toFixed(2)}%`,
+    margin,
+    noteY
+  );
+
+  // Footer
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(120, 125, 135);
+
+  doc.text(
+    "Generated by REMON ACADEMY Result Management System",
+    pageWidth / 2,
+    pageHeight - 5,
+    { align: "center" }
+  );
+};
+
+/*
+==================================================
+STUDENT INDIVIDUAL PDF
+ONE A4 PAGE
+==================================================
+*/
+
 export const downloadStudentMarksheetPdf = (
   results: ResultPdfRecord[]
 ) => {
@@ -297,12 +604,12 @@ export const downloadStudentMarksheetPdf = (
   }
 
   const doc = new jsPDF({
-    orientation: "landscape",
+    orientation: "portrait",
     unit: "mm",
     format: "a4",
   });
 
-  drawStudentMarksheet(doc, students[0]);
+  drawSinglePageStudentMarksheet(doc, students[0]);
 
   doc.save(
     `REMON-Academy-Marksheet-${safeFileName(
@@ -310,6 +617,13 @@ export const downloadStudentMarksheetPdf = (
     )}.pdf`
   );
 };
+
+/*
+==================================================
+ADMIN ALL STUDENTS MARKSHEETS
+ORIGINAL BEHAVIOR
+==================================================
+*/
 
 export const downloadAllStudentMarksheetsPdf = (
   results: ResultPdfRecord[]
