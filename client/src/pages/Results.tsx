@@ -11,6 +11,7 @@ import {
   LockKeyhole,
   ShieldCheck,
   CalendarClock,
+  CalendarDays,
   Clock3,
   Search,
   UserRound,
