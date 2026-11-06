@@ -24,6 +24,8 @@ interface StudentGroup {
   records: ResultPdfRecord[];
 }
 
+const EXAMS_PER_PAGE = 12;
+
 const getStudentInfo = (result: ResultPdfRecord) => {
   const student =
     result.student && typeof result.student === "object"
@@ -95,9 +97,8 @@ const groupResultsByStudent = (
 
 /*
 ==================================================
-ORIGINAL ADMIN MARKSHEET LAYOUT
+ADMIN ORIGINAL MARKSHEET
 ==================================================
-Admin All Marksheets-এর আগের layout অপরিবর্তিত।
 */
 
 const drawStudentMarksheet = (
@@ -118,7 +119,7 @@ const drawStudentMarksheet = (
 
   const gpaValues = student.records
     .map((item) => Number(item.gpa))
-    .filter((value) => Number.isFinite(value));
+    .filter(Number.isFinite);
 
   const averageGpa = gpaValues.length
     ? gpaValues.reduce((sum, value) => sum + value, 0) /
@@ -212,16 +213,14 @@ const drawStudentMarksheet = (
 
   autoTable(doc, {
     startY: 137,
-    head: [
-      [
-        "Examination",
-        "Subject",
-        "Date",
-        "Marks",
-        "Grade",
-        "GPA",
-      ],
-    ],
+    head: [[
+      "Examination",
+      "Subject",
+      "Date",
+      "Marks",
+      "Grade",
+      "GPA",
+    ]],
     body: tableRows,
     theme: "grid",
     styles: {
@@ -279,51 +278,31 @@ const drawStudentMarksheet = (
 
 /*
 ==================================================
-STUDENT SINGLE-PAGE MARKSHEET
+STUDENT MARKSHEET PAGE
+12 EXAMS PER PAGE
 ==================================================
-
-এখানে autoTable ব্যবহার করা হয়নি।
-নিজস্ব compact table drawing ব্যবহার করা হয়েছে,
-যাতে autoTable অতিরিক্ত page তৈরি করতে না পারে।
 */
 
-const drawSinglePageStudentMarksheet = (
+const drawStudentPage = (
   doc: jsPDF,
-  student: StudentGroup
+  student: StudentGroup,
+  records: ResultPdfRecord[],
+  pageNumber: number,
+  totalPages: number,
+  totalMarks: number,
+  obtainedMarks: number,
+  averageGpa: number,
+  percentage: number
 ) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  const margin = 10;
+  const margin = 12;
   const contentWidth = pageWidth - margin * 2;
-
-  const totalMarks = student.records.reduce(
-    (sum, item) => sum + Number(item.totalMarks || 0),
-    0
-  );
-
-  const obtainedMarks = student.records.reduce(
-    (sum, item) => sum + Number(item.obtainedMarks || 0),
-    0
-  );
-
-  const gpaValues = student.records
-    .map((item) => Number(item.gpa))
-    .filter(Number.isFinite);
-
-  const averageGpa = gpaValues.length
-    ? gpaValues.reduce((sum, value) => sum + value, 0) /
-      gpaValues.length
-    : 0;
-
-  const percentage =
-    totalMarks > 0
-      ? (obtainedMarks / totalMarks) * 100
-      : 0;
 
   // Header
   doc.setFillColor(13, 27, 48);
-  doc.rect(0, 0, pageWidth, 38, "F");
+  doc.rect(0, 0, pageWidth, 37, "F");
 
   doc.setTextColor(218, 181, 105);
   doc.setFont("helvetica", "bold");
@@ -345,7 +324,7 @@ const drawSinglePageStudentMarksheet = (
   });
 
   // Student information
-  let y = 46;
+  let y = 45;
 
   doc.setTextColor(25, 35, 50);
   doc.setFont("helvetica", "bold");
@@ -370,7 +349,7 @@ const drawSinglePageStudentMarksheet = (
   doc.text(`Class: ${student.className}`, margin, y);
   doc.text(`Group: ${student.groupName}`, pageWidth / 2, y);
 
-  // Summary
+  // Summary cards
   y += 7;
 
   const cardGap = 3;
@@ -389,7 +368,7 @@ const drawSinglePageStudentMarksheet = (
     doc.roundedRect(x, y, cardWidth, 17, 1.5, 1.5, "F");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6);
+    doc.setFontSize(6.5);
     doc.setTextColor(110, 115, 125);
     doc.text(item.label, x + 3, y + 6);
 
@@ -407,7 +386,7 @@ const drawSinglePageStudentMarksheet = (
 
   y += 5;
 
-  // Table configuration
+  // Table columns
   const columns = [
     { title: "Examination", width: 43 },
     { title: "Subject", width: 39 },
@@ -422,40 +401,14 @@ const drawSinglePageStudentMarksheet = (
     0
   );
 
-  // Scale columns to available page width
   const columnScale = contentWidth / tableWidth;
 
   columns.forEach((column) => {
     column.width *= columnScale;
   });
 
-  const headerHeight = 7;
-
-  // Keep space for overall percentage and footer.
-  const footerSpace = 15;
-  const availableTableHeight =
-    pageHeight - y - footerSpace - headerHeight;
-
-  const rowCount = student.records.length;
-
-  const rowHeight =
-    rowCount > 0
-      ? availableTableHeight / rowCount
-      : 4;
-
-  /*
-   * Font size adapts to the available row height.
-   * No result records are intentionally removed.
-   */
-  const bodyFontSize = Math.max(
-    0.8,
-    Math.min(7, rowHeight * 2.15)
-  );
-
-  const headerFontSize = Math.max(
-    3,
-    Math.min(7, bodyFontSize + 1)
-  );
+  const headerHeight = 8;
+  const rowHeight = 8;
 
   // Table header
   doc.setFillColor(13, 27, 48);
@@ -463,7 +416,7 @@ const drawSinglePageStudentMarksheet = (
 
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(headerFontSize);
+  doc.setFontSize(8);
 
   let x = margin;
 
@@ -471,7 +424,7 @@ const drawSinglePageStudentMarksheet = (
     doc.text(
       column.title,
       x + column.width / 2,
-      y + headerHeight * 0.65,
+      y + 5.3,
       { align: "center" }
     );
 
@@ -481,7 +434,7 @@ const drawSinglePageStudentMarksheet = (
   y += headerHeight;
 
   // Result rows
-  student.records.forEach((item, index) => {
+  records.forEach((item, index) => {
     const rowY = y + index * rowHeight;
 
     if (index % 2 === 0) {
@@ -490,7 +443,7 @@ const drawSinglePageStudentMarksheet = (
     }
 
     doc.setDrawColor(225, 228, 233);
-    doc.setLineWidth(0.08);
+    doc.setLineWidth(0.15);
     doc.rect(margin, rowY, contentWidth, rowHeight);
 
     const values = [
@@ -503,7 +456,7 @@ const drawSinglePageStudentMarksheet = (
     ];
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(bodyFontSize);
+    doc.setFontSize(8);
     doc.setTextColor(45, 52, 63);
 
     let cellX = margin;
@@ -513,22 +466,17 @@ const drawSinglePageStudentMarksheet = (
 
       const text = String(value).replace(/\s+/g, " ").trim();
 
-      // Single-line text prevents wrapping from increasing row height.
-      const maxTextWidth = Math.max(0.5, column.width - 2);
-      const displayText = doc.getTextWidth(text) <= maxTextWidth
-        ? text
-        : doc.splitTextToSize(text, maxTextWidth)[0] || "";
+      const maxWidth = column.width - 3;
 
-      const safeText = displayText.length > 0
-        ? displayText
-        : text.substring(0, 1);
-
-      const textY = rowY + rowHeight / 2 + bodyFontSize * 0.12;
+      const displayText =
+        doc.getTextWidth(text) <= maxWidth
+          ? text
+          : doc.splitTextToSize(text, maxWidth)[0] || "";
 
       doc.text(
-        safeText,
+        displayText,
         cellX + column.width / 2,
-        textY,
+        rowY + 5.2,
         { align: "center" }
       );
 
@@ -536,49 +484,56 @@ const drawSinglePageStudentMarksheet = (
     });
   });
 
-  // Vertical table lines
+  // Vertical lines
   let lineX = margin;
 
   columns.forEach((column) => {
     lineX += column.width;
 
     doc.setDrawColor(225, 228, 233);
-    doc.setLineWidth(0.08);
+    doc.setLineWidth(0.15);
+
     doc.line(
       lineX,
       y,
       lineX,
-      y + rowCount * rowHeight
+      y + records.length * rowHeight
     );
   });
 
-  const tableEndY = y + rowCount * rowHeight;
+  const tableEndY = y + records.length * rowHeight;
 
-  // Overall percentage
-  const noteY = Math.min(
-    tableEndY + 5,
-    pageHeight - 11
-  );
+  // Overall percentage only on the final page
+  if (pageNumber === totalPages) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(25, 35, 50);
 
-  doc.setFont("helvetica", "bold");
+    doc.text(
+      `Overall Percentage: ${percentage.toFixed(2)}%`,
+      margin,
+      tableEndY + 9
+    );
+  }
+
+  // Page number
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(25, 35, 50);
+  doc.setTextColor(120, 125, 135);
 
   doc.text(
-    `Overall Percentage: ${percentage.toFixed(2)}%`,
-    margin,
-    noteY
+    `Page ${pageNumber} of ${totalPages}`,
+    pageWidth - margin,
+    pageHeight - 12,
+    { align: "right" }
   );
 
-  // Footer
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
-  doc.setTextColor(120, 125, 135);
+  doc.setFontSize(7);
 
   doc.text(
     "Generated by REMON ACADEMY Result Management System",
     pageWidth / 2,
-    pageHeight - 5,
+    pageHeight - 6,
     { align: "center" }
   );
 };
@@ -586,22 +541,21 @@ const drawSinglePageStudentMarksheet = (
 /*
 ==================================================
 STUDENT INDIVIDUAL PDF
-ONE A4 PAGE
+12 EXAMS PER PAGE
 ==================================================
 */
 
 export const downloadStudentMarksheetPdf = (
   results: ResultPdfRecord[]
 ) => {
-  if (!results.length) {
-    return;
-  }
+  if (!results.length) return;
 
   const students = groupResultsByStudent(results);
 
-  if (!students.length) {
-    return;
-  }
+  if (!students.length) return;
+
+  const student = students[0];
+  const records = student.records;
 
   const doc = new jsPDF({
     orientation: "portrait",
@@ -609,12 +563,59 @@ export const downloadStudentMarksheetPdf = (
     format: "a4",
   });
 
-  drawSinglePageStudentMarksheet(doc, students[0]);
+  const totalMarks = records.reduce(
+    (sum, item) => sum + Number(item.totalMarks || 0),
+    0
+  );
+
+  const obtainedMarks = records.reduce(
+    (sum, item) => sum + Number(item.obtainedMarks || 0),
+    0
+  );
+
+  const gpaValues = records
+    .map((item) => Number(item.gpa))
+    .filter(Number.isFinite);
+
+  const averageGpa = gpaValues.length
+    ? gpaValues.reduce((sum, value) => sum + value, 0) /
+      gpaValues.length
+    : 0;
+
+  const percentage =
+    totalMarks > 0
+      ? (obtainedMarks / totalMarks) * 100
+      : 0;
+
+  const totalPages = Math.ceil(
+    records.length / EXAMS_PER_PAGE
+  );
+
+  for (let page = 0; page < totalPages; page++) {
+    if (page > 0) {
+      doc.addPage("a4", "portrait");
+    }
+
+    const start = page * EXAMS_PER_PAGE;
+    const end = start + EXAMS_PER_PAGE;
+
+    const pageRecords = records.slice(start, end);
+
+    drawStudentPage(
+      doc,
+      student,
+      pageRecords,
+      page + 1,
+      totalPages,
+      totalMarks,
+      obtainedMarks,
+      averageGpa,
+      percentage
+    );
+  }
 
   doc.save(
-    `REMON-Academy-Marksheet-${safeFileName(
-      students[0].name
-    )}.pdf`
+    `REMON-Academy-Marksheet-${safeFileName(student.name)}.pdf`
   );
 };
 
@@ -628,15 +629,11 @@ ORIGINAL BEHAVIOR
 export const downloadAllStudentMarksheetsPdf = (
   results: ResultPdfRecord[]
 ) => {
-  if (!results.length) {
-    return;
-  }
+  if (!results.length) return;
 
   const students = groupResultsByStudent(results);
 
-  if (!students.length) {
-    return;
-  }
+  if (!students.length) return;
 
   const doc = new jsPDF({
     orientation: "landscape",
