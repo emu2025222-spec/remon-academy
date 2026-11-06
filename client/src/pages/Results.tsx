@@ -233,47 +233,7 @@ export default function Results() {
   return (
     <main className="overflow-hidden bg-[#f5f3ee] text-[#111827] dark:bg-[#080c14] dark:text-white">
 
-      {/* HERO SECTION */}
-      <section className="relative overflow-hidden bg-[#101722] py-16 text-white sm:py-20 lg:py-24">
-        <div className="pointer-events-none absolute right-[-150px] top-[-160px] h-[430px] w-[430px] rounded-full border border-brand-gold/[0.08]" />
-        <div className="pointer-events-none absolute bottom-[-180px] left-[-130px] h-[380px] w-[380px] rounded-full border border-white/[0.04]" />
-
-        <div className="container-page relative">
-          <div className="grid gap-10 lg:grid-cols-[0.65fr_1.35fr] lg:items-end">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="h-px w-10 bg-brand-gold" />
-                <span className="text-[9px] font-bold uppercase tracking-[0.35em] text-brand-gold">
-                  Academic Performance
-                </span>
-              </div>        
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 25 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, delay: 0.08 }}
-            >
-              <h1 className="font-display text-4xl font-bold leading-[1.02] tracking-[-0.04em] sm:text-5xl lg:text-[5rem]">
-                Track your
-                <br />
-                <span className="text-brand-gold">progress.</span>
-              </h1>
-
-              <p className="mt-7 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">
-                Enter your Roll Number and select your examination to
-                access your published academic results.
-              </p>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* RESULT PORTAL - NOW AT THE TOP */}
+      {/* RESULT PORTAL - FIRST SECTION */}
       <section
         id="result-search"
         className="bg-[#f5f3ee] px-0 py-14 dark:bg-[#080c14] sm:py-20 lg:py-24"
@@ -283,8 +243,7 @@ export default function Results() {
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className="mb-8 text-center"
             >
@@ -305,8 +264,7 @@ export default function Results() {
 
             <motion.div
               initial={{ opacity: 0, y: 25 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55 }}
               className="overflow-hidden border border-slate-200 bg-white shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900"
             >
@@ -641,7 +599,7 @@ export default function Results() {
         </div>
       </section>
 
-      {/* SECURITY STRIP - MOVED BELOW RESULT PORTAL */}
+      {/* SECURITY STRIP */}
       <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="container-page grid md:grid-cols-3">
           <div className="flex items-center gap-4 border-b border-slate-200 px-2 py-7 dark:border-slate-800 md:border-b-0 md:border-r md:px-8">
