@@ -23,6 +23,7 @@ import contactRoutes from "./routes/contact.routes";
 import settingsRoutes from "./routes/settings.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import examRoutes from "./routes/exam.routes";
+import resultPublicationRoutes from "./routes/resultPublication.routes";
 
 import {
   notFoundHandler,
@@ -134,6 +135,7 @@ app.use("/api/gallery", galleryRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/result-publications", resultPublicationRoutes);
 
 /*
 |--------------------------------------------------------------------------
