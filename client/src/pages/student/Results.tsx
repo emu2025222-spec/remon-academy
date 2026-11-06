@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Award,
@@ -7,6 +8,10 @@ import {
   GraduationCap,
   TrendingUp,
   Trophy,
+  CalendarClock,
+  Clock3,
+  RefreshCw,
+  Bell,
 } from "lucide-react";
 
 import { api, getErrorMessage } from "../../services/api";
@@ -25,14 +30,76 @@ interface ExamSummary {
   obtainedMarks: number;
 }
 
+interface Publication {
+  examName: string;
+  publishAt: string;
+  isReleased: boolean;
+}
+
+interface PublicationResponse {
+  serverTime?: string;
+  publications: Publication[];
+}
+
+function formatPublicationDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+
+  return date.toLocaleDateString("en-BD", {
+    timeZone: "Asia/Dhaka",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatPublicationTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+
+  return date.toLocaleTimeString("en-BD", {
+    timeZone: "Asia/Dhaka",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function CountdownUnit({
+  value,
+  label,
+}: {
+  value: number;
+  label: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-brand-goldLight/20 bg-white/5 px-2 py-3 text-center sm:px-3">
+      <p className="font-display text-xl font-bold tabular-nums text-brand-goldLight sm:text-2xl">
+        {String(value).padStart(2, "0")}
+      </p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-white/45">
+        {label}
+      </p>
+    </div>
+  );
+}
+
 export default function StudentResults() {
   const [results, setResults] = useState<Result[]>([]);
   const [averageGpa, setAverageGpa] = useState(0);
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [publications, setPublications] = useState<Publication[]>([]);
+  const [publicationLoading, setPublicationLoading] = useState(true);
+  const [serverOffset, setServerOffset] = useState(0);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
   const { show } = useToast();
 
+  // Load student results
   useEffect(() => {
     api
       .get("/results/my")
@@ -42,7 +109,6 @@ export default function StudentResults() {
         setResults(data.results || []);
         setAverageGpa(data.averageGpa || 0);
         setExams(data.exams || []);
-
         setLoading(false);
       })
       .catch((err) => {
@@ -50,6 +116,78 @@ export default function StudentResults() {
         setLoading(false);
       });
   }, [show]);
+
+  // Load result publication schedules
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPublications = async () => {
+      try {
+        const response = await api.get(
+          "/result-publications/public/status"
+        );
+
+        const data = response.data?.data as
+          | PublicationResponse
+          | undefined;
+
+        if (!mounted) return;
+
+        setPublications(
+          Array.isArray(data?.publications)
+            ? data.publications
+            : []
+        );
+
+        if (data?.serverTime) {
+          setServerOffset(
+            new Date(data.serverTime).getTime() - Date.now()
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load publication schedules:", error);
+      } finally {
+        if (mounted) setPublicationLoading(false);
+      }
+    };
+
+    loadPublications();
+
+    // Refresh schedule from server every 30 seconds
+    const refreshInterval = window.setInterval(
+      loadPublications,
+      30000
+    );
+
+    return () => {
+      mounted = false;
+      window.clearInterval(refreshInterval);
+    };
+  }, []);
+
+  // Live countdown clock
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCurrentTime(Date.now() + serverOffset);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [serverOffset]);
+
+  const getCountdown = (publishAt: string) => {
+    const difference = Math.max(
+      0,
+      new Date(publishAt).getTime() - currentTime
+    );
+
+    return {
+      days: Math.floor(difference / 86400000),
+      hours: Math.floor((difference % 86400000) / 3600000),
+      minutes: Math.floor((difference % 3600000) / 60000),
+      seconds: Math.floor((difference % 60000) / 1000),
+      finished: difference <= 0,
+    };
+  };
 
   if (loading) {
     return <Loader />;
@@ -99,10 +237,167 @@ export default function StudentResults() {
           </div>
         </div>
       </section>
-      <ResultsPdfActions
-        mode="student"
-        results={results}
-      />
+
+      <ResultsPdfActions mode="student" results={results} />
+
+      {/* =====================================================
+          UPCOMING RESULT PUBLICATION
+      ===================================================== */}
+      {!publicationLoading && publications.length > 0 && (
+        <section>
+          <div className="mb-5">
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-gold">
+              <CalendarClock className="h-4 w-4" />
+              Result Publication Schedule
+            </div>
+
+            <h2 className="mt-2 font-display text-xl font-semibold text-slate-900 dark:text-white">
+              Upcoming Results
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Check when your upcoming examination results will be published.
+            </p>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            {publications.map((publication) => {
+              const targetTime = new Date(
+                publication.publishAt
+              ).getTime();
+
+              const countdown = getCountdown(
+                publication.publishAt
+              );
+
+              const released =
+                Number.isFinite(targetTime) &&
+                targetTime <= currentTime;
+
+              return (
+                <div
+                  key={publication.examName}
+                  className="relative overflow-hidden rounded-3xl bg-brand-navyDark p-6 text-white shadow-lg sm:p-7"
+                >
+                  <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full border border-brand-goldLight/10" />
+
+                  <div className="relative z-10">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-goldLight">
+                        <Bell className="h-3.5 w-3.5" />
+                        Result Announcement
+                      </div>
+
+                      {released ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Published
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          Scheduled
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="mt-5 font-display text-xl font-semibold sm:text-2xl">
+                      {publication.examName}
+                    </h3>
+
+                    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/65">
+                      <span className="inline-flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4 text-brand-goldLight" />
+                        {formatPublicationDate(publication.publishAt)}
+                      </span>
+
+                      <span className="inline-flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-brand-goldLight" />
+                        {formatPublicationTime(publication.publishAt)}
+                      </span>
+                    </div>
+
+                    <div className="my-6 border-t border-white/10" />
+
+                    {released ? (
+                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                        <div className="flex items-center gap-2 text-emerald-300">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <p className="text-sm font-bold">
+                            Result publication time has arrived.
+                          </p>
+                        </div>
+
+                        <p className="mt-2 text-xs leading-5 text-white/60">
+                          Your published result will appear in the
+                          Result Records section when it is available
+                          in your student account.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">
+                          Time Remaining
+                        </p>
+
+                        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                          <CountdownUnit
+                            value={countdown.days}
+                            label="Days"
+                          />
+
+                          <CountdownUnit
+                            value={countdown.hours}
+                            label="Hours"
+                          />
+
+                          <CountdownUnit
+                            value={countdown.minutes}
+                            label="Minutes"
+                          />
+
+                          <CountdownUnit
+                            value={countdown.seconds}
+                            label="Seconds"
+                          />
+                        </div>
+
+                        <p className="mt-4 text-center text-[10px] text-white/40">
+                          Countdown follows the server publication time.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Schedule loading / empty state */}
+      {publicationLoading && (
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          Loading publication schedule...
+        </div>
+      )}
+
+      {!publicationLoading && publications.length === 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
+          <div className="flex items-center gap-3">
+            <CalendarClock className="h-5 w-5 text-slate-400" />
+            <div>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                No upcoming result schedule
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                The academy has not announced another result publication yet.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {results.length === 0 ? (
         <div className="card-premium p-8">
@@ -130,7 +425,6 @@ export default function StudentResults() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {/* GPA */}
               <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
                 <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-brand-goldLight/10" />
 
@@ -153,7 +447,6 @@ export default function StudentResults() {
                 </div>
               </div>
 
-              {/* Exams */}
               <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
                 <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-brand-navy/5 dark:bg-brand-goldLight/5" />
 
@@ -176,7 +469,6 @@ export default function StudentResults() {
                 </div>
               </div>
 
-              {/* Subjects */}
               <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
                 <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-emerald-500/5" />
 
@@ -226,10 +518,8 @@ export default function StudentResults() {
                   const percentage =
                     exam.totalMarks > 0
                       ? Math.round(
-                        (exam.obtainedMarks /
-                          exam.totalMarks) *
-                        100
-                      )
+                          (exam.obtainedMarks / exam.totalMarks) * 100
+                        )
                       : 0;
 
                   return (
@@ -248,9 +538,7 @@ export default function StudentResults() {
 
                             <p className="mt-1 text-xs text-slate-400">
                               {exam.subjectCount}{" "}
-                              {exam.subjectCount === 1
-                                ? "Subject"
-                                : "Subjects"}
+                              {exam.subjectCount === 1 ? "Subject" : "Subjects"}
                             </p>
                           </div>
 
@@ -274,10 +562,7 @@ export default function StudentResults() {
                             <div
                               className="h-full rounded-full bg-brand-goldLight transition-all"
                               style={{
-                                width: `${Math.min(
-                                  percentage,
-                                  100
-                                )}%`,
+                                width: `${Math.min(percentage, 100)}%`,
                               }}
                             />
                           </div>
@@ -337,29 +622,12 @@ export default function StudentResults() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 dark:bg-slate-800/60">
                     <tr className="text-left text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                      <th className="px-5 py-4">
-                        Exam
-                      </th>
-
-                      <th className="px-5 py-4">
-                        Subject
-                      </th>
-
-                      <th className="px-5 py-4">
-                        Marks
-                      </th>
-
-                      <th className="px-5 py-4">
-                        Grade
-                      </th>
-
-                      <th className="px-5 py-4">
-                        GPA
-                      </th>
-
-                      <th className="px-5 py-4">
-                        Date
-                      </th>
+                      <th className="px-5 py-4">Exam</th>
+                      <th className="px-5 py-4">Subject</th>
+                      <th className="px-5 py-4">Marks</th>
+                      <th className="px-5 py-4">Grade</th>
+                      <th className="px-5 py-4">GPA</th>
+                      <th className="px-5 py-4">Date</th>
                     </tr>
                   </thead>
 
@@ -381,11 +649,7 @@ export default function StudentResults() {
                           <span className="font-semibold text-slate-800 dark:text-slate-200">
                             {result.obtainedMarks}
                           </span>
-
-                          <span className="text-slate-400">
-                            /
-                          </span>
-
+                          <span className="text-slate-400">/</span>
                           <span className="text-slate-500 dark:text-slate-400">
                             {result.totalMarks}
                           </span>
@@ -412,14 +676,14 @@ export default function StudentResults() {
                         <td className="px-5 py-4 text-slate-500 dark:text-slate-400">
                           <span className="inline-flex items-center gap-1.5">
                             <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
-
-                            {new Date(
-                              result.examDate
-                            ).toLocaleDateString("en-BD", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
+                            {new Date(result.examDate).toLocaleDateString(
+                              "en-BD",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )}
                           </span>
                         </td>
                       </tr>
@@ -443,10 +707,7 @@ export default function StudentResults() {
                       <div className="flex min-w-0 gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-goldLight/15 text-brand-gold">
                           <span className="font-display text-xs font-bold">
-                            {String(index + 1).padStart(
-                              2,
-                              "0"
-                            )}
+                            {String(index + 1).padStart(2, "0")}
                           </span>
                         </div>
 
@@ -481,8 +742,7 @@ export default function StudentResults() {
                         </p>
 
                         <p className="mt-1 font-semibold text-slate-900 dark:text-white">
-                          {result.obtainedMarks}/
-                          {result.totalMarks}
+                          {result.obtainedMarks}/{result.totalMarks}
                         </p>
                       </div>
 
@@ -500,13 +760,14 @@ export default function StudentResults() {
                     <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4 text-xs text-slate-400 dark:border-slate-800">
                       <CalendarDays className="h-3.5 w-3.5" />
 
-                      {new Date(
-                        result.examDate
-                      ).toLocaleDateString("en-BD", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {new Date(result.examDate).toLocaleDateString(
+                        "en-BD",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )}
                     </div>
                   </div>
                 </div>
@@ -541,5 +802,3 @@ export default function StudentResults() {
     </div>
   );
 }
-
-
