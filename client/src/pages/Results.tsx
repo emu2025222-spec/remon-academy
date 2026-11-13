@@ -30,15 +30,35 @@ interface Publication {
   isReleased: boolean;
 }
 
+interface StudentInfo {
+  _id: string;
+  studentId: string;
+  fullName: string;
+  class?: string;
+  group?: string;
+}
+
 interface PublicResult {
   _id?: string;
   examName?: string;
   subject?: string;
+  course?: {
+    title?: string;
+    classLevel?: string;
+    subject?: string;
+  };
   obtainedMarks?: number;
   totalMarks?: number;
   grade?: string;
   gpa?: number;
   examDate?: string;
+}
+
+interface ResultSummary {
+  totalSubjects: number;
+  totalMarks: number;
+  obtainedMarks: number;
+  averageGpa: number;
 }
 
 function formatDate(value: string) {
@@ -90,13 +110,23 @@ export default function Results() {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [rollNumber, setRollNumber] = useState("");
   const [selectedExam, setSelectedExam] = useState("");
+
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [results, setResults] = useState<PublicResult[]>([]);
+  const [resultSummary, setResultSummary] =
+    useState<ResultSummary | null>(null);
+
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [serverOffset, setServerOffset] = useState(0);
   const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // ==========================================
+  // LOAD PUBLICATION SCHEDULES
+  // ==========================================
 
   const loadPublications = async () => {
     try {
@@ -106,7 +136,15 @@ export default function Results() {
 
       const data = response.data?.data;
 
-      setPublications(data?.publications || []);
+      const sortedPublications: Publication[] = (
+        data?.publications || []
+      ).sort(
+        (a: Publication, b: Publication) =>
+          new Date(b.publishAt).getTime() -
+          new Date(a.publishAt).getTime()
+      );
+
+      setPublications(sortedPublications);
 
       if (data?.serverTime) {
         setServerOffset(
@@ -127,6 +165,10 @@ export default function Results() {
 
     return () => window.clearInterval(refresh);
   }, []);
+
+  // ==========================================
+  // LIVE COUNTDOWN
+  // ==========================================
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -151,6 +193,10 @@ export default function Results() {
     };
   };
 
+  // ==========================================
+  // SEARCH RESULT
+  // ==========================================
+
   const handleSearch = async (
     event: FormEvent<HTMLFormElement>
   ) => {
@@ -158,6 +204,8 @@ export default function Results() {
 
     setError("");
     setResults([]);
+    setStudentInfo(null);
+    setResultSummary(null);
     setSearched(false);
 
     if (!rollNumber.trim()) {
@@ -199,26 +247,23 @@ export default function Results() {
 
       const data = response.data?.data;
 
-      const resultList = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.results)
-          ? data.results
-          : data
-            ? [data]
-            : [];
+      if (!data || !data.student || !Array.isArray(data.results)) {
+        throw new Error("Invalid result data received from server.");
+      }
 
-      setResults(resultList);
+      setStudentInfo(data.student);
+      setResults(data.results);
+      setResultSummary(data.summary || null);
       setSearched(true);
 
-      if (resultList.length === 0) {
-        setError(
-          "No result found for this Roll Number and examination."
-        );
+      if (data.results.length === 0) {
+        setError("No result found for this examination.");
       }
     } catch (err: any) {
       setSearched(true);
       setError(
         err?.response?.data?.message ||
+          err?.message ||
           "No result found. Please check your Roll Number and Exam Name."
       );
     } finally {
@@ -230,10 +275,14 @@ export default function Results() {
     (item) => item.examName === selectedExam
   );
 
+  // ==========================================
+  // PAGE
+  // ==========================================
+
   return (
     <main className="overflow-hidden bg-[#f5f3ee] text-[#111827] dark:bg-[#080c14] dark:text-white">
 
-      {/* RESULT PORTAL - FIRST SECTION */}
+      {/* RESULT PORTAL */}
       <section
         id="result-search"
         className="bg-[#f5f3ee] px-0 py-14 dark:bg-[#080c14] sm:py-20 lg:py-24"
@@ -241,6 +290,7 @@ export default function Results() {
         <div className="container-page">
           <div className="mx-auto max-w-4xl">
 
+            {/* TITLE */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -262,6 +312,7 @@ export default function Results() {
               </p>
             </motion.div>
 
+            {/* SEARCH CARD */}
             <motion.div
               initial={{ opacity: 0, y: 25 }}
               animate={{ opacity: 1, y: 0 }}
@@ -294,6 +345,7 @@ export default function Results() {
                 onSubmit={handleSearch}
                 className="space-y-6 p-6 sm:p-9"
               >
+                {/* ROLL NUMBER */}
                 <div>
                   <label className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                     <UserRound className="h-4 w-4 text-brand-gold" />
@@ -307,6 +359,8 @@ export default function Results() {
                       setRollNumber(event.target.value);
                       setError("");
                       setResults([]);
+                      setStudentInfo(null);
+                      setResultSummary(null);
                       setSearched(false);
                     }}
                     placeholder="Enter your Roll Number"
@@ -315,6 +369,7 @@ export default function Results() {
                   />
                 </div>
 
+                {/* EXAM SELECT */}
                 <div>
                   <label className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
                     <CalendarClock className="h-4 w-4 text-brand-gold" />
@@ -327,18 +382,23 @@ export default function Results() {
                       setSelectedExam(event.target.value);
                       setError("");
                       setResults([]);
+                      setStudentInfo(null);
+                      setResultSummary(null);
                       setSearched(false);
                     }}
                     className="w-full border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   >
                     <option value="">Choose an examination</option>
 
-                    {publications.map((publication) => (
+                    {publications.map((publication, index) => (
                       <option
                         key={publication.examName}
                         value={publication.examName}
                       >
+                        {index === 0 ? "★ " : ""}
                         {publication.examName}
+                        {" — "}
+                        {formatDate(publication.publishAt)}
                       </option>
                     ))}
                   </select>
@@ -354,8 +414,15 @@ export default function Results() {
                       Loading examinations...
                     </p>
                   )}
+
+                  {!loading && publications.length > 0 && (
+                    <p className="mt-2 text-xs text-slate-400">
+                      The latest scheduled examination appears first.
+                    </p>
+                  )}
                 </div>
 
+                {/* PUBLICATION INFORMATION */}
                 {selectedPublication && (
                   <div className="border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-brand-gold">
@@ -408,6 +475,7 @@ export default function Results() {
                   </div>
                 )}
 
+                {/* ERROR */}
                 {error && (
                   <div className="flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -415,6 +483,7 @@ export default function Results() {
                   </div>
                 )}
 
+                {/* SEARCH BUTTON */}
                 <button
                   type="submit"
                   disabled={
@@ -449,24 +518,81 @@ export default function Results() {
               </form>
             </motion.div>
 
+            {/* STUDENT INFORMATION */}
+            {searched && results.length > 0 && studentInfo && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="mt-10 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="bg-[#101722] px-6 py-5 text-white">
+                  <div className="flex items-center gap-3">
+                    <GraduationCap className="h-7 w-7 text-brand-gold" />
+
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-brand-gold">
+                        Student Information
+                      </p>
+
+                      <h3 className="mt-1 text-xl font-bold sm:text-2xl">
+                        {studentInfo.fullName}
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-5 p-6 sm:grid-cols-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Roll Number
+                    </p>
+                    <p className="mt-2 text-sm font-bold">
+                      {studentInfo.studentId}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Class
+                    </p>
+                    <p className="mt-2 text-sm font-bold">
+                      {studentInfo.class || "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Group
+                    </p>
+                    <p className="mt-2 text-sm font-bold">
+                      {studentInfo.group || "—"}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* RESULT OUTPUT */}
             {searched && results.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="mt-10"
+                className="mt-8"
               >
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-gold">
                       Official Result
                     </p>
+
                     <h3 className="mt-2 font-display text-2xl font-bold">
                       {selectedExam}
                     </h3>
+
                     <p className="mt-1 text-xs text-slate-500">
-                      Roll Number: {rollNumber}
+                      Roll Number: {studentInfo?.studentId || rollNumber}
                     </p>
                   </div>
 
@@ -476,7 +602,54 @@ export default function Results() {
                   </span>
                 </div>
 
+                {/* RESULT SUMMARY */}
+                {resultSummary && (
+                  <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      {
+                        label: "Total Subjects",
+                        value: resultSummary.totalSubjects,
+                      },
+                      {
+                        label: "Total Marks",
+                        value: resultSummary.totalMarks,
+                      },
+                      {
+                        label: "Obtained Marks",
+                        value: resultSummary.obtainedMarks,
+                      },
+                      {
+                        label: "Average GPA",
+                        value: resultSummary.averageGpa,
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {item.label}
+                        </p>
+
+                        <p className="mt-2 font-display text-2xl font-bold text-brand-gold">
+                          {item.value ?? "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* SUBJECT RESULT TABLE */}
                 <div className="overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                    <h3 className="font-display text-lg font-bold">
+                      Subject-wise Result
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Complete examination performance
+                    </p>
+                  </div>
+
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-100 dark:bg-slate-800">
@@ -496,17 +669,24 @@ export default function Results() {
                             className="border-t border-slate-100 dark:border-slate-800"
                           >
                             <td className="px-5 py-4 font-semibold">
-                              {result.subject || "—"}
+                              {result.course?.subject ||
+                                result.course?.title ||
+                                result.subject ||
+                                "—"}
                             </td>
+
                             <td className="px-5 py-4">
                               {result.obtainedMarks ?? "—"}
                             </td>
+
                             <td className="px-5 py-4">
                               {result.totalMarks ?? "—"}
                             </td>
+
                             <td className="px-5 py-4">
                               {result.grade || "—"}
                             </td>
+
                             <td className="px-5 py-4 font-bold">
                               {result.gpa ?? "—"}
                             </td>
@@ -517,15 +697,17 @@ export default function Results() {
                   </div>
                 </div>
 
+                {/* RESULT VERIFICATION */}
                 <div className="mt-4 flex items-center gap-3 border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                   <Trophy className="h-5 w-5 shrink-0 text-brand-gold" />
+
                   <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                     This result has been retrieved from the academy's
                     published examination records.
                   </p>
                 </div>
 
-                {/* FUNNY AND MOTIVATIONAL MESSAGE */}
+                {/* MOTIVATIONAL MESSAGE */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -533,14 +715,17 @@ export default function Results() {
                   className="relative mt-6 overflow-hidden border border-brand-gold/30 bg-[#101722] p-6 text-center text-white sm:p-9"
                 >
                   <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full border border-brand-gold/10" />
+
                   <div className="pointer-events-none absolute -bottom-16 -left-12 h-44 w-44 rounded-full border border-white/5" />
 
                   <div className="relative">
                     <div className="flex items-center justify-center gap-3">
                       <Sparkles className="h-5 w-5 text-brand-gold" />
+
                       <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-gold">
                         A Little Message For You
                       </span>
+
                       <Sparkles className="h-5 w-5 text-brand-gold" />
                     </div>
 
@@ -585,9 +770,11 @@ export default function Results() {
             {searched && results.length === 0 && error && (
               <div className="mt-6 border border-slate-200 bg-white p-6 text-center dark:border-slate-800 dark:bg-slate-900">
                 <div className="text-3xl">🤔</div>
+
                 <h3 className="mt-3 font-display text-xl font-bold">
                   Result Not Found!
                 </h3>
+
                 <p className="mt-2 text-sm leading-6 text-slate-500">
                   Don't worry! Double-check your Roll Number and
                   examination name, then try again.
@@ -606,6 +793,7 @@ export default function Results() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
               <LockKeyhole className="h-5 w-5 text-brand-gold" />
             </div>
+
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
                 Privacy
@@ -620,6 +808,7 @@ export default function Results() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
               <BarChart3 className="h-5 w-5 text-brand-gold" />
             </div>
+
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
                 Performance
@@ -634,6 +823,7 @@ export default function Results() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-brand-gold/30">
               <ShieldCheck className="h-5 w-5 text-brand-gold" />
             </div>
+
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-400">
                 Secure Access
@@ -646,7 +836,7 @@ export default function Results() {
         </div>
       </section>
 
-      {/* STUDENT LOGIN CTA */}
+      {/* STUDENT LOGIN */}
       <section className="bg-[#101722] py-20 text-white sm:py-24">
         <div className="container-page">
           <div className="mx-auto max-w-3xl text-center">

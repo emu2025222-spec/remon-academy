@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 
@@ -208,6 +209,7 @@ export const deleteResultPublication = asyncHandler(
 
 // ==========================================
 // PUBLIC: GET PUBLICATION STATUS
+// LATEST PUBLICATION FIRST
 // ==========================================
 
 export const getPublicResultPublicationStatus = asyncHandler(
@@ -218,7 +220,7 @@ export const getPublicResultPublicationStatus = asyncHandler(
       status: "SCHEDULED",
     })
       .select("examName publishAt status")
-      .sort({ publishAt: 1 });
+      .sort({ publishAt: -1 });
 
     const data = publications.map((item) => ({
       examName: item.examName,
@@ -254,6 +256,7 @@ export const publicSearchResult = asyncHandler(
       throw new ApiError(400, "Exam name is required");
     }
 
+    // Only released examinations are accessible.
     const publication = await ResultPublication.findOne({
       examName,
       status: "SCHEDULED",
@@ -267,24 +270,33 @@ export const publicSearchResult = asyncHandler(
       );
     }
 
+    // Find student using Roll Number.
     const student = await Student.findOne({
       studentId,
       isActive: true,
     }).select("studentId fullName class group");
 
     if (!student) {
-      throw new ApiError(404, "No result found for this roll number");
+      throw new ApiError(
+        404,
+        "No result found for this roll number"
+      );
     }
 
+    // Fetch all subjects for the selected examination.
     const results = await Result.find({
       student: student._id,
       examName: publication.examName,
     })
       .populate("course", "title classLevel subject")
-      .select("-__v");
+      .select("-__v")
+      .sort({ createdAt: 1 });
 
     if (!results.length) {
-      throw new ApiError(404, "No result found for this examination");
+      throw new ApiError(
+        404,
+        "No result found for this examination"
+      );
     }
 
     const totalMarks = results.reduce(
@@ -306,7 +318,13 @@ export const publicSearchResult = asyncHandler(
     return success(
       res,
       {
-        student,
+        student: {
+          _id: student._id,
+          studentId: student.studentId,
+          fullName: student.fullName,
+          class: student.class,
+          group: student.group,
+        },
         examName: publication.examName,
         results,
         summary: {
