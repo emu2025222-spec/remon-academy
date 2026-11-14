@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -6,14 +7,11 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Moon,
-  Sun,
   X,
 } from "lucide-react";
 
 import { brand } from "../config/brand";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
 
 const links = [
   { to: "/", label: "Home" },
@@ -32,7 +30,6 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,6 +38,7 @@ export function Navbar() {
     };
 
     window.addEventListener("scroll", onScroll);
+    onScroll();
 
     return () => {
       window.removeEventListener("scroll", onScroll);
@@ -67,20 +65,20 @@ export function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+      className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
         scrolled
-          ? "border-b border-slate-200/70 bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/95"
-          : "border-b border-transparent bg-white dark:bg-slate-950"
+          ? "border-[#e8e3d8] bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.07)] backdrop-blur-xl"
+          : "border-[#f0ede6] bg-white"
       }`}
     >
-      <nav className="container-page flex h-[76px] items-center justify-between">
+      <nav className="container-page flex h-[72px] items-center justify-between gap-3 sm:h-[76px]">
         {/* BRAND */}
         <Link
           to="/"
           onClick={closeMenu}
-          className="group flex items-center gap-3"
+          className="group flex shrink-0 items-center gap-2.5 sm:gap-3"
         >
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(15,23,42,0.10)] transition-transform duration-300 group-hover:-translate-y-0.5">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_5px_18px_rgba(11,31,77,0.12)] transition-transform duration-300 group-hover:-translate-y-0.5 sm:h-11 sm:w-11">
             <img
               src="/logo.png"
               alt="REMON ACADEMY"
@@ -89,27 +87,27 @@ export function Navbar() {
           </div>
 
           <div className="leading-none">
-            <div className="font-display text-[17px] font-extrabold tracking-tight text-brand-navy dark:text-white">
+            <div className="font-display text-[16px] font-extrabold tracking-tight text-[#0b1f4d] sm:text-[17px]">
               {brand.name}
             </div>
 
-            <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">
+            <div className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.19em] text-slate-400 sm:text-[9px] sm:tracking-[0.24em]">
               Education • Excellence
             </div>
           </div>
         </Link>
 
         {/* DESKTOP NAVIGATION */}
-        <div className="hidden items-center gap-1 lg:flex">
+        <div className="hidden items-center gap-0.5 xl:flex">
           {links.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
               className={({ isActive }) =>
-                `relative rounded-full px-3.5 py-2 text-[13px] font-semibold transition-all duration-200 ${
+                `relative rounded-full px-3 py-2 text-[12px] font-semibold transition-all duration-200 2xl:px-3.5 2xl:text-[13px] ${
                   isActive
-                    ? "text-brand-navy dark:text-white"
-                    : "text-slate-500 hover:text-brand-navy dark:text-slate-400 dark:hover:text-white"
+                    ? "text-[#0b1f4d]"
+                    : "text-slate-500 hover:text-[#0b1f4d]"
                 }`
               }
             >
@@ -120,7 +118,7 @@ export function Navbar() {
                   {isActive && (
                     <motion.span
                       layoutId="navbar-active"
-                      className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brand-gold"
+                      className="absolute bottom-0 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#c9a24b]"
                     />
                   )}
                 </>
@@ -130,19 +128,7 @@ export function Navbar() {
         </div>
 
         {/* DESKTOP ACTIONS */}
-        <div className="hidden items-center gap-2 lg:flex">
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-all hover:border-brand-gold hover:text-brand-gold dark:border-slate-800 dark:text-slate-400"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-[17px] w-[17px]" />
-            ) : (
-              <Moon className="h-[17px] w-[17px]" />
-            )}
-          </button>
-
+        <div className="hidden shrink-0 items-center gap-2 xl:flex">
           {user ? (
             <div className="ml-1 flex items-center gap-2">
               <Link
@@ -151,7 +137,7 @@ export function Navbar() {
                     ? "/admin/dashboard"
                     : "/student/dashboard"
                 }
-                className="flex items-center gap-2 rounded-full border border-brand-navy bg-brand-navy px-4 py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-brand-gold dark:bg-brand-gold dark:text-brand-navy"
+                className="flex items-center gap-2 rounded-full border border-[#0b1f4d] bg-[#0b1f4d] px-4 py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#071535] hover:shadow-lg"
               >
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -160,7 +146,7 @@ export function Navbar() {
               <button
                 onClick={handleLogout}
                 aria-label="Logout"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-slate-800 dark:hover:bg-red-950/30"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-500"
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -168,7 +154,7 @@ export function Navbar() {
           ) : (
             <Link
               to="/login"
-              className="group ml-1 flex items-center gap-2 rounded-full bg-brand-navy px-5 py-2.5 text-xs font-bold text-white shadow-[0_8px_24px_rgba(15,23,42,0.14)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-brand-gold dark:text-brand-navy"
+              className="group ml-1 flex items-center gap-2 rounded-full bg-[#0b1f4d] px-5 py-2.5 text-xs font-bold text-white shadow-[0_8px_24px_rgba(11,31,77,0.16)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#071535] hover:shadow-xl"
             >
               Student Login
 
@@ -179,10 +165,11 @@ export function Navbar() {
 
         {/* MOBILE MENU BUTTON */}
         <button
+          type="button"
           onClick={() => setOpen((value) => !value)}
           aria-label="Toggle menu"
           aria-expanded={open}
-          className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-brand-navy transition-all hover:border-brand-gold hover:text-brand-gold lg:hidden dark:border-slate-800 dark:text-white"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e8e3d8] text-[#0b1f4d] transition-all hover:border-[#c9a24b] hover:text-[#c9a24b] xl:hidden sm:h-11 sm:w-11"
         >
           {open ? (
             <X className="h-5 w-5" />
@@ -201,7 +188,7 @@ export function Navbar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={closeMenu}
-              className="fixed inset-0 top-[76px] bg-slate-950/20 backdrop-blur-[2px] lg:hidden"
+              className="fixed inset-0 top-[72px] bg-[#071535]/25 backdrop-blur-[2px] xl:hidden sm:top-[76px]"
             />
 
             <motion.div
@@ -209,11 +196,11 @@ export function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.2 }}
-              className="absolute left-0 right-0 top-full border-b border-slate-200 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.10)] dark:border-slate-800 dark:bg-slate-950 lg:hidden"
+              className="absolute left-0 right-0 top-full max-h-[calc(100vh-72px)] overflow-y-auto border-b border-[#e8e3d8] bg-white shadow-[0_20px_40px_rgba(15,23,42,0.12)] xl:hidden"
             >
               <div className="container-page py-4">
                 {/* MOBILE BRAND */}
-                <div className="mb-3 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                <div className="mb-3 flex items-center gap-3 border-b border-[#eeeae1] pb-4">
                   <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white">
                     <img
                       src="/logo.png"
@@ -223,11 +210,11 @@ export function Navbar() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold text-brand-navy dark:text-white">
+                    <p className="text-sm font-bold text-[#0b1f4d]">
                       {brand.name}
                     </p>
 
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                       Education • Excellence
                     </p>
                   </div>
@@ -243,8 +230,8 @@ export function Navbar() {
                       className={({ isActive }) =>
                         `flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
                           isActive
-                            ? "bg-brand-navy text-white dark:bg-brand-gold dark:text-brand-navy"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-brand-navy dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
+                            ? "bg-[#0b1f4d] text-white shadow-sm"
+                            : "text-slate-600 hover:bg-[#f8f7f4] hover:text-[#0b1f4d]"
                         }`
                       }
                     >
@@ -253,7 +240,7 @@ export function Navbar() {
                           <span>{link.label}</span>
 
                           {isActive && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-brand-gold dark:bg-brand-navy" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#e0c179]" />
                           )}
                         </>
                       )}
@@ -262,22 +249,9 @@ export function Navbar() {
                 </div>
 
                 {/* MOBILE ACTIONS */}
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-                  <button
-                    onClick={toggleTheme}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300"
-                  >
-                    {theme === "dark" ? (
-                      <Sun className="h-4 w-4" />
-                    ) : (
-                      <Moon className="h-4 w-4" />
-                    )}
-
-                    {theme === "dark" ? "Light Mode" : "Dark Mode"}
-                  </button>
-
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#eeeae1] pt-4">
                   {user ? (
-                    <div className="flex gap-2">
+                    <div className="flex w-full items-center justify-between gap-2">
                       <Link
                         onClick={closeMenu}
                         to={
@@ -285,7 +259,7 @@ export function Navbar() {
                             ? "/admin/dashboard"
                             : "/student/dashboard"
                         }
-                        className="flex items-center gap-2 rounded-xl bg-brand-navy px-4 py-2.5 text-xs font-bold text-white dark:bg-brand-gold dark:text-brand-navy"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#0b1f4d] px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-[#071535]"
                       >
                         <LayoutDashboard className="h-4 w-4" />
                         Dashboard
@@ -293,7 +267,8 @@ export function Navbar() {
 
                       <button
                         onClick={handleLogout}
-                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 dark:border-slate-800"
+                        aria-label="Logout"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
                       >
                         <LogOut className="h-4 w-4" />
                       </button>
@@ -302,7 +277,7 @@ export function Navbar() {
                     <Link
                       to="/login"
                       onClick={closeMenu}
-                      className="rounded-xl bg-brand-navy px-5 py-2.5 text-xs font-bold text-white dark:bg-brand-gold dark:text-brand-navy"
+                      className="w-full rounded-xl bg-[#0b1f4d] px-5 py-3 text-center text-xs font-bold text-white transition-colors hover:bg-[#071535]"
                     >
                       Student Login
                     </Link>

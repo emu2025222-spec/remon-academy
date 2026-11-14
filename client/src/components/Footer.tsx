@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -28,18 +29,19 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="relative overflow-hidden bg-brand-navyDark text-slate-300">
-      {/* Decorative background */}
-      <div className="pointer-events-none absolute right-[-120px] top-[-120px] h-[300px] w-[300px] rounded-full border border-brand-gold/10" />
-      <div className="pointer-events-none absolute right-[-70px] top-[-70px] h-[200px] w-[200px] rounded-full border border-brand-gold/10" />
+    <footer className="relative isolate overflow-hidden bg-[#071535] text-slate-300">
+      {/* Decorative Background */}
+      <div className="pointer-events-none absolute -right-32 -top-32 -z-10 h-[380px] w-[380px] rounded-full border border-[#c9a24b]/10" />
+      <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-[260px] w-[260px] rounded-full border border-[#c9a24b]/10" />
+      <div className="pointer-events-none absolute -bottom-40 -left-32 -z-10 h-[350px] w-[350px] rounded-full bg-[#0b1f4d]/70 blur-3xl" />
 
       <div className="container-page relative">
         {/* TOP BRAND / CTA AREA */}
         <div className="flex flex-col gap-8 border-b border-white/10 py-12 md:flex-row md:items-end md:justify-between md:py-16">
           <div className="max-w-2xl">
-            {/* REAL LOGO */}
-            <div className="mb-5 inline-flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg">
+            {/* BRAND */}
+            <div className="mb-6 inline-flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
                 <img
                   src="/logo.png"
                   alt="REMON ACADEMY"
@@ -52,7 +54,7 @@ export function Footer() {
                   {brand.name}
                 </div>
 
-                <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.25em] text-slate-500">
+                <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.25em] text-slate-400">
                   Education • Excellence
                 </div>
               </div>
@@ -61,7 +63,7 @@ export function Footer() {
             <h2 className="max-w-xl font-display text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl">
               Building knowledge.
               <br />
-              <span className="text-brand-gold">
+              <span className="text-[#e0c179]">
                 Shaping the future.
               </span>
             </h2>
@@ -73,11 +75,11 @@ export function Footer() {
 
           <Link
             to="/courses"
-            className="group inline-flex w-fit items-center gap-3 rounded-full border border-brand-gold/50 px-5 py-3 text-sm font-bold text-brand-gold transition-all duration-300 hover:bg-brand-gold hover:text-brand-navy"
+            className="group inline-flex w-fit items-center gap-3 rounded-full border border-[#c9a24b]/60 px-5 py-3 text-sm font-bold text-[#e0c179] transition-all duration-300 hover:-translate-y-1 hover:bg-[#c9a24b] hover:text-[#071535] hover:shadow-lg hover:shadow-[#c9a24b]/10"
           >
             Explore Courses
 
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-gold/10 transition-transform duration-300 group-hover:translate-x-1 group-hover:bg-brand-navy/10">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c9a24b]/15 transition-transform duration-300 group-hover:translate-x-1 group-hover:bg-[#071535]/10">
               <ArrowUpRight className="h-4 w-4" />
             </span>
           </Link>
@@ -85,9 +87,9 @@ export function Footer() {
 
         {/* MAIN FOOTER GRID */}
         <div className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12 lg:py-14">
-          {/* Brand */}
+          {/* ABOUT */}
           <div>
-            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-brand-gold">
+            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#e0c179]">
               REMON ACADEMY
             </h3>
 
@@ -97,14 +99,14 @@ export function Footer() {
               clearer direction for their future.
             </p>
 
-            {/* Social */}
+            {/* SOCIAL LINKS */}
             <div className="mt-6 flex items-center gap-3">
               <a
                 href={brand.social.facebook}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold hover:bg-brand-gold hover:text-brand-navy"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400 transition-all duration-300 hover:-translate-y-1 hover:border-[#c9a24b] hover:bg-[#c9a24b] hover:text-[#071535]"
               >
                 <Facebook className="h-4 w-4" />
               </a>
@@ -114,16 +116,16 @@ export function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="YouTube"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400 transition-all duration-300 hover:-translate-y-1 hover:border-brand-gold hover:bg-brand-gold hover:text-brand-navy"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400 transition-all duration-300 hover:-translate-y-1 hover:border-[#c9a24b] hover:bg-[#c9a24b] hover:text-[#071535]"
               >
                 <Youtube className="h-4 w-4" />
               </a>
             </div>
           </div>
 
-          {/* Quick Links */}
+          {/* QUICK LINKS */}
           <div>
-            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-brand-gold">
+            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#e0c179]">
               Explore
             </h3>
 
@@ -134,7 +136,7 @@ export function Footer() {
                     to={link.to}
                     className="group inline-flex items-center gap-2 text-sm text-slate-400 transition-colors duration-200 hover:text-white"
                   >
-                    <span className="h-px w-0 bg-brand-gold transition-all duration-300 group-hover:w-4" />
+                    <span className="h-px w-0 bg-[#c9a24b] transition-all duration-300 group-hover:w-4" />
                     {link.label}
                   </Link>
                 </li>
@@ -142,9 +144,9 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Students */}
+          {/* STUDENT LINKS */}
           <div>
-            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-brand-gold">
+            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#e0c179]">
               Students
             </h3>
 
@@ -155,7 +157,7 @@ export function Footer() {
                     to={link.to}
                     className="group inline-flex items-center gap-2 text-sm text-slate-400 transition-colors duration-200 hover:text-white"
                   >
-                    <span className="h-px w-0 bg-brand-gold transition-all duration-300 group-hover:w-4" />
+                    <span className="h-px w-0 bg-[#c9a24b] transition-all duration-300 group-hover:w-4" />
                     {link.label}
                   </Link>
                 </li>
@@ -163,16 +165,16 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* CONTACT */}
           <div>
-            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-brand-gold">
+            <h3 className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#e0c179]">
               Contact
             </h3>
 
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
-                  <MapPin className="h-4 w-4 text-brand-gold" />
+                  <MapPin className="h-4 w-4 text-[#e0c179]" />
                 </span>
 
                 <span className="pt-1 text-sm leading-6 text-slate-400">
@@ -182,7 +184,7 @@ export function Footer() {
 
               <li className="flex items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
-                  <Phone className="h-4 w-4 text-brand-gold" />
+                  <Phone className="h-4 w-4 text-[#e0c179]" />
                 </span>
 
                 <a
@@ -195,7 +197,7 @@ export function Footer() {
 
               <li className="flex items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
-                  <Mail className="h-4 w-4 text-brand-gold" />
+                  <Mail className="h-4 w-4 text-[#e0c179]" />
                 </span>
 
                 <a
@@ -213,16 +215,15 @@ export function Footer() {
         <div className="flex flex-col gap-4 border-t border-white/10 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {currentYear}{" "}
-            <span className="font-semibold text-slate-400">
+            <span className="font-semibold text-slate-300">
               {brand.name}
             </span>
             . All rights reserved.
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Designed for</span>
-
-            <span className="font-semibold text-brand-gold">
+            <span className="font-semibold text-[#e0c179]">
               Learning & Excellence
             </span>
           </div>
@@ -231,5 +232,3 @@ export function Footer() {
     </footer>
   );
 }
-
-

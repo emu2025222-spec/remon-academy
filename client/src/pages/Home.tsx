@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
+  BookMarked,
   CheckCircle2,
   GraduationCap,
   Lightbulb,
@@ -18,9 +19,7 @@ import {
   ClipboardCheck,
   Star,
   Quote,
-  BookMarked,
   Award,
-  PlayCircle,
 } from "lucide-react";
 
 import { api } from "../services/api";
@@ -29,7 +28,7 @@ import { StatCard } from "../components/StatCard";
 import { brand } from "../config/brand";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
+  hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
     y: 0,
@@ -48,28 +47,28 @@ const features = [
     title: "Concept-Based Learning",
     description:
       "Build a strong understanding of every subject through clear explanations and meaningful learning.",
-    color: "bg-blue-50 text-blue-600",
+    number: "01",
   },
   {
     icon: Target,
     title: "Focused Preparation",
     description:
       "Stay focused on academic goals with structured lessons, regular practice and proper guidance.",
-    color: "bg-violet-50 text-violet-600",
+    number: "02",
   },
   {
     icon: Trophy,
     title: "Academic Excellence",
     description:
       "Develop confidence, discipline and the skills needed to achieve your academic goals.",
-    color: "bg-amber-50 text-amber-600",
+    number: "03",
   },
   {
     icon: Laptop,
     title: "Digital Learning Support",
     description:
       "Access organized academic information and stay connected with your learning journey.",
-    color: "bg-emerald-50 text-emerald-600",
+    number: "04",
   },
 ];
 
@@ -87,22 +86,32 @@ function SectionHeading({
   title,
   highlight,
   description,
+  centered = false,
 }: {
   eyebrow: string;
   title: string;
   highlight?: string;
   description?: string;
+  centered?: boolean;
 }) {
   return (
-    <div className="max-w-2xl">
-      <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-700">
+    <div className={`max-w-2xl ${centered ? "mx-auto text-center" : ""}`}>
+      <div
+        className={`mb-4 inline-flex items-center gap-2 rounded-full border border-[#c9a24b]/25 bg-[#c9a24b]/10 px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#98752e] ${
+          centered ? "justify-center" : ""
+        }`}
+      >
         <Sparkles className="h-3.5 w-3.5" />
         {eyebrow}
       </div>
-      <h2 className="font-display text-3xl font-black leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+
+      <h2 className="font-display text-3xl font-bold leading-tight tracking-tight text-[#0b1f4d] sm:text-4xl lg:text-5xl">
         {title}{" "}
-        {highlight && <span className="text-blue-600">{highlight}</span>}
+        {highlight && (
+          <span className="text-[#b18a3d]">{highlight}</span>
+        )}
       </h2>
+
       {description && (
         <p className="mt-5 max-w-xl text-sm leading-8 text-slate-500 sm:text-base">
           {description}
@@ -115,54 +124,56 @@ function SectionHeading({
 function HeroVisual() {
   return (
     <div className="relative mx-auto w-full max-w-[500px]">
-      <div className="absolute inset-5 rounded-[40px] bg-blue-200/40 blur-3xl" />
+      <div className="absolute inset-8 rounded-full bg-[#c9a24b]/20 blur-3xl" />
 
-      <div className="relative overflow-hidden rounded-[30px] border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-5 shadow-[0_30px_90px_rgba(37,99,235,0.12)] sm:p-8">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full border-[35px] border-blue-100/50" />
-        <div className="absolute -bottom-20 -left-16 h-64 w-64 rounded-full bg-indigo-100/60 blur-2xl" />
+      <div className="relative overflow-hidden rounded-[30px] border border-[#c9a24b]/20 bg-white p-5 shadow-[0_30px_90px_rgba(11,31,77,0.12)] sm:p-8">
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full border-[35px] border-[#c9a24b]/10" />
 
         <div className="relative">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#b18a3d]">
                 Your Learning Journey
               </p>
-              <h3 className="mt-2 font-display text-xl font-black text-slate-900">
+              <h3 className="mt-2 font-display text-xl font-bold text-[#0b1f4d]">
                 Learn Something New
               </h3>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200">
+
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0b1f4d] text-[#e0c179] shadow-lg">
               <GraduationCap className="h-6 w-6" />
             </div>
           </div>
 
-          <div className="relative mt-8 flex min-h-[210px] items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white">
-            <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full border border-white/20" />
-            <div className="absolute -bottom-20 -left-10 h-52 w-52 rounded-full border border-white/15" />
+          <div className="relative mt-8 flex min-h-[230px] items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#071535] via-[#0b1f4d] to-[#173568] p-6 text-white">
+            <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full border border-[#e0c179]/20" />
+            <div className="absolute -bottom-20 -left-10 h-52 w-52 rounded-full border border-white/10" />
 
             <motion.div
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 4, repeat: Infinity }}
               className="relative text-center"
             >
-              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/20 bg-white/15 shadow-2xl backdrop-blur">
+              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] border border-[#e0c179]/30 bg-white/10 text-[#e0c179] shadow-2xl backdrop-blur">
                 <BookOpen className="h-12 w-12" />
               </div>
-              <p className="mt-5 font-display text-2xl font-black">
-                Dream. Learn. Achieve.
+
+              <p className="mt-5 font-display text-2xl font-bold">
+                Learn. Grow. Achieve.
               </p>
-              <p className="mt-2 text-xs text-blue-100">
+
+              <p className="mt-2 text-xs text-slate-300">
                 Your future begins with knowledge.
               </p>
             </motion.div>
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-blue-100 bg-white p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="rounded-2xl border border-slate-100 bg-[#f8f7f4] p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0b1f4d] text-[#e0c179]">
                 <BookMarked className="h-5 w-5" />
               </div>
-              <p className="mt-3 text-sm font-extrabold text-slate-800">
+              <p className="mt-3 text-sm font-bold text-[#0b1f4d]">
                 Quality Lessons
               </p>
               <p className="mt-1 text-[10px] text-slate-400">
@@ -170,11 +181,11 @@ function HeroVisual() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-blue-100 bg-white p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="rounded-2xl border border-slate-100 bg-[#f8f7f4] p-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#c9a24b]/15 text-[#98752e]">
                 <Award className="h-5 w-5" />
               </div>
-              <p className="mt-3 text-sm font-extrabold text-slate-800">
+              <p className="mt-3 text-sm font-bold text-[#0b1f4d]">
                 Better Results
               </p>
               <p className="mt-1 text-[10px] text-slate-400">
@@ -188,15 +199,13 @@ function HeroVisual() {
       <motion.div
         animate={{ y: [0, -9, 0] }}
         transition={{ duration: 4, repeat: Infinity }}
-        className="absolute -left-4 top-[27%] hidden items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-xl sm:flex"
+        className="absolute -left-4 top-[27%] hidden items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-xl sm:flex"
       >
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
           <CheckCircle2 className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-xs font-extrabold text-slate-800">
-            Keep Improving
-          </p>
+          <p className="text-xs font-bold text-[#0b1f4d]">Keep Improving</p>
           <p className="mt-1 text-[10px] text-slate-400">
             Every day matters
           </p>
@@ -206,15 +215,13 @@ function HeroVisual() {
       <motion.div
         animate={{ y: [0, 8, 0] }}
         transition={{ duration: 4.5, repeat: Infinity }}
-        className="absolute -right-3 bottom-[18%] hidden items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-xl sm:flex"
+        className="absolute -right-3 bottom-[18%] hidden items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-xl sm:flex"
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c9a24b]/15 text-[#98752e]">
           <Star className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-xs font-extrabold text-slate-800">
-            Stay Inspired
-          </p>
+          <p className="text-xs font-bold text-[#0b1f4d]">Stay Inspired</p>
           <p className="mt-1 text-[10px] text-slate-400">
             Reach your goals
           </p>
@@ -259,22 +266,16 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="overflow-hidden bg-white text-slate-800">
-
+    <main className="overflow-hidden bg-[#f8f7f4] text-slate-800">
       {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#f5f9ff] via-white to-[#eff4ff]">
-        <div className="pointer-events-none absolute -right-40 -top-40 h-[550px] w-[550px] rounded-full bg-blue-100/60 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-40 left-0 h-[400px] w-[400px] rounded-full bg-indigo-100/50 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:radial-gradient(#2563eb_1px,transparent_1px)] [background-size:25px_25px]" />
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#f8f7f4] via-white to-[#f3efe4]">
+        <div className="pointer-events-none absolute -right-40 -top-40 h-[550px] w-[550px] rounded-full bg-[#c9a24b]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-40 left-0 h-[400px] w-[400px] rounded-full bg-[#0b1f4d]/5 blur-3xl" />
 
         <div className="container-page relative grid items-center gap-14 py-16 sm:py-20 lg:grid-cols-[1.05fr_.95fr] lg:py-24">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={stagger}
-          >
+          <motion.div initial="hidden" animate="visible" variants={stagger}>
             <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-700 shadow-sm">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#c9a24b]/30 bg-white px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#98752e] shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Welcome to {brand.name}
               </span>
@@ -282,13 +283,13 @@ export default function Home() {
 
             <motion.h1
               variants={fadeUp}
-              className="mt-8 max-w-3xl font-display text-5xl font-black leading-[1.07] tracking-[-0.05em] text-slate-900 sm:text-6xl lg:text-[4.5rem]"
+              className="mt-8 max-w-3xl font-display text-5xl font-bold leading-[1.08] tracking-[-0.045em] text-[#0b1f4d] sm:text-6xl lg:text-[4.5rem]"
             >
               Building
               <br />
               Knowledge.
               <br />
-              <span className="text-blue-600">Shaping Futures.</span>
+              <span className="text-[#b18a3d]">Shaping Futures.</span>
             </motion.h1>
 
             <motion.p
@@ -306,7 +307,7 @@ export default function Home() {
             >
               <Link
                 to="/courses"
-                className="group inline-flex items-center justify-center gap-3 rounded-xl bg-blue-600 px-7 py-4 text-sm font-extrabold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1 hover:bg-blue-700"
+                className="group inline-flex items-center justify-center gap-3 rounded-xl bg-[#0b1f4d] px-7 py-4 text-sm font-bold text-white shadow-lg shadow-[#0b1f4d]/15 transition hover:-translate-y-1 hover:bg-[#071535]"
               >
                 Explore Courses
                 <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-1 group-hover:translate-x-1" />
@@ -314,7 +315,7 @@ export default function Home() {
 
               <Link
                 to="/about"
-                className="inline-flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-7 py-4 text-sm font-bold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+                className="inline-flex items-center justify-center gap-3 rounded-xl border border-[#c9a24b]/50 bg-white px-7 py-4 text-sm font-bold text-[#0b1f4d] transition hover:border-[#c9a24b] hover:bg-[#c9a24b]/10"
               >
                 Discover Academy
                 <ArrowRight className="h-4 w-4" />
@@ -326,11 +327,11 @@ export default function Home() {
               className="mt-9 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-slate-500"
             >
               <span className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-[#b18a3d]" />
                 Learn with confidence
               </span>
               <span className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-[#b18a3d]" />
                 Grow with purpose
               </span>
             </motion.div>
@@ -346,7 +347,7 @@ export default function Home() {
         </div>
 
         <div className="container-page relative pb-8">
-          <div className="flex items-center justify-between border-t border-blue-100 pt-5 text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+          <div className="flex items-center justify-between border-t border-[#c9a24b]/25 pt-5 text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
             <span>Learn · Grow · Achieve</span>
             <span>Education · Excellence</span>
           </div>
@@ -372,7 +373,7 @@ export default function Home() {
       </section>
 
       {/* INTRODUCTION */}
-      <section className="py-20 sm:py-28">
+      <section className="bg-white py-20 sm:py-28">
         <div className="container-page grid items-center gap-12 lg:grid-cols-2">
           <motion.div
             initial="hidden"
@@ -386,11 +387,13 @@ export default function Home() {
               highlight="foundation of success."
               description="We believe every student deserves the opportunity to learn, improve and achieve. Our goal is to create a supportive academic environment where learning becomes a meaningful journey."
             />
+
             <Link
               to="/about"
-              className="mt-8 inline-flex items-center gap-3 rounded-xl bg-slate-900 px-6 py-4 text-sm font-bold text-white transition hover:bg-blue-600"
+              className="mt-8 inline-flex items-center gap-3 rounded-xl bg-[#0b1f4d] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#071535]"
             >
-              Discover Our Story <ArrowRight className="h-4 w-4" />
+              Discover Our Story
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </motion.div>
 
@@ -401,19 +404,19 @@ export default function Home() {
             variants={fadeUp}
             className="grid grid-cols-2 gap-4"
           >
-            <div className="rounded-3xl bg-blue-600 p-7 text-white sm:p-9">
-              <GraduationCap className="h-9 w-9" />
-              <h3 className="mt-12 font-display text-2xl font-black">
+            <div className="rounded-3xl bg-[#0b1f4d] p-7 text-white sm:p-9">
+              <GraduationCap className="h-9 w-9 text-[#e0c179]" />
+              <h3 className="mt-12 font-display text-2xl font-bold">
                 Learn Better
               </h3>
-              <p className="mt-3 text-xs leading-7 text-blue-100">
+              <p className="mt-3 text-xs leading-7 text-slate-300">
                 Build knowledge through structured academic guidance.
               </p>
             </div>
 
-            <div className="mt-10 rounded-3xl border border-slate-100 bg-[#f7f9fc] p-7 sm:p-9">
-              <Target className="h-9 w-9 text-blue-600" />
-              <h3 className="mt-12 font-display text-2xl font-black text-slate-900">
+            <div className="mt-10 rounded-3xl border border-slate-100 bg-[#f8f7f4] p-7 sm:p-9">
+              <Target className="h-9 w-9 text-[#b18a3d]" />
+              <h3 className="mt-12 font-display text-2xl font-bold text-[#0b1f4d]">
                 Aim Higher
               </h3>
               <p className="mt-3 text-xs leading-7 text-slate-500">
@@ -421,9 +424,9 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-slate-100 bg-[#f7f9fc] p-7 sm:p-9">
-              <Users className="h-9 w-9 text-emerald-600" />
-              <h3 className="mt-12 font-display text-2xl font-black text-slate-900">
+            <div className="rounded-3xl border border-slate-100 bg-[#f8f7f4] p-7 sm:p-9">
+              <Users className="h-9 w-9 text-[#b18a3d]" />
+              <h3 className="mt-12 font-display text-2xl font-bold text-[#0b1f4d]">
                 Grow Together
               </h3>
               <p className="mt-3 text-xs leading-7 text-slate-500">
@@ -431,9 +434,9 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="mt-10 rounded-3xl bg-[#eef2ff] p-7 sm:p-9">
-              <Trophy className="h-9 w-9 text-indigo-600" />
-              <h3 className="mt-12 font-display text-2xl font-black text-slate-900">
+            <div className="mt-10 rounded-3xl border border-[#c9a24b]/20 bg-[#f4efe2] p-7 sm:p-9">
+              <Trophy className="h-9 w-9 text-[#98752e]" />
+              <h3 className="mt-12 font-display text-2xl font-bold text-[#0b1f4d]">
                 Achieve More
               </h3>
               <p className="mt-3 text-xs leading-7 text-slate-500">
@@ -445,18 +448,15 @@ export default function Home() {
       </section>
 
       {/* WHY CHOOSE US */}
-      <section className="bg-[#f6f9ff] py-20 sm:py-28">
+      <section className="bg-[#f8f7f4] py-20 sm:py-28">
         <div className="container-page">
-          <div className="mx-auto text-center">
-            <div className="flex justify-center">
-              <SectionHeading
-                eyebrow="Why Choose REMON"
-                title="A smarter way"
-                highlight="to learn."
-                description="We bring together the essential elements of a positive learning experience."
-              />
-            </div>
-          </div>
+          <SectionHeading
+            centered
+            eyebrow="Why Choose REMON"
+            title="A smarter way"
+            highlight="to learn."
+            description="We bring together the essential elements of a positive learning experience."
+          />
 
           <motion.div
             initial="hidden"
@@ -465,23 +465,27 @@ export default function Home() {
             variants={stagger}
             className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {features.map((feature, index) => {
+            {features.map((feature) => {
               const Icon = feature.icon;
+
               return (
                 <motion.div
                   key={feature.title}
                   variants={fadeUp}
-                  className="group rounded-2xl border border-slate-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-2 hover:border-blue-100 hover:shadow-xl"
+                  className="group rounded-2xl border border-slate-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-2 hover:border-[#c9a24b]/40 hover:shadow-xl"
                 >
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${feature.color}`}>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b1f4d] text-[#e0c179] transition group-hover:bg-[#c9a24b] group-hover:text-white">
                     <Icon className="h-7 w-7" />
                   </div>
-                  <span className="mt-7 block text-[10px] font-black uppercase tracking-widest text-slate-300">
-                    0{index + 1}
+
+                  <span className="mt-7 block text-[10px] font-black uppercase tracking-widest text-[#c9a24b]">
+                    {feature.number}
                   </span>
-                  <h3 className="mt-3 font-display text-lg font-black text-slate-900">
+
+                  <h3 className="mt-3 font-display text-lg font-bold text-[#0b1f4d]">
                     {feature.title}
                   </h3>
+
                   <p className="mt-3 text-xs leading-7 text-slate-500">
                     {feature.description}
                   </p>
@@ -494,7 +498,7 @@ export default function Home() {
 
       {/* COURSES */}
       {courses.length > 0 && (
-        <section className="py-20 sm:py-28">
+        <section className="bg-white py-20 sm:py-28">
           <div className="container-page">
             <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
               <SectionHeading
@@ -503,11 +507,13 @@ export default function Home() {
                 highlight="courses."
                 description="Find the right academic program and take your next step towards learning."
               />
+
               <Link
                 to="/courses"
-                className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-600 transition hover:gap-4"
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#98752e] transition hover:gap-4"
               >
-                View All Courses <ArrowUpRight className="h-4 w-4" />
+                View All Courses
+                <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -519,25 +525,30 @@ export default function Home() {
                   whileInView="visible"
                   viewport={{ once: true }}
                   variants={fadeUp}
-                  className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl"
+                  className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:border-[#c9a24b]/40 hover:shadow-xl"
                 >
-                  <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 p-7 text-white">
-                    <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border-[20px] border-white/10" />
+                  <div className="relative overflow-hidden bg-gradient-to-br from-[#071535] to-[#173568] p-7 text-white">
+                    <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border-[20px] border-[#e0c179]/10" />
+
                     <div className="relative flex items-center justify-between">
-                      <span className="font-display text-5xl font-black text-white/20">
+                      <span className="font-display text-5xl font-bold text-white/15">
                         {String(index + 1).padStart(2, "0")}
                       </span>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
+
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#e0c179]/30 bg-white/10 text-[#e0c179]">
                         <BookOpen className="h-6 w-6" />
                       </div>
                     </div>
-                    <p className="relative mt-7 text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-100">
+
+                    <p className="relative mt-7 text-[10px] font-bold uppercase tracking-[0.2em] text-[#e0c179]">
                       {course.classLevel}
                     </p>
-                    <h3 className="relative mt-2 font-display text-2xl font-black">
+
+                    <h3 className="relative mt-2 font-display text-2xl font-bold">
                       {course.title}
                     </h3>
-                    <p className="relative mt-2 text-xs text-blue-100">
+
+                    <p className="relative mt-2 text-xs text-slate-300">
                       {course.subject}
                     </p>
                   </div>
@@ -552,15 +563,17 @@ export default function Home() {
                         <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
                           Course Fee
                         </p>
-                        <p className="mt-1 text-xl font-black text-slate-900">
+                        <p className="mt-1 text-xl font-bold text-[#0b1f4d]">
                           ৳{course.fee}
                         </p>
                       </div>
+
                       <Link
                         to={`/courses/${course.slug}`}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-xs font-extrabold text-blue-700 transition hover:bg-blue-600 hover:text-white"
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#f4efe2] px-4 py-3 text-xs font-bold text-[#98752e] transition hover:bg-[#0b1f4d] hover:text-white"
                       >
-                        Details <ArrowUpRight className="h-4 w-4" />
+                        Details
+                        <ArrowUpRight className="h-4 w-4" />
                       </Link>
                     </div>
                   </div>
@@ -572,7 +585,7 @@ export default function Home() {
       )}
 
       {/* LEARNING SYSTEM */}
-      <section className="bg-[#f6f9ff] py-20 sm:py-28">
+      <section className="bg-[#f8f7f4] py-20 sm:py-28">
         <div className="container-page grid items-center gap-12 lg:grid-cols-2">
           <div>
             <SectionHeading
@@ -585,7 +598,7 @@ export default function Home() {
             <div className="mt-9 grid gap-4 sm:grid-cols-2">
               {learningPoints.map((point) => (
                 <div key={point} className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#b18a3d]" />
                   <span className="text-sm font-semibold text-slate-700">
                     {point}
                   </span>
@@ -595,36 +608,42 @@ export default function Home() {
 
             <Link
               to="/about"
-              className="mt-9 inline-flex items-center gap-3 rounded-xl bg-blue-600 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+              className="mt-9 inline-flex items-center gap-3 rounded-xl bg-[#0b1f4d] px-6 py-4 text-sm font-bold text-white shadow-lg transition hover:bg-[#071535]"
             >
-              Learn About Us <ArrowRight className="h-4 w-4" />
+              Learn About Us
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
           <div className="relative">
-            <div className="absolute inset-5 rounded-full bg-blue-200/40 blur-3xl" />
-            <div className="relative rounded-[30px] border border-blue-100 bg-white p-6 shadow-xl sm:p-9">
+            <div className="absolute inset-5 rounded-full bg-[#c9a24b]/15 blur-3xl" />
+
+            <div className="relative rounded-[30px] border border-slate-100 bg-white p-6 shadow-xl sm:p-9">
               <div className="flex items-center justify-between border-b border-slate-100 pb-5">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#98752e]">
                     Academic Environment
                   </p>
-                  <h3 className="mt-2 text-xl font-black text-slate-900">
+                  <h3 className="mt-2 text-xl font-bold text-[#0b1f4d]">
                     Your Progress Matters
                   </h3>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4efe2] text-[#98752e]">
                   <ClipboardCheck className="h-6 w-6" />
                 </div>
               </div>
 
               <div className="space-y-4 py-7">
                 {[
-                  ["Learning & Understanding", "Build strong foundations", "bg-blue-500"],
-                  ["Practice & Assessment", "Improve through consistency", "bg-emerald-500"],
-                  ["Guidance & Support", "Stay on the right path", "bg-violet-500"],
+                  ["Learning & Understanding", "Build strong foundations", "bg-[#0b1f4d]"],
+                  ["Practice & Assessment", "Improve through consistency", "bg-[#98752e]"],
+                  ["Guidance & Support", "Stay on the right path", "bg-slate-600"],
                 ].map(([title, subtitle, color], index) => (
-                  <div key={title} className="flex items-center gap-4 rounded-2xl bg-slate-50 p-4">
+                  <div
+                    key={title}
+                    className="flex items-center gap-4 rounded-2xl bg-[#f8f7f4] p-4"
+                  >
                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${color} text-white`}>
                       {index === 0 ? (
                         <BookOpen className="h-5 w-5" />
@@ -634,25 +653,27 @@ export default function Home() {
                         <Users className="h-5 w-5" />
                       )}
                     </div>
+
                     <div>
-                      <p className="text-sm font-extrabold text-slate-800">
+                      <p className="text-sm font-bold text-[#0b1f4d]">
                         {title}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
                         {subtitle}
                       </p>
                     </div>
-                    <CheckCircle2 className="ml-auto h-5 w-5 text-emerald-500" />
+
+                    <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-emerald-500" />
                   </div>
                 ))}
               </div>
 
-              <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
+              <div className="rounded-2xl bg-gradient-to-r from-[#071535] to-[#173568] p-5 text-white">
                 <div className="flex items-center gap-3">
-                  <GraduationCap className="h-7 w-7" />
+                  <GraduationCap className="h-7 w-7 shrink-0 text-[#e0c179]" />
                   <div>
-                    <p className="text-sm font-black">Learn. Grow. Achieve.</p>
-                    <p className="mt-1 text-[10px] text-blue-100">
+                    <p className="text-sm font-bold">Learn. Grow. Achieve.</p>
+                    <p className="mt-1 text-[10px] text-slate-300">
                       Make every learning moment count.
                     </p>
                   </div>
@@ -665,7 +686,7 @@ export default function Home() {
 
       {/* TEACHERS */}
       {teachers.length > 0 && (
-        <section className="py-20 sm:py-28">
+        <section className="bg-white py-20 sm:py-28">
           <div className="container-page">
             <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
               <SectionHeading
@@ -674,11 +695,13 @@ export default function Home() {
                 highlight="dedicated teachers."
                 description="Meet the people who guide, support and inspire students throughout their academic journey."
               />
+
               <Link
                 to="/teachers"
-                className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-600 hover:gap-4"
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#98752e] transition hover:gap-4"
               >
-                Meet Our Teachers <ArrowUpRight className="h-4 w-4" />
+                Meet Our Teachers
+                <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -690,9 +713,9 @@ export default function Home() {
                   whileInView="visible"
                   viewport={{ once: true }}
                   variants={fadeUp}
-                  className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl"
+                  className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:border-[#c9a24b]/40 hover:shadow-xl"
                 >
-                  <div className="relative h-64 overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100">
+                  <div className="relative h-64 overflow-hidden bg-gradient-to-br from-[#f4efe2] to-[#e9e3d5]">
                     {teacher.photo ? (
                       <img
                         src={teacher.photo}
@@ -701,24 +724,26 @@ export default function Home() {
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
-                        <span className="font-display text-8xl font-black text-blue-500">
+                        <span className="font-display text-8xl font-bold text-[#0b1f4d]/40">
                           {teacher.name.charAt(0)}
                         </span>
                       </div>
                     )}
 
-                    <span className="absolute left-4 top-4 rounded-full border border-white/70 bg-white/90 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-blue-700 backdrop-blur">
+                    <span className="absolute left-4 top-4 rounded-full border border-white/70 bg-white/90 px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-[#98752e] backdrop-blur">
                       Faculty 0{index + 1}
                     </span>
                   </div>
 
                   <div className="p-6">
-                    <h3 className="font-display text-xl font-black text-slate-900">
+                    <h3 className="font-display text-xl font-bold text-[#0b1f4d]">
                       {teacher.name}
                     </h3>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-blue-600">
+
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-[#98752e]">
                       {teacher.designation || "Instructor"}
                     </p>
+
                     {teacher.specialization && (
                       <p className="mt-4 text-sm leading-7 text-slate-500">
                         {teacher.specialization}
@@ -733,21 +758,22 @@ export default function Home() {
       )}
 
       {/* FOUNDER MESSAGE */}
-      <section className="bg-[#f6f9ff] py-20 sm:py-28">
+      <section className="bg-[#f8f7f4] py-20 sm:py-28">
         <div className="container-page">
-          <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-blue-700 to-indigo-800 p-8 text-white sm:p-12 lg:p-16">
-            <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-white/10" />
+          <div className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#071535] to-[#173568] p-8 text-white sm:p-12 lg:p-16">
+            <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-[#e0c179]/10" />
             <div className="absolute -bottom-32 right-1/4 h-72 w-72 rounded-full bg-white/5 blur-2xl" />
 
             <div className="relative grid gap-10 lg:grid-cols-[auto_1fr] lg:items-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#e0c179]/30 bg-white/10 text-[#e0c179]">
                 <Quote className="h-8 w-8" />
               </div>
 
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-200">
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#e0c179]">
                   A Message from the Founder
                 </p>
+
                 <blockquote className="mt-6 max-w-4xl font-display text-2xl font-bold leading-relaxed sm:text-3xl">
                   “Every student has potential. Our responsibility is to
                   create an environment where that potential can grow
@@ -756,18 +782,20 @@ export default function Home() {
 
                 <div className="mt-9 flex flex-wrap items-center justify-between gap-5 border-t border-white/20 pt-7">
                   <div>
-                    <p className="font-display text-xl font-black">
+                    <p className="font-display text-xl font-bold">
                       Emon Islam
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-blue-200">
+                    <p className="mt-1 text-xs font-semibold text-slate-300">
                       Founder & CEO
                     </p>
                   </div>
+
                   <Link
                     to="/founder"
-                    className="inline-flex items-center gap-3 rounded-xl bg-white px-6 py-4 text-xs font-black text-blue-700 transition hover:-translate-y-1 hover:bg-blue-50"
+                    className="inline-flex items-center gap-3 rounded-xl bg-[#e0c179] px-6 py-4 text-xs font-bold text-[#071535] transition hover:-translate-y-1 hover:bg-white"
                   >
-                    Meet the Founder <ArrowUpRight className="h-4 w-4" />
+                    Meet the Founder
+                    <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </div>
               </div>
@@ -778,7 +806,7 @@ export default function Home() {
 
       {/* NOTICES */}
       {notices.length > 0 && (
-        <section className="py-20 sm:py-28">
+        <section className="bg-white py-20 sm:py-28">
           <div className="container-page">
             <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
               <SectionHeading
@@ -787,11 +815,13 @@ export default function Home() {
                 highlight="at REMON."
                 description="Stay updated with the latest academy announcements and important information."
               />
+
               <Link
                 to="/notices"
-                className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-600 hover:gap-4"
+                className="inline-flex items-center gap-2 text-sm font-bold text-[#98752e] transition hover:gap-4"
               >
-                View All Notices <ArrowUpRight className="h-4 w-4" />
+                View All Notices
+                <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -800,23 +830,24 @@ export default function Home() {
                 <Link
                   key={notice._id}
                   to={`/notices/${notice.slug}`}
-                  className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-2 hover:border-blue-100 hover:shadow-xl"
+                  className="group rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-2 hover:border-[#c9a24b]/40 hover:shadow-xl"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0b1f4d] text-[#e0c179]">
                       <BookMarked className="h-6 w-6" />
                     </div>
-                    <span className="font-display text-3xl font-black text-slate-100">
+
+                    <span className="font-display text-3xl font-bold text-slate-100">
                       0{index + 1}
                     </span>
                   </div>
 
-                  <div className="mt-7 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-blue-700">
+                  <div className="mt-7 inline-flex items-center gap-2 rounded-full bg-[#f4efe2] px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-[#98752e]">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     {notice.category}
                   </div>
 
-                  <h3 className="mt-4 font-display text-lg font-black leading-snug text-slate-900 transition group-hover:text-blue-600">
+                  <h3 className="mt-4 font-display text-lg font-bold leading-snug text-[#0b1f4d] transition group-hover:text-[#98752e]">
                     {notice.title}
                   </h3>
 
@@ -824,7 +855,7 @@ export default function Home() {
                     {notice.description}
                   </p>
 
-                  <div className="mt-7 flex items-center gap-2 border-t border-slate-100 pt-5 text-xs font-extrabold text-blue-600">
+                  <div className="mt-7 flex items-center gap-2 border-t border-slate-100 pt-5 text-xs font-bold text-[#98752e]">
                     Read Announcement
                     <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                   </div>
@@ -836,20 +867,22 @@ export default function Home() {
       )}
 
       {/* FINAL CTA */}
-      <section className="px-4 py-20 sm:py-28">
+      <section className="bg-[#f8f7f4] px-4 py-20 sm:py-28">
         <div className="container-page">
-          <div className="relative overflow-hidden rounded-[30px] bg-[#eff5ff] px-7 py-14 sm:px-12 lg:px-16">
-            <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-blue-200/50 blur-3xl" />
+          <div className="relative overflow-hidden rounded-[30px] bg-[#f0eadb] px-7 py-14 sm:px-12 lg:px-16">
+            <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-[#c9a24b]/20 blur-3xl" />
 
             <div className="relative grid items-center gap-9 lg:grid-cols-[1fr_auto]">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-600">
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#98752e]">
                   Your Journey Starts Here
                 </p>
-                <h2 className="mt-5 max-w-3xl font-display text-3xl font-black leading-tight text-slate-900 sm:text-5xl">
+
+                <h2 className="mt-5 max-w-3xl font-display text-3xl font-bold leading-tight text-[#0b1f4d] sm:text-5xl">
                   Your future is full of possibilities.
-                  <span className="text-blue-600"> Start today.</span>
+                  <span className="text-[#b18a3d]"> Start today.</span>
                 </h2>
+
                 <p className="mt-5 max-w-xl text-sm leading-8 text-slate-500">
                   Take the next step towards a stronger academic future
                   with REMON Academy.
@@ -859,15 +892,18 @@ export default function Home() {
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
                 <Link
                   to="/register"
-                  className="inline-flex items-center justify-center gap-3 rounded-xl bg-blue-600 px-7 py-4 text-sm font-extrabold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1 hover:bg-blue-700"
+                  className="inline-flex items-center justify-center gap-3 rounded-xl bg-[#0b1f4d] px-7 py-4 text-sm font-bold text-white shadow-lg transition hover:-translate-y-1 hover:bg-[#071535]"
                 >
-                  Join REMON Academy <ArrowUpRight className="h-4 w-4" />
+                  Join REMON Academy
+                  <ArrowUpRight className="h-4 w-4" />
                 </Link>
+
                 <Link
                   to="/contact"
-                  className="inline-flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-7 py-4 text-sm font-bold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+                  className="inline-flex items-center justify-center gap-3 rounded-xl border border-[#c9a24b]/50 bg-white px-7 py-4 text-sm font-bold text-[#0b1f4d] transition hover:border-[#c9a24b] hover:bg-[#c9a24b]/10"
                 >
-                  Contact Us <ArrowRight className="h-4 w-4" />
+                  Contact Us
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
