@@ -56,6 +56,7 @@ import AdminSettings from "./pages/admin/Settings";
 import AdminOnlineStudents from "./pages/admin/OnlineStudents";
 import AdminExams from "./pages/admin/Exams";
 import ExamResults from "./pages/admin/ExamResults";
+import AdminEnrollments from "./pages/admin/Enrollments";
 
 export default function App() {
   return (
@@ -257,6 +258,10 @@ export default function App() {
             <Route
               path="/admin/settings"
               element={<AdminSettings />}
+            />
+            <Route
+              path="/admin/enrollments"
+              element={<AdminEnrollments />}
             />
           </Route>
         </Route>
