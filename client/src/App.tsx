@@ -25,7 +25,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
-
+import Enrollment from "./pages/Enrollment";
 // Student Pages
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentProfile from "./pages/student/Profile";
@@ -82,6 +82,7 @@ export default function App() {
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/enroll" element={<Enrollment />} />
 
           <Route
             path="/forgot-password"

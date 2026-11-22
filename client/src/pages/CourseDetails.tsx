@@ -306,7 +306,7 @@ export default function CourseDetails() {
                 </div>
 
                 <Link
-                  to="/register"
+                  to={`/enroll?course=${course._id}`}
                   className="btn-primary mt-8 flex w-full items-center justify-center gap-2 no-underline"
                 >
                   Enroll Now
@@ -343,7 +343,7 @@ export default function CourseDetails() {
             </div>
 
             <Link
-              to="/register"
+              to={`/enroll?course=${course._id}`}
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-gold px-7 py-3.5 text-sm font-semibold text-brand-navyDark no-underline transition-transform duration-300 hover:-translate-y-0.5"
             >
               Register Now

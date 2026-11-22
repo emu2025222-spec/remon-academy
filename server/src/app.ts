@@ -1,4 +1,3 @@
-
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -24,6 +23,7 @@ import settingsRoutes from "./routes/settings.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import examRoutes from "./routes/exam.routes";
 import resultPublicationRoutes from "./routes/resultPublication.routes";
+import enrollmentRoutes from "./routes/enrollment.routes";
 
 import {
   notFoundHandler,
@@ -32,20 +32,7 @@ import {
 
 const app: Application = express();
 
-/*
-|--------------------------------------------------------------------------
-| TRUST PROXY
-|--------------------------------------------------------------------------
-| Render proxy configuration.
-| This allows Express to identify the actual client IP.
-*/
 app.set("trust proxy", 1);
-
-/*
-|--------------------------------------------------------------------------
-| SECURITY & MIDDLEWARE
-|--------------------------------------------------------------------------
-*/
 
 app.use(helmet());
 
@@ -64,14 +51,6 @@ app.use(
   morgan(env.nodeEnv === "development" ? "dev" : "combined")
 );
 
-/*
-|--------------------------------------------------------------------------
-| GLOBAL RATE LIMITER
-|--------------------------------------------------------------------------
-| Public and normal API requests.
-| Authentication has its own dedicated limiter.
-*/
-
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
@@ -89,22 +68,10 @@ const globalLimiter = rateLimit({
 
 app.use("/api", globalLimiter);
 
-/*
-|--------------------------------------------------------------------------
-| STATIC FILES
-|--------------------------------------------------------------------------
-*/
-
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "..", env.uploadDir))
 );
-
-/*
-|--------------------------------------------------------------------------
-| HEALTH CHECK
-|--------------------------------------------------------------------------
-*/
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -115,7 +82,7 @@ app.get("/api/health", (_req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| ROUTES
+| API ROUTES
 |--------------------------------------------------------------------------
 */
 
@@ -136,6 +103,14 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/result-publications", resultPublicationRoutes);
+
+/*
+|--------------------------------------------------------------------------
+| COURSE ENROLLMENT
+|--------------------------------------------------------------------------
+*/
+
+app.use("/api/enrollments", enrollmentRoutes);
 
 /*
 |--------------------------------------------------------------------------
