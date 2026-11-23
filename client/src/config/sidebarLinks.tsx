@@ -39,6 +39,14 @@ export const studentLinks: SidebarLink[] = [
 export const adminLinks: SidebarLink[] = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/students", label: "Students", icon: Users },
+
+  // Course Enrollment Management
+  {
+    to: "/admin/enrollments",
+    label: "Course Enrollments",
+    icon: ClipboardList,
+  },
+
   { to: "/admin/courses", label: "Courses", icon: BookOpen },
   { to: "/admin/teachers", label: "Teachers", icon: GraduationCap },
   { to: "/admin/attendance", label: "Attendance", icon: CalendarCheck },
