@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 import crypto from "crypto";
 
@@ -77,6 +78,7 @@ export const approveEnrollmentRequest = asyncHandler(
     let courseCountUpdated = false;
 
     try {
+      // 1. Create student login account
       const user = await User.create({
         email: enrollment.email,
         passwordHash,
@@ -89,8 +91,10 @@ export const approveEnrollmentRequest = asyncHandler(
 
       createdUserId = String(user._id);
 
+      // 2. Generate student ID
       const studentId = await generateUniqueStudentId();
 
+      // 3. Create student profile
       const student = await Student.create({
         user: user._id,
         studentId,
@@ -107,6 +111,7 @@ export const approveEnrollmentRequest = asyncHandler(
 
       createdStudentId = String(student._id);
 
+      // 4. Update course enrollment count
       await Course.updateOne(
         { _id: course._id },
         { $inc: { enrolledCount: 1 } }
@@ -114,17 +119,7 @@ export const approveEnrollmentRequest = asyncHandler(
 
       courseCountUpdated = true;
 
-      const resetUrl =
-        `${env.clientUrl}/reset-password/${rawToken}`;
-
-      await sendEnrollmentApprovalEmail(
-        enrollment.email,
-        enrollment.fullName,
-        course.title,
-        student.studentId,
-        resetUrl
-      );
-
+      // 5. Approve enrollment BEFORE sending email
       enrollment.status = "APPROVED";
       enrollment.reviewedBy = req.auth!.userId as never;
       enrollment.reviewedAt = new Date();
@@ -134,6 +129,32 @@ export const approveEnrollmentRequest = asyncHandler(
 
       await enrollment.save();
 
+      // 6. Prepare password setup link
+      const resetUrl =
+        `${env.clientUrl}/reset-password/${rawToken}`;
+
+      // 7. Send response without waiting for SMTP
+      setImmediate(() => {
+        sendEnrollmentApprovalEmail(
+          enrollment.email,
+          enrollment.fullName,
+          course.title,
+          student.studentId,
+          resetUrl
+        )
+          .then(() => {
+            console.log(
+              `[ENROLLMENT EMAIL] Sent successfully to ${enrollment.email}`
+            );
+          })
+          .catch((emailError) => {
+            console.error(
+              `[ENROLLMENT EMAIL] Failed for ${enrollment.email}:`,
+              emailError
+            );
+          });
+      });
+
       return success(
         res,
         {
@@ -142,10 +163,13 @@ export const approveEnrollmentRequest = asyncHandler(
           email: user.email,
           course: course.title,
           status: enrollment.status,
+          emailStatus: "QUEUED",
         },
-        "Enrollment approved. Student account created and activation email sent."
+        "Enrollment approved. Student account created. Activation email is being processed."
       );
+
     } catch (error) {
+      // Roll back database changes only when approval itself fails
       if (courseCountUpdated) {
         await Course.updateOne(
           { _id: course._id },
