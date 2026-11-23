@@ -57,7 +57,11 @@ export default function AdminEnrollments() {
 
       const records = Array.isArray(data)
         ? data
-        : data?.requests ?? data?.enrollments ?? data?.data ?? [];
+        : data?.requests
+        ?? data?.data?.requests
+        ?? data?.data?.enrollments
+        ?? data?.enrollments
+        ?? [];
 
       setItems(Array.isArray(records) ? records : []);
     } catch (err) {
